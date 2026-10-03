@@ -237,6 +237,8 @@ import Metadata from "@/components/Metadata.vue";
 
 let $ = JQuery;
 
+const CLICK_THROUGH_TOOLS = ["Rotated BBox", "SAM"];
+
 export default {
   name: "Annotation",
   emits: ["click", "deleted", "keypoint-click", "keypoints-complete"],
@@ -429,6 +431,10 @@ export default {
       this.setColor();
 
       this.compoundPath.onClick = () => {
+        // Tools that place points on the image must not have their clicks
+        // turned into "select this annotation" (it would cancel the shape
+        // being drawn). Pick another annotation from the sidebar instead.
+        if (CLICK_THROUGH_TOOLS.includes(this.activeTool)) return;
         this.$emit("click", this.index);
       };
     },

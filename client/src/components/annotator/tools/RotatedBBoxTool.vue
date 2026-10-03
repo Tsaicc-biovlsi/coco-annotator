@@ -5,11 +5,17 @@ import tool from "@/mixins/toolBar/tool";
 /**
  * Rotated (oriented) bounding box tool.
  *
- *  - drag on empty canvas      draw a new box (at the last used angle if
- *                              "Keep last angle" is on, otherwise upright)
- *  - drag the round handle     rotate (hold Shift to snap)
- *  - drag a corner handle      resize, the opposite corner stays put
- *  - drag inside the box       move
+ * Drawing a new box takes three clicks:
+ *   1. click the first corner
+ *   2. click the second corner: these two points are one edge of the box
+ *      (its direction and length; dragging from 1 to 2 works too)
+ *   3. move the mouse to set the width and click again to finish
+ *   Esc cancels. Hold Shift while placing point 2 to snap the angle.
+ *
+ * Editing the selected box:
+ *   - drag the round handle     rotate (hold Shift to snap)
+ *   - drag a corner handle      resize, the opposite corner stays put
+ *   - drag inside the box       move
  *
  * Boxes are stored as a 4-corner polygon in corner order, plus
  * annotation.isrbbox; the server derives rbbox = [cx, cy, w, h, angle].
@@ -20,6 +26,10 @@ const MIN_SIZE = 2; // screen pixels
 
 function toRad(deg) {
   return (deg * Math.PI) / 180;
+}
+
+function toDeg(rad) {
+  return (rad * 180) / Math.PI;
 }
 
 function normaliseAngle(angle) {
@@ -43,11 +53,10 @@ export default {
       cursor: "crosshair",
       box: null, // { cx, cy, w, h, angle } in paper coordinates, angle in degrees
       overlay: null,
-      drag: null,
+      drag: null, // editing an existing box
+      drawing: null, // { points: [p1, p2?], cursor } while placing a new box
       busy: false,
-      lastAngle: 0,
       settings: {
-        keepAngle: true,
         snap: 15,
         strokeColor: "#00e5ff"
       }
@@ -67,18 +76,26 @@ export default {
         h: this.box.h.toFixed(1),
         angle: this.box.angle.toFixed(1)
       };
+    },
+    hint() {
+      if (this.drawing) {
+        if (this.drawing.points.length === 1) return "2/3 · Click the second corner";
+        return "3/3 · Set the width, click · Esc cancels";
+      }
+      if (this.boxInfo) {
+        return `${this.boxInfo.w} × ${this.boxInfo.h} px, ${this.boxInfo.angle}°`;
+      }
+      return "1/3 · Click the first corner";
     }
   },
   methods: {
     export() {
       return {
-        keepAngle: this.settings.keepAngle,
         snap: this.settings.snap,
         strokeColor: this.settings.strokeColor
       };
     },
     setPreferences(pref) {
-      if (pref.keepAngle != null) this.settings.keepAngle = pref.keepAngle;
       if (pref.snap != null) this.settings.snap = pref.snap;
       if (pref.strokeColor) this.settings.strokeColor = pref.strokeColor;
     },
@@ -113,7 +130,7 @@ export default {
         cy: center.y,
         w: edge.length,
         h: p2.subtract(p1).length,
-        angle: normaliseAngle((Math.atan2(edge.y, edge.x) * 180) / Math.PI)
+        angle: normaliseAngle(toDeg(Math.atan2(edge.y, edge.x)))
       };
     },
     /** Box spanned by two opposite corners in the frame rotated by angle */
@@ -128,6 +145,38 @@ export default {
         h: Math.abs(d.dot(v)),
         angle
       };
+    },
+    /**
+     * Box with one edge from p1 to p2, extended sideways to the cursor.
+     * The edge p1 -> p2 becomes the box's first edge (its heading).
+     */
+    boxFromEdge(p1, p2, cursor) {
+      let edge = p2.subtract(p1);
+      let angle = toDeg(Math.atan2(edge.y, edge.x));
+      let { v } = this.axes(angle);
+      let height = cursor.subtract(p1).dot(v); // signed distance from the edge
+      // keep p1 -> p2 on the side the box grows from
+      let center = p1.add(edge.divide(2)).add(v.multiply(height / 2));
+      if (height < 0) {
+        angle += 180;
+        height = -height;
+      }
+      return {
+        cx: center.x,
+        cy: center.y,
+        w: edge.length,
+        h: height,
+        angle: normaliseAngle(angle)
+      };
+    },
+    /** Second point, optionally snapped so the edge angle is a multiple of snap */
+    snapPoint(p1, point, shift) {
+      if (!shift || !(this.settings.snap > 0)) return point;
+      let d = point.subtract(p1);
+      let step = this.settings.snap;
+      let angle = Math.round(toDeg(Math.atan2(d.y, d.x)) / step) * step;
+      let { u } = this.axes(angle);
+      return p1.add(u.multiply(d.length));
     },
     toLocal(point, box) {
       let { u, v } = this.axes(box.angle);
@@ -145,7 +194,62 @@ export default {
       if (this.overlay) this.overlay.remove();
       this.overlay = null;
     },
+    marker(point) {
+      return new paper.Path.Circle({
+        center: point,
+        radius: 4 * this.scale,
+        fillColor: this.settings.strokeColor,
+        strokeColor: "black",
+        strokeWidth: 0.5 * this.scale
+      });
+    },
+    drawPreview() {
+      this.clearOverlay();
+      if (!this.drawing || !this.isActive) return;
+
+      let stroke = this.settings.strokeColor;
+      let [p1, p2] = this.drawing.points;
+      let cursor = this.drawing.cursor || p1;
+      let items = [this.marker(p1)];
+
+      if (!p2) {
+        // placing the second point: rubber-band edge
+        items.push(
+          new paper.Path.Line({
+            from: p1,
+            to: cursor,
+            strokeColor: stroke,
+            strokeWidth: 3 * this.scale
+          })
+        );
+      } else {
+        let box = this.boxFromEdge(p1, p2, cursor);
+        items.push(
+          new paper.Path({
+            segments: this.corners(box),
+            closed: true,
+            strokeColor: stroke,
+            strokeWidth: 1.5 * this.scale,
+            dashArray: [6 * this.scale, 4 * this.scale],
+            fillColor: new paper.Color(0, 0.9, 1, 0.12)
+          }),
+          new paper.Path.Line({
+            from: p1,
+            to: p2,
+            strokeColor: stroke,
+            strokeWidth: 3 * this.scale
+          }),
+          this.marker(p2)
+        );
+      }
+      this.overlay = new paper.Group(items);
+      this.overlay.locked = true;
+    },
     drawOverlay() {
+      if (this.drawing) {
+        this.drawPreview();
+        return;
+      }
       this.clearOverlay();
       if (!this.box || !this.isActive) return;
 
@@ -201,11 +305,10 @@ export default {
 
     /* ---------- annotation sync ---------- */
     syncFromAnnotation() {
-      if (this.drag) return;
+      if (this.drag || this.drawing) return;
       let annotation = this.annotationComponent;
       let corners = annotation ? annotation.getRotatedBoxCorners() : null;
       this.box = corners ? this.boxFromCorners(corners) : null;
-      if (this.box) this.lastAngle = this.box.angle;
       this.drawOverlay();
     },
     annotationHasShape(annotation) {
@@ -231,9 +334,13 @@ export default {
       if (!annotation) return;
 
       annotation.setRotatedBox(this.corners(box));
-      this.lastAngle = box.angle;
       this.box = box;
       this.drawOverlay();
+    },
+    cancelDrawing() {
+      if (!this.drawing) return;
+      this.drawing = null;
+      this.syncFromAnnotation();
     },
 
     /* ---------- mouse ---------- */
@@ -258,6 +365,9 @@ export default {
     },
     onMouseDown(event) {
       if (this.busy) return;
+      // points 2 and 3 of a new box are taken on mouse up
+      if (this.drawing) return;
+
       // the shape may have changed elsewhere (undo, other tools)
       this.syncFromAnnotation();
       let point = event.point;
@@ -274,19 +384,28 @@ export default {
         return;
       }
 
-      let angle = this.settings.keepAngle ? this.lastAngle : 0;
-      this.drag = { mode: "draw", start: point, angle };
+      // first point of a new box
       this.box = null;
-      this.drawOverlay();
+      this.drawing = { points: [point], cursor: point };
+      this.drawPreview();
+    },
+    onMouseMove(event) {
+      if (!this.drawing) return;
+      let [p1, p2] = this.drawing.points;
+      this.drawing.cursor = p2 ? event.point : this.snapPoint(p1, event.point, event.modifiers.shift);
+      this.drawPreview();
     },
     onMouseDrag(event) {
+      if (this.drawing) {
+        // dragging from the first point also defines the first edge
+        this.onMouseMove(event);
+        return;
+      }
       if (!this.drag) return;
       let d = this.drag;
       let point = event.point;
 
-      if (d.mode === "draw") {
-        this.box = this.boxFromDiagonal(d.start, point, d.angle);
-      } else if (d.mode === "move") {
+      if (d.mode === "move") {
         let delta = point.subtract(d.start);
         this.box = {
           ...d.startBox,
@@ -298,7 +417,7 @@ export default {
       } else if (d.mode === "rotate") {
         let c = new paper.Point(d.startBox.cx, d.startBox.cy);
         let dir = point.subtract(c);
-        let angle = (Math.atan2(dir.y, dir.x) * 180) / Math.PI + 90;
+        let angle = toDeg(Math.atan2(dir.y, dir.x)) + 90;
         if (event.modifiers.shift && this.settings.snap > 0) {
           angle = Math.round(angle / this.settings.snap) * this.settings.snap;
         }
@@ -306,18 +425,42 @@ export default {
       }
       this.drawOverlay();
     },
-    onMouseUp() {
-      if (!this.drag) return;
-      let d = this.drag;
-      this.drag = null;
-
+    onMouseUp(event) {
       let min = MIN_SIZE * this.scale;
+
+      if (this.drawing) {
+        let points = this.drawing.points;
+        let p1 = points[0];
+        if (points.length === 1) {
+          let p2 = this.snapPoint(p1, event.point, event.modifiers.shift);
+          // the mouse up of the first click: wait for the second click
+          if (p2.getDistance(p1) < min) return;
+          points.push(p2);
+          this.drawing.cursor = event.point;
+          this.drawPreview();
+          return;
+        }
+        let box = this.boxFromEdge(p1, points[1], event.point);
+        if (box.h < min) return; // need some width: keep waiting
+        this.drawing = null;
+        this.commit(box, true);
+        return;
+      }
+
+      if (!this.drag) return;
+      this.drag = null;
       if (!this.box || this.box.w < min || this.box.h < min) {
-        // a click, not a drag: keep whatever is selected
         this.syncFromAnnotation();
         return;
       }
-      this.commit(this.box, d.mode === "draw");
+      this.commit(this.box, false);
+    },
+    onKeyDown(e) {
+      if (!this.isActive || !this.drawing) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        this.cancelDrawing();
+      }
     },
 
     /* ---------- panel actions ---------- */
@@ -344,6 +487,7 @@ export default {
         this.syncFromAnnotation();
       } else {
         this.drag = null;
+        this.drawing = null;
         this.clearOverlay();
       }
     },
@@ -351,6 +495,7 @@ export default {
       if (this.isActive) this.syncFromAnnotation();
     },
     "$parent.current.annotation"() {
+      this.drawing = null;
       if (this.isActive) this.$nextTick(() => this.syncFromAnnotation());
     },
     scale() {
@@ -360,7 +505,11 @@ export default {
       this.drawOverlay();
     }
   },
+  mounted() {
+    window.addEventListener("keydown", this.onKeyDown);
+  },
   beforeUnmount() {
+    window.removeEventListener("keydown", this.onKeyDown);
     this.clearOverlay();
   }
 };

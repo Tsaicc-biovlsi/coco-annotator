@@ -24,16 +24,21 @@ box tool.
 
 ### Rotated bounding boxes (`O`)
 
-Select an annotation, pick the **Rotated BBox** tool (↻ icon or `O`), then:
+Select an annotation, pick the **Rotated BBox** tool (↻ icon or `O`), then
+draw a box with three clicks:
 
-* drag on the image to draw a box (it reuses the last angle when
-  *Keep Last Angle* is on — handy for aerial images),
-* drag the round handle to rotate (hold **Shift** to snap, 15° by default),
-* drag a corner to resize (the opposite corner stays fixed),
-* drag inside the box to move it.
+1. click the first corner,
+2. click the second corner — these two points are one edge of the box (its
+   direction and length; you can also drag from the first point to the
+   second; hold **Shift** to snap the angle, 15° by default),
+3. move the mouse to set the width and click to finish (**Esc** cancels).
 
+Edit the selected box by dragging the round handle (rotate, **Shift** snaps),
+a corner (resize, the opposite corner stays fixed) or the inside (move).
 The thicker edge shows the box's *heading* (first edge); *Swap Heading*
-rotates the corner order by 90° without moving the box.
+rotates the corner order by 90° without moving the box. While this tool or
+SAM is active, clicking an existing shape does not select it (so you can
+draw over other objects); pick annotations from the sidebar or with `S`.
 
 Stored and exported per annotation:
 
