@@ -1,3 +1,13 @@
+import os
+import sys
+
+# `celery -A workers` only puts the working directory on sys.path while it
+# loads the app, so later task-module imports of sibling packages (geometry,
+# database, ...) would fail. Make the backend folder importable for good.
+# (Appended unconditionally: celery removes its own temporary entry later.)
+_BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(_BACKEND_DIR)
+
 from celery import Celery
 from config import Config
 from database import connect_mongo

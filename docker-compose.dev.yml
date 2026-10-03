@@ -3,6 +3,7 @@
 #   http://localhost:5000  Flask API (auto-reloads on code changes)
 
 x-backend-env: &backend-env
+  PYTHONPATH: /workspace/backend
   SECRET_KEY: dev-secret
   MONGODB_HOST: mongodb://database/flask
   CELERY_BROKER_URL: amqp://user:password@messageq:5672//

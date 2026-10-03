@@ -19,7 +19,7 @@ RUN npm run build
 ############################ python base ###########################
 FROM python:3.12-slim AS python-base
 ARG SAM=none
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PYTHONPATH=/workspace
 WORKDIR /workspace
 
 RUN apt-get update \
