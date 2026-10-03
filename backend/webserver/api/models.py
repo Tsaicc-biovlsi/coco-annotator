@@ -1,81 +1,83 @@
-from flask_restplus import Namespace, Resource, reqparse
-from werkzeug.datastructures import FileStorage
-from imantics import Mask
+from flask_restx import Namespace, Resource, reqparse
 from flask_login import login_required
-from config import Config
-from PIL import Image
-from database import ImageModel
 
-import os
+from database import ImageModel
+from ..util.sam import sam
+
 import logging
 
 logger = logging.getLogger('gunicorn.error')
 
-
-MASKRCNN_LOADED = os.path.isfile(Config.MASK_RCNN_FILE)
-if MASKRCNN_LOADED:
-    from ..util.mask_rcnn import model as maskrcnn
-else:
-    logger.warning("MaskRCNN model is disabled.")
-
-DEXTR_LOADED = os.path.isfile(Config.DEXTR_FILE)
-if DEXTR_LOADED:
-    from ..util.dextr import model as dextr
-else:
-    logger.warning("DEXTR model is disabled.")
-
-api = Namespace('model', description='Model related operations')
+api = Namespace('model', description='AI-assisted annotation (Segment Anything)')
 
 
-image_upload = reqparse.RequestParser()
-image_upload.add_argument('image', location='files', type=FileStorage, required=True, help='Image')
+sam_args = reqparse.RequestParser()
+sam_args.add_argument('points', location='json', type=list, default=[],
+                      help='[[x, y], ...] prompt points in image pixels')
+sam_args.add_argument('labels', location='json', type=list, default=[],
+                      help='1 = foreground, 0 = background, one per point')
+sam_args.add_argument('box', location='json', type=list, default=None,
+                      help='[x1, y1, x2, y2] prompt box in image pixels')
 
-dextr_args = reqparse.RequestParser()
-dextr_args.add_argument('points', location='json', type=list, required=True)
-dextr_args.add_argument('padding', location='json', type=int, default=50)
-dextr_args.add_argument('threshold', location='json', type=int, default=80)
 
-
-@api.route('/dextr/<int:image_id>')
-class MaskRCNN(Resource):
+@api.route('/')
+class ModelStatus(Resource):
 
     @login_required
-    @api.expect(dextr_args)
+    def get(self):
+        """ Which AI-assist models are available """
+        return {"sam": sam.status()}
+
+
+@api.route('/sam/<int:image_id>')
+class SegmentAnything(Resource):
+
+    @login_required
+    @api.expect(sam_args)
     def post(self, image_id):
-        """ COCO data test """
+        """ Segment an object from point and/or box prompts """
+        if not sam.available:
+            return {"disabled": True, "message": "SAM is not available on this server"}, 400
 
-        if not DEXTR_LOADED:
-            return {"disabled": True, "message": "DEXTR is disabled"}, 400
+        args = sam_args.parse_args()
+        points = args.get('points') or []
+        labels = args.get('labels') or []
+        box = args.get('box')
 
-        args = dextr_args.parse_args()
-        points = args.get('points')
-        # padding = args.get('padding')
-        # threshold = args.get('threshold')
+        if not points and not box:
+            return {"message": "Provide at least one point or a box"}, 400
+        if labels and len(labels) != len(points):
+            return {"message": "labels must match points"}, 400
+        if box is not None and len(box) != 4:
+            return {"message": "box must be [x1, y1, x2, y2]"}, 400
 
-        if len(points) != 4:
-            return {"message": "Invalid points entered"}, 400
-        
         image_model = ImageModel.objects(id=image_id).first()
         if not image_model:
             return {"message": "Invalid image ID"}, 400
-        
-        image = Image.open(image_model.path)
-        result = dextr.predict_mask(image, points)
 
-        return { "segmentaiton": Mask(result).polygons().segmentation }
+        try:
+            polygons, score, area = sam.predict(
+                image_id, image_model.path, points=points, labels=labels, box=box
+            )
+        except Exception as e:
+            logger.exception("SAM prediction failed")
+            return {"message": f"SAM prediction failed: {e}"}, 500
+
+        return {"segmentation": polygons, "score": score, "area": area}
 
 
-@api.route('/maskrcnn')
-class MaskRCNN(Resource):
+@api.route('/sam/<int:image_id>/prepare')
+class SegmentAnythingPrepare(Resource):
 
     @login_required
-    @api.expect(image_upload)
-    def post(self):
-        """ COCO data test """
-        if not MASKRCNN_LOADED:
-            return {"disabled": True, "coco": {}}
+    def post(self, image_id):
+        """ Start computing the SAM image embedding in the background """
+        if not sam.available:
+            return {"disabled": True, "message": "SAM is not available on this server"}, 400
 
-        args = image_upload.parse_args()
-        im = Image.open(args.get('image'))
-        coco = maskrcnn.detect(im)
-        return {"coco": coco}
+        image_model = ImageModel.objects(id=image_id).first()
+        if not image_model:
+            return {"message": "Invalid image ID"}, 400
+
+        sam.prepare_async(image_id, image_model.path)
+        return {"success": True}

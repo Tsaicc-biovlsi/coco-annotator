@@ -1,10 +1,11 @@
+import { describe, it, expect } from "vitest";
 import { shallowMount } from "@vue/test-utils";
-import Pagination from "@/components/Pagination";
+import Pagination from "@/components/Pagination.vue";
 
 describe("Pagination.vue", () => {
   let pages = 50;
   const wrapper = shallowMount(Pagination, {
-    propsData: { pages: pages }
+    props: { pages: pages }
   });
 
   it("first page", () => {

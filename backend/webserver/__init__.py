@@ -1,7 +1,3 @@
-import eventlet
-eventlet.monkey_patch(thread=False)
-
-import sys
 import workers
 
 from config import Config
@@ -13,10 +9,7 @@ from database import (
 
 from flask import Flask
 from flask_cors import CORS
-from flask_socketio import SocketIO
-from werkzeug.contrib.fixers import ProxyFix
-
-from celery import Celery
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .watcher import run_watcher
 from .api import blueprint as api
@@ -24,11 +17,8 @@ from .util import query_util, thumbnails
 from .authentication import login_manager
 from .sockets import socketio
 
-import threading
 import requests
 import logging
-import time
-import os
 
 
 connect_mongo('webserver')

@@ -22,11 +22,6 @@ export default {
       categories: categories
     });
   },
-  generate(id, body) {
-    return axios.post(`${baseURL}/${id}/generate`, {
-      ...body
-    });
-  },
   scan(id) {
     return axios.get(`${baseURL}/${id}/scan`);
   },

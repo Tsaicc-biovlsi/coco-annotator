@@ -9,12 +9,12 @@
         {{ keypointLabel }}
       </div>
     </div>
-    <PanelInputDropdown name="Visibility" v-model="visibility" :values="visibilityOptions" />
+    <PanelInputDropdown name="Visibility" v-model:value="visibility" :values="visibilityOptions" />
   </div>
 </template>
 <script>
-import PanelText from "@/components/PanelText";
-import PanelInputDropdown from "@/components/PanelInputDropdown";
+import PanelText from "@/components/PanelText.vue";
+import PanelInputDropdown from "@/components/PanelInputDropdown.vue";
 import { VisibilityOptions } from "@/libs/keypoints";
 export default {
   name: "KeypointPanel",

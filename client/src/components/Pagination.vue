@@ -32,6 +32,7 @@
 <script>
 export default {
   name: "Pagination",
+  emits: ["pagechange"],
   props: {
     pages: {
       type: Number,

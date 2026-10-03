@@ -89,7 +89,7 @@
               <div class="form-group">
                 <KeypointsDefinition
                   ref="keypoints"
-                  v-model="keypoint"
+                  v-model:value="keypoint"
                   element-id="keypoints"
                   placeholder="Add a keypoint"
                 ></KeypointsDefinition>
@@ -116,8 +116,8 @@
 <script>
 import axios from "axios";
 import toastrs from "@/mixins/toastrs";
-// import TagsInput from "@/components/TagsInput";
-import KeypointsDefinition from "@/components/KeypointsDefinition";
+// import TagsInput from "@/components/TagsInput.vue";
+import KeypointsDefinition from "@/components/KeypointsDefinition.vue";
 import JQuery from "jquery";
 
 let $ = JQuery;

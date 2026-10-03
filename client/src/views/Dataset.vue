@@ -65,12 +65,13 @@
           <div class="card my-3 p-3 shadow-sm mr-2">
             <h6 class="border-bottom border-gray pb-2"><b>Exports</b></h6>
             
-            <div class="media text-muted pt-3" v-for="exp in datasetExports">
+            <div class="media text-muted pt-3" v-for="exp in datasetExports" :key="exp.id">
               <div class="media-body lh-125 border-bottom border-gray">
                   {{exp.id}}. Exported {{ exp.ago.length > 0 ? exp.ago : 0 + " seconds" }} ago
                   <div style="display: inline">
                     <span
                       v-for="tag in exp.tags"
+                      :key="tag"
                       class="badge badge-secondary"
                       style="margin: 1px"
                     >
@@ -99,7 +100,7 @@
           <div class="card my-3 p-3 shadow-sm mr-2">
             <h6 class="border-bottom border-gray pb-2"><b>Existing Members</b></h6>
             
-            <div class="media text-muted pt-3" v-for="user in users">
+            <div class="media text-muted pt-3" v-for="user in users" :key="user.username">
               <img src="https://d1nhio0ox7pgb.cloudfront.net/_img/o_collection_png/green_dark_grey/256x256/plain/user.png" class="mr-2 rounded" style="width: 32px; height: 32px;">
               <div class="media-body pb-3 mb-0 small lh-125 border-bottom border-gray">
                 <div class="d-flex justify-content-between align-items-center w-100">
@@ -124,7 +125,7 @@
               
               <div v-if="stats.total" class="card my-3 p-3 shadow-sm col-3 mr-2">
                 <h6 class="border-bottom border-gray pb-2"><b>Total</b></h6>
-                <div class="row" v-for="stat in Object.keys(stats.total)">
+                <div class="row" v-for="stat in Object.keys(stats.total)" :key="stat">
                   <strong class="col-8">{{stat}}:</strong>
                   <span class="col-4">{{stats.total[stat].toFixed(0)}}</span>
                 </div>
@@ -132,7 +133,7 @@
 
               <div v-if="stats.average" class="card my-3 p-3 shadow-sm col-4 mr-2">
                 <h6 class="border-bottom border-gray pb-2"><b>Average</b></h6>
-                <div class="row" v-for="stat in Object.keys(stats.average)">
+                <div class="row" v-for="stat in Object.keys(stats.average)" :key="stat">
                   <strong class="col-8">{{stat}}:</strong>
                   <span class="col-4">{{stats.average[stat].toFixed(0)}}</span>
                 </div>
@@ -140,7 +141,7 @@
 
               <div v-if="stats.categories" class="card my-3 p-3 shadow-sm col-4 mr-2">
                 <h6 class="border-bottom border-gray pb-2"><b>Annotations Per Category</b></h6>
-                <div class="row" v-for="stat in Object.keys(stats.categories)">
+                <div class="row" v-for="stat in Object.keys(stats.categories)" :key="stat">
                   <strong class="col-8">{{stat}}:</strong>
                   <span class="col-4">{{stats.categories[stat].toFixed(0)}}</span>
                 </div>
@@ -148,7 +149,7 @@
 
               <div v-if="stats.images_per_category" class="card my-3 p-3 shadow-sm col-4 mr-2">
                 <h6 class="border-bottom border-gray pb-2"><b>Annotated Images Per Category</b></h6>
-                <div class="row" v-for="stat in Object.keys(stats.images_per_category)">
+                <div class="row" v-for="stat in Object.keys(stats.images_per_category)" :key="stat">
                   <strong class="col-8">{{stat}}:</strong>
                   <span class="col-4">{{stats.images_per_category[stat].toFixed(0)}}</span>
                 </div>
@@ -161,7 +162,7 @@
                     <span class="col-4">Annotations</span>
                     <span class="col-4">Images</span>
                 </h6>
-                <div class="row" v-for="stat in Object.keys(stats.users)">
+                <div class="row" v-for="stat in Object.keys(stats.users)" :key="stat">
                   <strong class="col-4">{{stat}}:</strong>
                   <span class="col-4">{{stats.users[stat]["annotations"].toFixed(0)}}</span>
                   <span class="col-4">{{stats.users[stat]["images"].toFixed(0)}}</span>
@@ -201,23 +202,6 @@
         displayed on <strong style="color: white">{{ pages }}</strong> pages.
       </p>
       <div class="row justify-content-md-center sidebar-section-buttons">
-        <button
-          type="button"
-          class="btn btn-success btn-block"
-          data-toggle="modal"
-          data-target="#generateDataset"
-        >
-          <div v-if="generate.id != null" class="progress">
-            <div
-              class="progress-bar bg-success"
-              :style="{ 'width': `${generate.progress}%` }"
-            >
-              Generating
-            </div>
-          </div>
-          <div v-else>Generate</div>
-        </button>
-
         <button
           type="button"
           class="btn btn-secondary btn-block"
@@ -290,10 +274,10 @@
         class="sidebar-section"
         style="max-height: 30%; color: lightgray"
       >
-        <PanelString name="Contains" v-model="query.file_name__icontains" @submit="updatePage" />
-        <PanelToggle name="Show Annotated" v-model="panel.showAnnotated" />
-        <PanelToggle name="Show Not Annotated" v-model="panel.showNotAnnotated" />
-        <PanelDropdown name="Order" v-model="order" :values="orderTypes" />
+        <PanelString name="Contains" v-model:value="query.file_name__icontains" @submit="updatePage" />
+        <PanelToggle name="Show Annotated" v-model:value="panel.showAnnotated" />
+        <PanelToggle name="Show Not Annotated" v-model:value="panel.showNotAnnotated" />
+        <PanelDropdown name="Order" v-model:value="order" :values="orderTypes" />
       </div>
         <div
           class="sidebar-section"
@@ -302,7 +286,7 @@
           <div class="form-group">
             <label>Show Annotated Categories </label>
             <TagsInput
-              v-model="selected.categories"
+              v-model:value="selected.categories"
               element-id="selectedCategories"
               title="Only shows images annotated with the selected categories for 'Show Annotated' button. Leave empty to show all annotated images."
               :existing-tags="categoryTags"
@@ -313,55 +297,6 @@
       </div>
     </div>
 
-    <div class="modal fade" tabindex="-1" role="dialog" id="generateDataset">
-      <div class="modal-dialog" role="document">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Generate a Dataset</h5>
-            <button
-              type="button"
-              class="close"
-              data-dismiss="modal"
-              aria-label="Close"
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
-          </div>
-          <div class="modal-body">
-            <form>
-              <div class="form-group">
-                <label>Keyword</label>
-                <input class="form-control" v-model="keyword" />
-              </div>
-              <div class="form-group">
-                <label>Limit</label>
-                <input
-                  class="form-control"
-                  type="number"
-                  v-model="generateLimit"
-                />
-              </div>
-            </form>
-          </div>
-          <div class="modal-footer">
-            <button
-              type="button"
-              class="btn btn-primary"
-              @click="generateDataset"
-            >
-              Generate
-            </button>
-            <button
-              type="button"
-              class="btn btn-secondary"
-              data-dismiss="modal"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <div class="modal fade" tabindex="-1" role="dialog" id="cocoUpload">
       <div class="modal-dialog" role="document">
@@ -425,7 +360,7 @@
               <div class="form-group">
                 <label>Categories (Empty export all)</label>
                 <TagsInput
-                  v-model="exporting.categories"
+                  v-model:value="exporting.categories"
                   element-id="exportCategories"
                   :existing-tags="categoryTags"
                   :typeahead="true"
@@ -465,13 +400,13 @@
 import toastrs from "@/mixins/toastrs";
 import Dataset from "@/models/datasets";
 import Export from "@/models/exports";
-import ImageCard from "@/components/cards/ImageCard";
-import Pagination from "@/components/Pagination";
-import PanelString from "@/components/PanelInputString";
-import PanelToggle from "@/components/PanelToggle";
-import PanelDropdown from "@/components/PanelInputDropdown"
+import ImageCard from "@/components/cards/ImageCard.vue";
+import Pagination from "@/components/Pagination.vue";
+import PanelString from "@/components/PanelInputString.vue";
+import PanelToggle from "@/components/PanelToggle.vue";
+import PanelDropdown from "@/components/PanelInputDropdown.vue"
 import JQuery from "jquery";
-import TagsInput from "@/components/TagsInput";
+import TagsInput from "@/components/TagsInput.vue";
 
 import { mapMutations } from "vuex";
 
@@ -497,7 +432,6 @@ export default {
   data() {
     return {
       pages: 1,
-      generateLimit: 100,
       limit: 52,
       imageCount: 0,
       categories: [],
@@ -511,7 +445,6 @@ export default {
       status: {
         data: { state: true, message: "Loading data" }
       },
-      keyword: "",
       mouseDown: false,
       sidebar: {
         drag: false,
@@ -519,10 +452,6 @@ export default {
         canResize: false
       },
       scan: {
-        progress: 0,
-        id: null
-      },
-      generate: {
         progress: 0,
         id: null
       },
@@ -560,14 +489,6 @@ export default {
   },
   methods: {
     ...mapMutations(["addProcess", "removeProcess"]),
-    generateDataset() {
-      if (this.keyword.length === 0) return;
-
-      Dataset.generate(this.dataset.id, {
-        keywords: [this.keyword],
-        limit: this.generateLimit
-      });
-    },
     updatePage(page) {
       let process = "Loading images from dataset";
       this.addProcess(process);
@@ -645,8 +566,7 @@ export default {
             "Scanning Dataset",
             error.response.data.message
           );
-        })
-        .finally(() => this.removeProcess(process));
+        });
     },
     exportModal() {
       if (this.exporting.id != null) {
@@ -664,8 +584,7 @@ export default {
         })
         .catch(error => {
           this.axiosReqestError("Exporting COCO", error.response.data.message);
-        })
-        .finally(() => this.removeProcess(process));
+        });
     },
     removeFolder(folder) {
       let index = this.folders.indexOf(folder);
@@ -688,8 +607,7 @@ export default {
         })
         .catch(error => {
           this.axiosReqestError("Importing COCO", error.response.data.message);
-        })
-        .finally(() => this.removeProcess(process));
+        });
     },
     mouseMove(event) {
       let element = this.$refs.sidebar;
@@ -738,10 +656,6 @@ export default {
         this.scan.progress = data.progress;
       }
 
-      if (data.id === this.generate.id) {
-        this.generate.progress = data.progress;
-      }
-
       if (data.id === this.importing.id) {
         this.importing.progress = data.progress;
       }
@@ -778,11 +692,17 @@ export default {
     queryAnnotated() {
       this.updatePage();
     },
-    "selected.categories"(val) {
-      this.updatePage();
+    "selected.categories": {
+      deep: true,
+      handler(val) {
+        this.updatePage();
+      }
     },
-    folders() {
-      this.updatePage();
+    folders: {
+      deep: true,
+      handler() {
+        this.updatePage();
+      }
     },
     "sidebar.drag"(canDrag) {
       let el = this.$refs.sidebar;
@@ -841,7 +761,7 @@ export default {
     window.addEventListener("mouseup", this.stopDrag);
     window.addEventListener("mousedown", this.startDrag);
   },
-  destroyed() {
+  unmounted() {
     window.removeEventListener("mouseup", this.stopDrag);
     window.removeEventListener("mousedown", this.startDrag);
   }

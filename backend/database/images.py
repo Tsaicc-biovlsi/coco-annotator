@@ -1,5 +1,7 @@
 import os
-import imantics as im
+
+import cv2
+import numpy as np
 
 
 from PIL import Image, ImageFile
@@ -8,6 +10,7 @@ from mongoengine import *
 from .events import Event, SessionEvent
 from .datasets import DatasetModel
 from .annotations import AnnotationModel
+from .categories import CategoryModel
 
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -139,8 +142,29 @@ class ImageModel(DynamicDocument):
         if os.path.isfile(path):
             os.remove(path)
 
-    def generate_thumbnail(self):
-        image = self().draw(color_by_category=True, bbox=False)
+    def generate_thumbnail(self, alpha=0.5):
+        """Image with its annotations drawn on top, coloured by category."""
+        image = np.array(Image.open(self.path).convert("RGB"))
+        overlay = image.copy()
+
+        annotations = AnnotationModel.objects(image_id=self.id, deleted=False)\
+            .only('category_id', 'segmentation', 'color')
+        colors = {c.id: c.color for c in CategoryModel.objects(
+            id__in=list({a.category_id for a in annotations})).only('color')}
+
+        for annotation in annotations:
+            if not annotation.segmentation:
+                continue
+            color = _hex_to_rgb(colors.get(annotation.category_id) or annotation.color)
+            polygons = [
+                np.array(poly).reshape(-1, 2).round().astype(np.int32)
+                for poly in annotation.segmentation if len(poly) >= 6
+            ]
+            if polygons:
+                cv2.fillPoly(overlay, polygons, color)
+                cv2.polylines(image, polygons, True, color, 2)
+
+        image = cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0)
         return Image.fromarray(image)
 
     def flag_thumbnail(self, flag=True):
@@ -176,14 +200,6 @@ class ImageModel(DynamicDocument):
             self._dataset = DatasetModel.objects(id=self.dataset_id).first()
         return self._dataset
 
-    def __call__(self):
-
-        image = im.Image.from_path(self.path)
-        for annotation in AnnotationModel.objects(image_id=self.id, deleted=False).all():
-            if not annotation.is_empty():
-                image.add(annotation())
-
-        return image
     
     def can_delete(self, user):
         return user.can_delete(self.dataset)
@@ -206,6 +222,15 @@ class ImageModel(DynamicDocument):
             u['inc__milliseconds'] = e.milliseconds
 
         self.update(**u)
+
+
+
+def _hex_to_rgb(value, default=(46, 204, 113)):
+    try:
+        value = (value or "").lstrip("#")
+        return tuple(int(value[i:i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        return default
 
 
 __all__ = ["ImageModel"]

@@ -104,7 +104,7 @@
 
               <div class="form-group">
                 <KeypointsDefinition ref="keypoints"
-                  v-model="newCategoryKeypoint"
+                  v-model:value="newCategoryKeypoint"
                   element-id="keypoints"
                   placeholder="Add a keypoint"
                 ></KeypointsDefinition>
@@ -179,9 +179,9 @@
 import toastrs from "@/mixins/toastrs";
 
 import Category from "@/models/categories";
-import CategoryCard from "@/components/cards/CategoryCard";
-import Pagination from "@/components/Pagination";
-import KeypointsDefinition from "@/components/KeypointsDefinition";
+import CategoryCard from "@/components/cards/CategoryCard.vue";
+import Pagination from "@/components/Pagination.vue";
+import KeypointsDefinition from "@/components/KeypointsDefinition.vue";
 
 import { mapMutations } from "vuex";
 

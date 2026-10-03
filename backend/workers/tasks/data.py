@@ -16,6 +16,7 @@ import json
 import os
 
 from celery import shared_task
+from geometry import rbbox_to_polygon, rbbox_area
 from ..socket import create_socket
 from mongoengine import Q
 
@@ -102,6 +103,10 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False)
                     arr = np.array(annotation.get('keypoints', []))
                     arr = arr[2::3]
                     annotation['num_keypoints'] = len(arr[arr > 0])
+
+                if not annotation.get('isrbbox'):
+                    annotation.pop('isrbbox', None)
+                    annotation.pop('rbbox', None)
 
                 num_annotations += 1
                 coco.get('annotations').append(annotation)
@@ -237,6 +242,15 @@ def import_annotations(task_id, dataset_id, coco_json):
         area = annotation.get('area', 0)
         bbox = annotation.get('bbox', [0, 0, 0, 0])
         isbbox = annotation.get('isbbox', False)
+        rbbox = annotation.get('rbbox') or []
+        isrbbox = len(rbbox) == 5
+
+        # Rotated boxes may come without a polygon (e.g. converted from DOTA)
+        if isrbbox and not segmentation:
+            segmentation = [rbbox_to_polygon(rbbox)]
+            area = rbbox_area(rbbox)
+            xs, ys = segmentation[0][0::2], segmentation[0][1::2]
+            bbox = [min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys)]
 
         progress += 1
         task.set_progress((progress / total_items) * 100, socket=socket)
@@ -282,6 +296,9 @@ def import_annotations(task_id, dataset_id, coco_json):
                 annotation_model.keypoints = keypoints
 
             annotation_model.isbbox = isbbox
+            if isrbbox:
+                annotation_model.isrbbox = True
+                annotation_model.rbbox = rbbox
             annotation_model.save()
 
             image_categories.append(category_id)

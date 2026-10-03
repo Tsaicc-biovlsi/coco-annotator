@@ -5,18 +5,18 @@
       min="0"
       max="1000"
       step="5"
-      v-model="eraser.eraser.pathOptions.radius"
+      v-model:value="eraser.eraser.pathOptions.radius"
     />
     <PanelInputString
       name="Stroke Color"
-      v-model="eraser.eraser.pathOptions.strokeColor"
+      v-model:value="eraser.eraser.pathOptions.strokeColor"
     />
   </div>
 </template>
 
 <script>
-import PanelInputString from "@/components/PanelInputString";
-import PanelInputNumber from "@/components/PanelInputNumber";
+import PanelInputString from "@/components/PanelInputString.vue";
+import PanelInputNumber from "@/components/PanelInputNumber.vue";
 
 export default {
   name: "EraserPanel",

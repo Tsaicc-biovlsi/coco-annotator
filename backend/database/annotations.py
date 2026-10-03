@@ -1,11 +1,14 @@
-import imantics as im
 import json
+
+import cv2
+import numpy as np
 
 from mongoengine import *
 
 from .datasets import DatasetModel
 from .categories import CategoryModel
 from .events import Event
+from .colors import random_color
 from flask_login import current_user
 
 
@@ -13,7 +16,7 @@ class AnnotationModel(DynamicDocument):
 
     COCO_PROPERTIES = ["id", "image_id", "category_id", "segmentation",
                        "iscrowd", "color", "area", "bbox", "metadata",
-                       "keypoints", "isbbox"]
+                       "keypoints", "isbbox", "isrbbox", "rbbox"]
 
     id = SequenceField(primary_key=True)
     image_id = IntField(required=True)
@@ -25,6 +28,9 @@ class AnnotationModel(DynamicDocument):
     bbox = ListField(default=[0, 0, 0, 0])
     iscrowd = BooleanField(default=False)
     isbbox = BooleanField(default=False)
+    # Rotated bounding box: [cx, cy, w, h, angle_degrees] (see geometry/)
+    isrbbox = BooleanField(default=False)
+    rbbox = ListField(default=[])
 
     creator = StringField(required=True)
     width = IntField()
@@ -67,7 +73,7 @@ class AnnotationModel(DynamicDocument):
                 self.metadata = dataset.default_annotation_metadata.copy()
 
         if self.color is None:
-            self.color = im.Color.random().hex
+            self.color = random_color()
 
         if current_user:
             self.creator = current_user.username
@@ -95,24 +101,6 @@ class AnnotationModel(DynamicDocument):
         del create['_id']
 
         return AnnotationModel(**create)
-
-    def __call__(self):
-
-        category = CategoryModel.objects(id=self.category_id).first()
-        if category:
-            category = category()
-
-        data = {
-            'image': None,
-            'category': category,
-            'color': self.color,
-            'polygons': self.segmentation,
-            'width': self.width,
-            'height': self.height,
-            'metadata': self.metadata
-        }
-
-        return im.Annotation(**data)
 
     def add_event(self, e):
         self.update(push__events=e)

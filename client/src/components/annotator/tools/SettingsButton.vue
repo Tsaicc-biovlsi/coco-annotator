@@ -92,8 +92,8 @@
 </template>
 
 <script>
-import Metadata from "@/components/Metadata";
-import CustomShortcut from "@/components/annotator/CustomShortcut";
+import Metadata from "@/components/Metadata.vue";
+import CustomShortcut from "@/components/annotator/CustomShortcut.vue";
 
 export default {
   name: "SettingsButton",

@@ -125,7 +125,7 @@
 
               <div class="form-group">
                 <KeypointsDefinition ref="keypoints"
-                  v-model="keypoint"
+                  v-model:value="keypoint"
                   element-id="keypointLabels"
                 ></KeypointsDefinition>
               </div>
@@ -158,14 +158,15 @@
 import paper from "paper";
 
 import Annotations from "@/models/annotations";
-import Annotation from "@/components/annotator/Annotation";
-import KeypointsDefinition from "@/components/KeypointsDefinition";
+import Annotation from "@/components/annotator/Annotation.vue";
+import KeypointsDefinition from "@/components/KeypointsDefinition.vue";
 import JQuery from "jquery";
 
 let $ = JQuery;
 
 export default {
   name: "Category",
+  emits: ["click", "keypoints-complete"],
   components: { Annotation, KeypointsDefinition },
   props: {
     category: {
@@ -227,6 +228,10 @@ export default {
     };
   },
   methods: {
+    // Vue 3 does not keep v-for ref arrays in source order: sort by index
+    annotationRefs() {
+      return [...(this.$refs.annotation || [])].sort((a, b) => a.index - b.index);
+    },
     show(index) {
       if (this.search.length === 0) return true;
       return this.filterFound.indexOf(index) > -1;
@@ -246,7 +251,8 @@ export default {
     createAnnotation() {
       let parent = this.$parent;
       let annotationId = this.category.annotations.length;
-      Annotations.create({
+      // Resolves once the new annotation is mounted and selected
+      return Annotations.create({
         image_id: parent.image.id,
         category_id: this.category.id,
       }).then(response => {
@@ -271,7 +277,7 @@ export default {
         this.isVisible = true;
         this.showAnnotations = true;
 
-        let annotations = this.$refs.annotation;
+        let annotations = this.annotationRefs();
         if (annotations == null) return;
 
         let annotation = annotations[annotationId - 1];
@@ -280,6 +286,7 @@ export default {
         } else {
           this.$parent.scrollElement(annotation.$el);
         }
+        return this.$nextTick();
       });
     },
     onUpdateClick() {
@@ -334,7 +341,7 @@ export default {
       if (index !== -1) {
         let edge = this.keypoint.edges[index];
         this.keypoint.edges.splice(index, 1);
-        let annotations = this.$refs.annotation;
+        let annotations = this.annotationRefs();
         if (annotations) {
           annotations.forEach(a => a.keypoints.removeLine(edge));
         }
@@ -415,9 +422,9 @@ export default {
      * @returns {Annotation} returns annotation and provided index
      */
     getAnnotation(index) {
-      let ref = this.$refs.annotation;
+      let ref = this.annotationRefs();
       if (ref == null) return null;
-      return this.$refs.annotation[index];
+      return this.annotationRefs()[index];
     },
     /**
      * Sets color of current group depending on state.
@@ -425,7 +432,7 @@ export default {
      * Show as group color if showAnnotations is false
      */
     setColor() {
-      let annotations = this.$refs.annotation;
+      let annotations = this.annotationRefs();
       if (annotations == null) return;
       if (!this.isVisible) return;
 
@@ -503,13 +510,13 @@ export default {
       this.setColor();
     },
     opacity() {
-      let annotations = this.$refs.annotation;
+      let annotations = this.annotationRefs();
       if (annotations == null) return;
 
       annotations.forEach(a => (a.compoundPath.opacity = this.opacity));
     },
     isVisible(newVisible) {
-      let annotations = this.$refs.annotation;
+      let annotations = this.annotationRefs();
       if (annotations == null) return;
 
       annotations.forEach(a => {

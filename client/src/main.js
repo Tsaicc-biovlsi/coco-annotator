@@ -1,42 +1,41 @@
-import "intersection-observer";
-
-import Vue from "vue";
+import { createApp } from "vue";
 import App from "./App.vue";
 import router from "./router";
 import store from "./store";
-import VueToastr2 from "vue-toastr-2";
 import paper from "paper";
-import VTooltip from "v-tooltip";
-import Loading from "vue-loading-overlay";
-import VueTouch from 'vue-touch'
-import VueSocketIO from "vue-socket.io";
-import { VLazyImagePlugin } from "v-lazy-image";
+import toastr from "toastr";
+import FloatingVue from "floating-vue";
+import { LoadingPlugin } from "vue-loading-overlay";
+import VLazyImage from "v-lazy-image";
+import socket from "./plugins/socket";
 
+import $ from "jquery";
 import "bootstrap";
 import "bootstrap/dist/css/bootstrap.min.css";
-import "vue-toastr-2/dist/vue-toastr-2.min.css";
-import "vue-loading-overlay/dist/vue-loading.css";
+import "font-awesome/css/font-awesome.min.css";
+import "toastr/build/toastr.min.css";
+import "floating-vue/dist/style.css";
+import "vue-loading-overlay/dist/css/index.css";
 
-Vue.config.productionTip = false;
+// Bootstrap 4 plugins (modals, dropdowns, tabs) are driven through jQuery
+window.$ = window.jQuery = $;
 
-paper.install(window);
+// paper.js objects must never be wrapped in Vue reactive proxies: paper
+// compares items by identity internally and deep-observing them is slow.
+Object.defineProperty(paper.Base.prototype, "__v_skip", { value: true });
 
-window.toastr = require("toastr");
+window.toastr = toastr;
 
-Vue.use(VueToastr2);
-Vue.use(VTooltip);
-Vue.use(Loading);
-Vue.use(VLazyImagePlugin);
-Vue.use(
-  new VueSocketIO({
-    debug: true,
-    connection: window.location.origin
-  })
-);
-Vue.use(VueTouch,{name:'v-touch'});
+const app = createApp(App);
 
-new Vue({
-  router,
-  store,
-  render: h => h(App)
-}).$mount("#app");
+app.config.globalProperties.$toastr = toastr;
+
+app.use(router);
+app.use(store);
+app.use(FloatingVue, { themes: { tooltip: { delay: { show: 300, hide: 0 } } } });
+app.use(LoadingPlugin);
+app.use(socket, { connection: window.location.origin });
+app.component("v-lazy-image", VLazyImage);
+
+// vue-router 4 resolves the first route asynchronously
+router.isReady().then(() => app.mount("#app"));

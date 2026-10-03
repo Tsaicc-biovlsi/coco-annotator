@@ -12,10 +12,7 @@
 <script>
 export default {
   name: "PanelInputDropdown",
-  model: {
-    prop: "value",
-    event: "update"
-  },
+  emits: ["update:value"],
   props: {
     name: {
       type: String,
@@ -37,7 +34,7 @@ export default {
   },
   watch: {
     localValue() {
-      this.$emit("update", this.localValue);
+      this.$emit("update:value", this.localValue);
     },
     value(newValue) {
       this.localValue = newValue;

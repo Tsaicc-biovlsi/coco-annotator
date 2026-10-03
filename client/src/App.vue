@@ -6,7 +6,7 @@
 </template>
 
 <script>
-import NavBar from "@/components/NavBar";
+import NavBar from "@/components/NavBar.vue";
 import { mapMutations } from "vuex";
 
 export default {

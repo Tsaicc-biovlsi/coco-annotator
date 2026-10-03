@@ -6,7 +6,7 @@
         <hr />
 
         <SelectTool
-          v-model="activeTool"
+          v-model:selected="activeTool"
           :scale="image.scale"
           @setcursor="setCursor"
           ref="select"
@@ -14,21 +14,28 @@
         <hr />
 
         <BBoxTool
-          v-model="activeTool"
+          v-model:selected="activeTool"
           :scale="image.scale"
           @setcursor="setCursor"
           ref="bbox"
         />
 
+        <RotatedBBoxTool
+          v-model:selected="activeTool"
+          :scale="image.scale"
+          @setcursor="setCursor"
+          ref="rbbox"
+        />
+
         <PolygonTool
-          v-model="activeTool"
+          v-model:selected="activeTool"
           :scale="image.scale"
           @setcursor="setCursor"
           ref="polygon"
         />
 
         <MagicWandTool
-          v-model="activeTool"
+          v-model:selected="activeTool"
           :width="image.raster.width"
           :height="image.raster.height"
           :image-data="image.data"
@@ -37,28 +44,28 @@
         />
 
         <BrushTool
-          v-model="activeTool"
+          v-model:selected="activeTool"
           :scale="image.scale"
           @setcursor="setCursor"
           ref="brush"
         />
         <EraserTool
-          v-model="activeTool"
+          v-model:selected="activeTool"
           :scale="image.scale"
           @setcursor="setCursor"
           ref="eraser"
         />
 
         <KeypointTool
-          v-model="activeTool"
+          v-model:selected="activeTool"
           @setcursor="setCursor"
           ref="keypoint"
         />
-        <DEXTRTool
-          v-model="activeTool"
+        <SAMTool
+          v-model:selected="activeTool"
           :scale="image.scale"
           @setcursor="setCursor"
-          ref="dextr"
+          ref="sam"
         />
       </div>
       <hr />
@@ -83,7 +90,7 @@
 
       <DownloadButton :image="image" />
       <SaveButton />
-      <ModeButton v-model="mode" />
+      <ModeButton v-model:mode="mode" />
       <SettingsButton
         :metadata="image.metadata"
         :commands="commands"
@@ -150,7 +157,7 @@
         <div v-show="mode == 'label'" style="overflow: auto; max-height: 100%">
           <CLabel
             v-for="category in categories"
-            v-model="image.categoryIds"
+            v-model:categoryIds="image.categoryIds"
             :key="category.id + '-label'"
             :category="category"
             :search="search"
@@ -163,50 +170,49 @@
         <h6 class="sidebar-title text-center">{{ activeTool }}</h6>
 
         <div class="tool-section" style="max-height: 30%; color: lightgray">
-          <div v-if="$refs.bbox != null">
+          <div v-if="refsReady && $refs.bbox != null">
             <BBoxPanel :bbox="$refs.bbox" />
           </div>
-          <div v-if="$refs.polygon != null">
+          <div v-if="refsReady && $refs.polygon != null">
             <PolygonPanel :polygon="$refs.polygon" />
           </div>
 
-          <div v-if="$refs.select != null">
+          <div v-if="refsReady && $refs.select != null">
             <SelectPanel :select="$refs.select" />
           </div>
 
-          <div v-if="$refs.magicwand != null">
+          <div v-if="refsReady && $refs.magicwand != null">
             <MagicWandPanel :magicwand="$refs.magicwand" />
           </div>
 
-          <div v-if="$refs.brush != null">
+          <div v-if="refsReady && $refs.brush != null">
             <BrushPanel :brush="$refs.brush" />
           </div>
 
-          <div v-if="$refs.eraser != null">
+          <div v-if="refsReady && $refs.eraser != null">
             <EraserPanel :eraser="$refs.eraser" />
           </div>
 
-          <div v-if="$refs.keypoint != null">
+          <div v-if="refsReady && $refs.keypoint != null">
             <KeypointPanel
               :keypoint="$refs.keypoint"
               :current-annotation="currentAnnotation"
             />
           </div>
-          <div v-if="$refs.dextr != null">
-            <DEXTRPanel
-              :dextr="$refs.dextr"
-            />
+          <div v-if="refsReady && $refs.rbbox != null">
+            <RotatedBBoxPanel :rbbox="$refs.rbbox" />
+          </div>
+          <div v-if="refsReady && $refs.sam != null">
+            <SAMPanel :sam="$refs.sam" />
           </div>
         </div>
       </div>
     </aside>
 
     <div class="middle-panel" :style="{ cursor: cursor }">
-    <v-touch @pinch="onpinch" @pinchstart="onpinchstart">
-      <div id="frame" class="frame" @wheel="onwheel">
+      <div id="frame" ref="frame" class="frame" @wheel="onwheel">
         <canvas class="canvas" id="editor" ref="image" resize />
       </div>
-    </v-touch>   
     </div>
 
     <div v-show="annotating.length > 0" class="fixed-bottom alert alert-warning alert-dismissible fade show">
@@ -224,44 +230,47 @@
 <script>
 import paper from "paper";
 import axios from "axios";
+import Hammer from "hammerjs";
 
 import toastrs from "@/mixins/toastrs";
 import shortcuts from "@/mixins/shortcuts";
 
-import FileTitle from "@/components/annotator/FileTitle";
-import Category from "@/components/annotator/Category";
-import Label from "@/components/annotator/Label";
+import FileTitle from "@/components/annotator/FileTitle.vue";
+import Category from "@/components/annotator/Category.vue";
+import Label from "@/components/annotator/Label.vue";
 import Annotations from "@/models/annotations";
 
-import PolygonTool from "@/components/annotator/tools/PolygonTool";
-import BBoxTool from "@/components/annotator/tools/BBoxTool";
-import SelectTool from "@/components/annotator/tools/SelectTool";
-import MagicWandTool from "@/components/annotator/tools/MagicWandTool";
-import EraserTool from "@/components/annotator/tools/EraserTool";
-import BrushTool from "@/components/annotator/tools/BrushTool";
-import KeypointTool from "@/components/annotator/tools/KeypointTool";
-import DEXTRTool from "@/components/annotator/tools/DEXTRTool";
+import PolygonTool from "@/components/annotator/tools/PolygonTool.vue";
+import BBoxTool from "@/components/annotator/tools/BBoxTool.vue";
+import SelectTool from "@/components/annotator/tools/SelectTool.vue";
+import MagicWandTool from "@/components/annotator/tools/MagicWandTool.vue";
+import EraserTool from "@/components/annotator/tools/EraserTool.vue";
+import BrushTool from "@/components/annotator/tools/BrushTool.vue";
+import KeypointTool from "@/components/annotator/tools/KeypointTool.vue";
+import RotatedBBoxTool from "@/components/annotator/tools/RotatedBBoxTool.vue";
+import SAMTool from "@/components/annotator/tools/SAMTool.vue";
 
-import CopyAnnotationsButton from "@/components/annotator/tools/CopyAnnotationsButton";
-import CenterButton from "@/components/annotator/tools/CenterButton";
-import DownloadButton from "@/components/annotator/tools/DownloadButton";
-import SaveButton from "@/components/annotator/tools/SaveButton";
-import SettingsButton from "@/components/annotator/tools/SettingsButton";
-import ModeButton from "@/components/annotator/tools/ModeButton";
-import DeleteButton from "@/components/annotator/tools/DeleteButton";
-import UndoButton from "@/components/annotator/tools/UndoButton";
-import ShowAllButton from "@/components/annotator/tools/ShowAllButton";
-import HideAllButton from "@/components/annotator/tools/HideAllButton";
-import AnnotateButton from "@/components/annotator/tools/AnnotateButton";
+import CopyAnnotationsButton from "@/components/annotator/tools/CopyAnnotationsButton.vue";
+import CenterButton from "@/components/annotator/tools/CenterButton.vue";
+import DownloadButton from "@/components/annotator/tools/DownloadButton.vue";
+import SaveButton from "@/components/annotator/tools/SaveButton.vue";
+import SettingsButton from "@/components/annotator/tools/SettingsButton.vue";
+import ModeButton from "@/components/annotator/tools/ModeButton.vue";
+import DeleteButton from "@/components/annotator/tools/DeleteButton.vue";
+import UndoButton from "@/components/annotator/tools/UndoButton.vue";
+import ShowAllButton from "@/components/annotator/tools/ShowAllButton.vue";
+import HideAllButton from "@/components/annotator/tools/HideAllButton.vue";
+import AnnotateButton from "@/components/annotator/tools/AnnotateButton.vue";
 
-import PolygonPanel from "@/components/annotator/panels/PolygonPanel";
-import BBoxPanel from "@/components/annotator/panels/BBoxPanel";
-import SelectPanel from "@/components/annotator/panels/SelectPanel";
-import MagicWandPanel from "@/components/annotator/panels/MagicWandPanel";
-import BrushPanel from "@/components/annotator/panels/BrushPanel";
-import EraserPanel from "@/components/annotator/panels/EraserPanel";
-import KeypointPanel from "@/components/annotator/panels/KeypointPanel";
-import DEXTRPanel from "@/components/annotator/panels/DEXTRPanel";
+import PolygonPanel from "@/components/annotator/panels/PolygonPanel.vue";
+import BBoxPanel from "@/components/annotator/panels/BBoxPanel.vue";
+import SelectPanel from "@/components/annotator/panels/SelectPanel.vue";
+import MagicWandPanel from "@/components/annotator/panels/MagicWandPanel.vue";
+import BrushPanel from "@/components/annotator/panels/BrushPanel.vue";
+import EraserPanel from "@/components/annotator/panels/EraserPanel.vue";
+import KeypointPanel from "@/components/annotator/panels/KeypointPanel.vue";
+import RotatedBBoxPanel from "@/components/annotator/panels/RotatedBBoxPanel.vue";
+import SAMPanel from "@/components/annotator/panels/SAMPanel.vue";
 
 import { mapMutations } from "vuex";
 
@@ -296,8 +305,10 @@ export default {
     ShowAllButton,
     KeypointPanel,
     AnnotateButton,
-    DEXTRTool,
-    DEXTRPanel
+    RotatedBBoxTool,
+    RotatedBBoxPanel,
+    SAMTool,
+    SAMPanel
   },
   mixins: [toastrs, shortcuts],
   props: {
@@ -360,6 +371,8 @@ export default {
         loader: null
       },
       search: "",
+      refsReady: false,
+      hammer: null,
       annotating: [],
       pinching: {
         old_zoom: 1
@@ -368,6 +381,10 @@ export default {
   },
   methods: {
     ...mapMutations(["addProcess", "removeProcess", "resetUndo", "setDataset"]),
+    // Vue 3 does not keep v-for ref arrays in source order: sort by index
+    categoryRefs() {
+      return [...(this.$refs.category || [])].sort((a, b) => a.index - b.index);
+    },
     save(callback) {
       let process = "Saving";
       this.addProcess(process);
@@ -377,6 +394,8 @@ export default {
         mode: this.mode,
         user: {
           bbox: this.$refs.bbox.export(),
+          rbbox: this.$refs.rbbox.export(),
+          sam: this.$refs.sam.export(),
           polygon: this.$refs.polygon.export(),
           eraser: this.$refs.eraser.export(),
           brush: this.$refs.brush.export(),
@@ -402,6 +421,7 @@ export default {
       };
 
       if (refs.category != null && this.mode === "segment") {
+        refs = { category: this.categoryRefs() };
         this.image.categoryIds = [];
         refs.category.forEach(category => {
           let categoryData = category.export();
@@ -565,6 +585,8 @@ export default {
       let refs = this.$refs;
 
       refs.bbox.setPreferences(preferences.bbox || preferences.polygon || {});
+      refs.rbbox.setPreferences(preferences.rbbox || {});
+      refs.sam.setPreferences(preferences.sam || {});
       refs.polygon.setPreferences(preferences.polygon || {});
       refs.select.setPreferences(preferences.select || {});
       refs.magicwand.setPreferences(preferences.magicwand || {});
@@ -631,38 +653,35 @@ export default {
         let ann = this.currentCategory.category.annotations[this.current.annotation];
         let kpTool = this.$refs.keypoint;
         let selectTool = this.$refs.select;
-        let category = this.$refs.category[this.current.category];
-        let annotation = category.$refs.annotation[this.current.annotation];
+        let category = this.categoryRefs()[this.current.category];
+        let annotation = category.annotationRefs()[this.current.annotation];
         annotation.showKeypoints = true;
         let keypoints = annotation.keypoints;
         if (keypoints._labelled[indices.keypoint + 1]) {
           let indexLabel = String(this.current.keypoint + 1);
           let keypoint = keypoints._labelled[indexLabel];
           keypoint.selected = true;
-          this.activeTool = selectTool;
-          this.activeTool.click();
+          selectTool.click();
         } else {
           this.currentAnnotation.keypoint.next.label = String(indices.keypoint + 1);
-          this.activeTool = kpTool;
-          this.activeTool.click();
+          kpTool.click();
         }
       }
     },
     onKeypointsComplete() {
       this.currentAnnotation.keypoint.next.label = -1;
-      this.activeTool = this.$refs.select;
-      this.activeTool.click();
+      this.$refs.select.click();
     },
     getCategory(index) {
       if (index == null) return null;
       if (index < 0) return null;
 
-      let ref = this.$refs.category;
+      let ref = this.categoryRefs();
 
       if (ref == null) return null;
       if (ref.length < 1 || index >= ref.length) return null;
 
-      return this.$refs.category[index];
+      return this.categoryRefs()[index];
     },
     // Current Annotation Operations
     uniteCurrentAnnotation(compound, simplify = true, undoable = true, isBBox = false) {
@@ -842,22 +861,22 @@ export default {
       });
     },
     showAll() {
-      if (this.$refs.category == null) return;
+      if (this.categoryRefs() == null) return;
 
-      this.$refs.category.forEach(category => {
+      this.categoryRefs().forEach(category => {
         category.isVisible = category.category.annotations.length > 0;
       });
     },
     hideAll() {
-      if (this.$refs.category == null) return;
+      if (this.categoryRefs() == null) return;
 
-      this.$refs.category.forEach(category => {
+      this.categoryRefs().forEach(category => {
         category.isVisible = false;
         category.showAnnotations = false;
       });
     },
     findCategoryByName(categoryName) {
-      let categoryComponent = this.$refs.category.find(
+      let categoryComponent = this.categoryRefs().find(
         category =>
           category.category.name.toLowerCase() === categoryName.toLowerCase()
       );
@@ -978,8 +997,11 @@ export default {
         }
       }
     },
-    annotating() {
-      this.removeFromAnnotatingList();
+    annotating: {
+      deep: true,
+      handler() {
+        this.removeFromAnnotatingList();
+      }
     },
     user() {
       this.removeFromAnnotatingList();
@@ -1064,10 +1086,21 @@ export default {
     //   width: 150
     // });
 
+    this.refsReady = true;
+
+    // Pinch-to-zoom on touch devices
+    this.hammer = new Hammer.Manager(this.$refs.frame);
+    this.hammer.add(new Hammer.Pinch());
+    this.hammer.on("pinchstart", this.onpinchstart);
+    this.hammer.on("pinch", this.onpinch);
+
     this.initCanvas();
     this.getData();
 
     this.$socket.emit("annotating", { image_id: this.image.id, active: true });
+  },
+  beforeUnmount() {
+    if (this.hammer) this.hammer.destroy();
   },
   created() {
     this.paper = new paper.PaperScope();

@@ -69,7 +69,7 @@
               <div class="form-group">
                 <label>Copy Only Selected Categories</label>
                 <TagsInput
-                  v-model="selectedCategories"
+                  v-model:value="selectedCategories"
                   element-id="categoriesToCopy"
                   :existing-tags="categoryTags"
                   :typeahead="true"
@@ -103,7 +103,7 @@ import JQuery from "jquery";
 
 import { mapMutations } from "vuex";
 import toastrs from "@/mixins/toastrs";
-import TagsInput from "@/components/TagsInput";
+import TagsInput from "@/components/TagsInput.vue";
 
 let $ = JQuery;
 

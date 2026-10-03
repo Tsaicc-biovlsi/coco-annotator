@@ -3,8 +3,14 @@ import subprocess
 
 
 def get_tag():
-    result = subprocess.run(["git", "describe", "--abbrev=0", "--tags"], stdout=subprocess.PIPE)
-    return str(result.stdout.decode("utf-8")).strip()
+    if os.getenv("VERSION"):
+        return os.getenv("VERSION")
+    try:
+        result = subprocess.run(["git", "describe", "--abbrev=0", "--tags"],
+                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        return result.stdout.decode("utf-8").strip()
+    except OSError:
+        return ""
 
 def _get_bool(key, default_value):
     if key in os.environ:
@@ -20,7 +26,7 @@ class Config:
     VERSION = get_tag()
 
     ### File Watcher
-    FILE_WATCHER = os.getenv("FILE_WATCHER", False)
+    FILE_WATCHER = _get_bool("FILE_WATCHER", False)
     IGNORE_DIRECTORIES = ["_thumbnail", "_settings"]
 
     # Flask/Gunicorn
@@ -42,18 +48,19 @@ class Config:
     DEBUG = os.getenv("DEBUG", 'false').lower() == 'true'
     PRELOAD = False
 
-    MAX_CONTENT_LENGTH = os.getenv("MAX_CONTENT_LENGTH", 1 * 1024 * 1024 * 1024)  # 1GB
+    MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", 1 * 1024 * 1024 * 1024))  # 1GB
     MONGODB_HOST = os.getenv("MONGODB_HOST", "mongodb://database/flask")
     SECRET_KEY = os.getenv("SECRET_KEY", "<--- CHANGE THIS KEY --->")
 
     LOG_LEVEL = 'debug'
     WORKER_CONNECTIONS = 1000
 
-    TESTING = os.getenv("TESTING", False)
+    TESTING = _get_bool("TESTING", False)
 
     ### Workers
     CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "amqp://user:password@messageq:5672//")
     CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "mongodb://database/flask")
+    CELERY_TASK_ALWAYS_EAGER = _get_bool("CELERY_TASK_ALWAYS_EAGER", False)
 
     ### Dataset Options
     DATASET_DIRECTORY = os.getenv("DATASET_DIRECTORY", "/datasets/")
@@ -63,11 +70,12 @@ class Config:
     LOGIN_DISABLED = _get_bool("LOGIN_DISABLED", False)
     ALLOW_REGISTRATION = _get_bool('ALLOW_REGISTRATION', True)
 
-    ### Models
-    MASK_RCNN_FILE = os.getenv("MASK_RCNN_FILE", "")
-    MASK_RCNN_CLASSES = os.getenv("MASK_RCNN_CLASSES", "BG")
-
-    DEXTR_FILE = os.getenv("DEXTR_FILE", "/models/dextr_pascal-sbd.h5")
+    ### AI assist (Segment Anything)
+    #   SAM_MODEL_TYPE: vit_b (fast, ~375MB), vit_l, vit_h (best, ~2.5GB)
+    #   SAM_DEVICE: auto | cpu | cuda
+    SAM_MODEL_TYPE = os.getenv("SAM_MODEL_TYPE", "vit_b")
+    SAM_CHECKPOINT = os.getenv("SAM_CHECKPOINT", "/models/sam_vit_b_01ec64.pth")
+    SAM_DEVICE = os.getenv("SAM_DEVICE", "auto")
 
 
 __all__ = ["Config"]

@@ -1,23 +1,20 @@
-import Vue from "vue";
-import Router from "vue-router";
+import { createRouter, createWebHashHistory } from "vue-router";
 
-// import Home from "@/views/Home";
-import About from "@/views/About";
-import Annotator from "@/views/Annotator";
-import AdminPanel from "@/views/AdminPanel";
-import Datasets from "@/views/Datasets";
-import Categories from "@/views/Categories";
-import Undo from "@/views/Undo";
-import Dataset from "@/views/Dataset";
-import Auth from "@/views/Auth";
-import User from "@/views/User";
-import Tasks from "@/views/Tasks";
-import PageNotFound from "@/views/PageNotFound";
+// import Home from "@/views/Home.vue";
+import About from "@/views/About.vue";
+import Annotator from "@/views/Annotator.vue";
+import AdminPanel from "@/views/AdminPanel.vue";
+import Datasets from "@/views/Datasets.vue";
+import Categories from "@/views/Categories.vue";
+import Undo from "@/views/Undo.vue";
+import Dataset from "@/views/Dataset.vue";
+import Auth from "@/views/Auth.vue";
+import User from "@/views/User.vue";
+import Tasks from "@/views/Tasks.vue";
+import PageNotFound from "@/views/PageNotFound.vue";
 
-Vue.use(Router);
-
-export default new Router({
-  // mode: "history",
+export default createRouter({
+  history: createWebHashHistory(),
   routes: [
     {
       path: "/about",
@@ -73,6 +70,6 @@ export default new Router({
       name: "tasks",
       component: Tasks
     },
-    { path: "*", component: PageNotFound }
+    { path: "/:pathMatch(.*)*", component: PageNotFound }
   ]
 });

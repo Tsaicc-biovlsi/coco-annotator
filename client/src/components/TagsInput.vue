@@ -86,6 +86,7 @@
 
 <script>
 export default {
+  emits: ["initialized", "tag-added", "tag-removed", "tags-updated", "update:value"],
   props: {
     elementId: {
       type: String,
@@ -189,16 +190,22 @@ export default {
   },
 
   watch: {
-    tags() {
-      // Updating the hidden input
-      this.hiddenInput = this.tags.join(",");
+    tags: {
+      deep: true,
+      handler() {
+        // Updating the hidden input
+        this.hiddenInput = this.tags.join(",");
 
-      // Update the bound v-model value
-      this.$emit("input", this.tags);
+        // Update the bound v-model value
+        this.$emit("update:value", this.tags);
+      }
     },
 
-    value() {
-      this.tagsFromValue();
+    value: {
+      deep: true,
+      handler() {
+        this.tagsFromValue();
+      }
     }
   },
 

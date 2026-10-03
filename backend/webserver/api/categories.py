@@ -1,4 +1,4 @@
-from flask_restplus import Namespace, Resource, reqparse
+from flask_restx import Namespace, Resource, reqparse
 from flask_login import login_required, current_user
 from mongoengine.errors import NotUniqueError
 
@@ -156,7 +156,7 @@ class Category(Resource):
             )
         except NotUniqueError:
             # it is only triggered when the name already exists and the creator is the same
-            return {"message": "Category '" + name_to_update + "' already exits"}, 400
+            return {"message": f"Category '{name}' already exists"}, 400
 
         return {"success": True}
 

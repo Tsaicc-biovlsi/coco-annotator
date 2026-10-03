@@ -1,6 +1,6 @@
 from flask_login import login_user, login_required, logout_user, current_user
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask_restplus import Namespace, Resource, reqparse
+from ..util.passwords import hash_password, check_password, check_and_upgrade
+from flask_restx import Namespace, Resource, reqparse
 
 from database import UserModel
 from config import Config
@@ -49,8 +49,8 @@ class UserPassword(Resource):
         """ Set password of current user """
         args = set_password.parse_args()
 
-        if check_password_hash(current_user.password, args.get('password')):
-            current_user.update(password=generate_password_hash(args.get('new_password'), method='sha256'), new=False)
+        if check_password(current_user.password, args.get('password')):
+            current_user.update(password=hash_password(args.get('new_password')), new=False)
             return {'success': True}
 
         return {'success': False, 'message': 'Password does not match current passowrd'}, 400
@@ -75,7 +75,7 @@ class UserRegister(Resource):
 
         user = UserModel()
         user.username = args.get('username')
-        user.password = generate_password_hash(args.get('password'), method='sha256')
+        user.password = hash_password(args.get('password'))
         user.name = args.get('name')
         user.email = args.get('email')
         if users == 0:
@@ -102,7 +102,7 @@ class UserLogin(Resource):
         if user is None:
             return {'success': False, 'message': 'Could not authenticate user'}, 400
 
-        if check_password_hash(user.password, args.get('password')):
+        if check_and_upgrade(user, args.get('password')):
             login_user(user)
 
             user_json = fix_ids(current_user)

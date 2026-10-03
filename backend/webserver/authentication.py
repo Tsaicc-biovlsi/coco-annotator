@@ -1,5 +1,5 @@
 from flask_login import LoginManager, AnonymousUserMixin
-from werkzeug.security import check_password_hash
+from .util.passwords import hash_password, check_password, check_and_upgrade
 from database import (
     UserModel,
     DatasetModel,
@@ -84,7 +84,7 @@ def load_user_from_request(request):
     if not auth:
         return None
     user = UserModel.objects(username__iexact=auth.username).first()
-    if user and check_password_hash(user.password, auth.password):
+    if user and check_and_upgrade(user, auth.password):
         # login_user(user)
         return user
     return None

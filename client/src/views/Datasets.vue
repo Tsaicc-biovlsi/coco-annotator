@@ -99,7 +99,7 @@
               <div class="form-group">
                 <label>Default Categories</label>
                 <TagsInput
-                  v-model="create.categories"
+                  v-model:value="create.categories"
                   element-id="createCategory"
                   :existing-tags="categoryTags"
                   :typeahead="true"
@@ -185,9 +185,9 @@
 import toastrs from "@/mixins/toastrs";
 import Datasets from "@/models/datasets";
 import AdminPanel from "@/models/admin";
-import DatasetCard from "@/components/cards/DatasetCard";
-import Pagination from "@/components/Pagination";
-import TagsInput from "@/components/TagsInput";
+import DatasetCard from "@/components/cards/DatasetCard.vue";
+import Pagination from "@/components/Pagination.vue";
+import TagsInput from "@/components/TagsInput.vue";
 
 import { mapMutations } from "vuex";
 

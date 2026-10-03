@@ -71,8 +71,8 @@
 </template>
 
 <script>
-import User from "@/components/User";
-import Status from "@/components/Status";
+import User from "@/components/User.vue";
+import Status from "@/components/Status.vue";
 
 export default {
   name: "NavBar",

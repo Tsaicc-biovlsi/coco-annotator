@@ -33,9 +33,12 @@ export default {
     }
   },
   watch: {
-    undoList() {
-      this.disabled = this.undoList.length === 0;
-      this.iconColor = this.disabled ? this.color.disabled : this.color.enabled;
+    undoList: {
+      deep: true,
+      handler() {
+        this.disabled = this.undoList.length === 0;
+        this.iconColor = this.disabled ? this.color.disabled : this.color.enabled;
+      }
     }
   },
   created() {

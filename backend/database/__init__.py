@@ -17,6 +17,12 @@ import json
 def connect_mongo(name, host=None):
     if host is None:
         host = Config.MONGODB_HOST
+    if host.startswith("mongomock://"):
+        # In-memory database for tests / local development without MongoDB
+        import mongomock
+        connect(name, host="mongodb://" + host[len("mongomock://"):],
+                mongo_client_class=mongomock.MongoClient)
+        return
     connect(name, host=host)
 
 

@@ -1,12 +1,9 @@
 from flask import request
-from flask_restplus import Namespace, Resource, reqparse, inputs
+from flask_restx import Namespace, Resource, reqparse, inputs
 from flask_login import login_required, current_user
 from werkzeug.datastructures import FileStorage
 from mongoengine.errors import NotUniqueError
 from mongoengine.queryset.visitor import Q
-from threading import Thread
-
-from google_images_download import google_images_download as gid
 
 from ..util.pagination_util import Pagination
 from ..util import query_util, coco_util, profile
@@ -53,10 +50,6 @@ update_dataset.add_argument('categories', location='json', type=list, help="New 
 update_dataset.add_argument('default_annotation_metadata', location='json', type=dict,
                             help="Default annotation metadata")                            
 
-dataset_generate = reqparse.RequestParser()
-dataset_generate.add_argument('keywords', location='json', type=list, default=[],
-                              help="Keywords associated with images")
-dataset_generate.add_argument('limit', location='json', type=int, default=100, help="Number of images per keyword")
 
 share = reqparse.RequestParser()
 share.add_argument('users', location='json', type=list, default=[], help="List of users")
@@ -88,41 +81,6 @@ class Dataset(Resource):
         return query_util.fix_ids(dataset)
 
 
-def download_images(output_dir, args):
-    for keyword in args['keywords']:
-        response = gid.googleimagesdownload()
-        response.download({
-            "keywords": keyword,
-            "limit": args['limit'],
-            "output_directory": output_dir,
-            "no_numbering": True,
-            "format": "jpg",
-            "type": "photo",
-            "print_urls": False,
-            "print_paths": False,
-            "print_size": False
-        })
-
-
-@api.route('/<int:dataset_id>/generate')
-class DatasetGenerate(Resource):
-    @api.expect(dataset_generate)
-    @login_required
-    def post(self, dataset_id):
-        """ Adds images found on google to the dataset """
-        args = dataset_generate.parse_args()
-
-        dataset = current_user.datasets.filter(id=dataset_id, deleted=False).first()
-        if dataset is None:
-            return {"message": "Invalid dataset id"}, 400
-
-        if not dataset.is_owner(current_user):
-            return {"message": "You do not have permission to download the dataset's annotations"}, 403
-
-        thread = Thread(target=download_images, args=(dataset.directory, args))
-        thread.start()
-
-        return {"success": True}
 
 
 @api.route('/<int:dataset_id>/users')
@@ -131,7 +89,6 @@ class DatasetMembers(Resource):
     @login_required
     def get(self, dataset_id):
         """ All users in the dataset """
-        args = dataset_generate.parse_args()
 
         dataset = current_user.datasets.filter(id=dataset_id, deleted=False).first()
         if dataset is None:
@@ -147,7 +104,6 @@ class DatasetCleanMeta(Resource):
     @login_required
     def get(self, dataset_id):
         """ All users in the dataset """
-        args = dataset_generate.parse_args()
 
         dataset = current_user.datasets.filter(id=dataset_id, deleted=False).first()
         if dataset is None:
@@ -167,7 +123,6 @@ class DatasetStats(Resource):
     @login_required
     def get(self, dataset_id):
         """ All users in the dataset """
-        args = dataset_generate.parse_args()
 
         dataset = current_user.datasets.filter(id=dataset_id, deleted=False).first()
         if dataset is None:
@@ -574,23 +529,6 @@ class DatasetCoco(Resource):
 
         return dataset.import_coco(json.load(coco))
 
-
-@api.route('/coco/<int:import_id>')
-class DatasetCocoId(Resource):
-
-    @login_required
-    def get(self, import_id):
-        """ Returns current progress and errors of a coco import """
-        coco_import = CocoImportModel.objects(
-            id=import_id, creator=current_user.username).first()
-
-        if not coco_import:
-            return {'message': 'No such coco import'}, 400
-
-        return {
-            "progress": coco_import.progress,
-            "errors": coco_import.errors
-        }
 
 
 @api.route('/<int:dataset_id>/scan')

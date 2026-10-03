@@ -1,6 +1,6 @@
 from flask_login import login_required, current_user
-from flask_restplus import Namespace, Resource, reqparse
-from werkzeug.security import generate_password_hash
+from flask_restx import Namespace, Resource, reqparse
+from ..util.passwords import hash_password, check_password, check_and_upgrade
 
 from database import UserModel
 from ..util.query_util import fix_ids
@@ -72,7 +72,7 @@ class User(Resource):
 
         user = UserModel()
         user.username = args.get('username')
-        user.password = generate_password_hash(args.get('password'), method='sha256')
+        user.password = hash_password(args.get('password'))
         user.name = args.get('name', "")
         user.email = args.get('email', "")
         user.is_admin = args.get('isAdmin', False)
@@ -119,7 +119,7 @@ class Username(Resource):
 
         password = args.get('password')
         if len(password) > 0:
-            user.password = generate_password_hash(password, method='sha256')
+            user.password = hash_password(password)
 
         user.save()
 

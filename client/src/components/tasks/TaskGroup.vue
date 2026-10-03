@@ -18,7 +18,7 @@
 </template>
 
 <script>
-import Task from "@/components/tasks/Task";
+import Task from "@/components/tasks/Task.vue";
 
 export default {
   name: "TaskGroup",

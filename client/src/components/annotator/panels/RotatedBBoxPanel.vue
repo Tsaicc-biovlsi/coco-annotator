@@ -1,0 +1,40 @@
+<template>
+  <div v-show="rbbox.isActive">
+    <PanelText
+      v-if="rbbox.boxInfo"
+      :name="`${rbbox.boxInfo.w} × ${rbbox.boxInfo.h} px, ${rbbox.boxInfo.angle}°`"
+    />
+    <PanelText v-else name="Drag on the image to draw a box" />
+    <PanelButton name="Rotate −5°" @click="rbbox.rotateBy(-5)" />
+    <PanelButton name="Rotate +5°" @click="rbbox.rotateBy(5)" />
+    <PanelButton name="Swap Heading (90°)" @click="rbbox.swapHeading()" />
+    <PanelToggle name="Keep Last Angle" v-model:value="rbbox.settings.keepAngle" />
+    <PanelInputNumber
+      name="Shift Snap (°)"
+      min="0"
+      max="90"
+      step="5"
+      v-model:value="rbbox.settings.snap"
+    />
+    <PanelInputString name="Handle Color" v-model:value="rbbox.settings.strokeColor" />
+  </div>
+</template>
+
+<script>
+import PanelButton from "@/components/PanelButton.vue";
+import PanelText from "@/components/PanelText.vue";
+import PanelToggle from "@/components/PanelToggle.vue";
+import PanelInputNumber from "@/components/PanelInputNumber.vue";
+import PanelInputString from "@/components/PanelInputString.vue";
+
+export default {
+  name: "RotatedBBoxPanel",
+  components: { PanelButton, PanelText, PanelToggle, PanelInputNumber, PanelInputString },
+  props: {
+    rbbox: {
+      type: Object,
+      required: true
+    }
+  }
+};
+</script>

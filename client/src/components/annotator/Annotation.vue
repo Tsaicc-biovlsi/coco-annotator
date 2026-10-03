@@ -233,16 +233,15 @@ import { Keypoint, Keypoints, VisibilityOptions } from "@/libs/keypoints";
 import { mapMutations } from "vuex";
 import UndoAction from "@/undo";
 
-import TagsInput from "@/components/TagsInput";
-import Metadata from "@/components/Metadata";
+import Metadata from "@/components/Metadata.vue";
 
 let $ = JQuery;
 
 export default {
   name: "Annotation",
+  emits: ["click", "deleted", "keypoint-click", "keypoints-complete"],
   components: {
-    Metadata,
-    TagsInput
+    Metadata
   },
   props: {
     annotation: {
@@ -508,6 +507,7 @@ export default {
       let copy = this.compoundPath.clone();
       copy.fullySelected = false;
       copy.visible = false;
+      copy.data.isrbbox = !!this.annotation.isrbbox;
       this.pervious.push(copy);
 
       let action = new UndoAction({
@@ -540,7 +540,10 @@ export default {
         path.segments.forEach(seg => {
           points.push({ x: seg.point.x, y: seg.point.y });
         });
-        points = simplifyjs(points, simplify, true);
+        // rotated boxes keep their exact 4 corners
+        if (!this.annotation.isrbbox) {
+          points = simplifyjs(points, simplify, true);
+        }
 
         let newPath = new paper.Path(points);
         newPath.closePath();
@@ -559,6 +562,8 @@ export default {
       if (this.pervious.length == 0) return;
       this.compoundPath.remove();
       this.compoundPath = this.pervious.pop();
+      this.compoundPath.visible = this.isVisible;
+      this.annotation.isrbbox = !!this.compoundPath.data.isrbbox;
       this.compoundPath.fullySelected = this.isCurrent;
     },
     addKeypoint(point, visibility, label) {
@@ -644,6 +649,7 @@ export default {
     },
     deleteKeypoint(keypoint) {
       this.keypoints.deleteKeypoint(keypoint);
+      this.tagRecomputeCounter++;
     },
     /**
      * Unites current annotation path with anyother path.
@@ -661,6 +667,8 @@ export default {
       newCompound.onDoubleClick = this.compoundPath.onDoubleClick;
       newCompound.onClick = this.compoundPath.onClick;
       this.annotation.isbbox = isBBox;
+      // any free-form edit turns a rotated box back into a polygon
+      this.annotation.isrbbox = false;
       
       if (undoable) this.createUndoAction("Unite");
 
@@ -669,6 +677,46 @@ export default {
       this.keypoints.bringToFront();
 
       if (simplify) this.simplifyPath();
+    },
+    /**
+     * Replace the annotation shape with a rotated bounding box.
+     * @param {paper.Point[]} corners 4 corners, first edge defines the angle
+     */
+    setRotatedBox(corners, undoable = true) {
+      if (this.compoundPath == null) this.createCompoundPath();
+      if (undoable) this.createUndoAction("Rotated BBox");
+
+      let path = new paper.Path(corners);
+      path.closePath();
+
+      let newCompound = new paper.CompoundPath({ children: [path] });
+      newCompound.onDoubleClick = this.compoundPath.onDoubleClick;
+      newCompound.onClick = this.compoundPath.onClick;
+      newCompound.data.annotationId = this.index;
+      newCompound.data.categoryId = this.categoryIndex;
+
+      this.compoundPath.remove();
+      this.compoundPath = newCompound;
+      this.annotation.isbbox = false;
+      this.annotation.isrbbox = true;
+
+      this.setColor();
+      this.compoundPath.fullySelected = false;
+      this.isEmpty = this.compoundPath.isEmpty() && this.keypoints.isEmpty();
+      this.keypoints.bringToFront();
+      this.emitModify();
+    },
+    /**
+     * Corners of the rotated box, or null if this is not a rotated box.
+     * @returns {paper.Point[]|null}
+     */
+    getRotatedBoxCorners() {
+      if (!this.annotation.isrbbox || this.compoundPath == null) return null;
+      let children = this.compoundPath.children || [];
+      if (children.length !== 1) return null;
+      let segments = children[0].segments;
+      if (segments.length !== 4) return null;
+      return segments.map(seg => seg.point.clone());
     },
     /**
      * Subtract current annotation path with anyother path.
@@ -681,6 +729,8 @@ export default {
 
       let newCompound = this.compoundPath.subtract(compound);
       newCompound.onDoubleClick = this.compoundPath.onDoubleClick;
+      newCompound.onClick = this.compoundPath.onClick;
+      this.annotation.isrbbox = false;
       if (undoable) this.createUndoAction("Subtract");
 
       this.compoundPath.remove();
@@ -720,6 +770,7 @@ export default {
       let annotationData = {
         id: this.annotation.id,
         isbbox: this.annotation.isbbox,
+        isrbbox: !!this.annotation.isrbbox,
         color: this.color,
         metadata: metadata
       };
@@ -882,6 +933,7 @@ export default {
     "keypoint.visibility"(newVal) {
       if (!this.currentKeypoint) return;
       this.currentKeypoint.visibility = newVal;
+      this.tagRecomputeCounter++;
     },
     keypointEdges(newEdges) {
       this.keypoints.color = this.darkHSL;
@@ -910,6 +962,8 @@ export default {
       return false;
     },
     keypointListView() {
+      // paper.js objects are not reactive: depend on the manual counter
+      this.tagRecomputeCounter;
       let listView = [];
       for (let i=0; i < this.keypointLabels.length; ++i) {
         let visibility = this.getKeypointVisibility(i);

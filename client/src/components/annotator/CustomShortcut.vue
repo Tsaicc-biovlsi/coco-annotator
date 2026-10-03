@@ -11,7 +11,7 @@
 
       <div class="col-sm">
         <input
-          :id="_uid"
+          :id="uid"
           :value="keys.join('+').toUpperCase()"
           type="text"
           class="input"
@@ -65,7 +65,7 @@ export default {
         this.keysDown.push(key);
       }
 
-      if (parseInt(e.target.id) === this._uid) {
+      if (parseInt(e.target.id) === this.uid) {
         e.preventDefault();
         this.keys = this.keysDown;
       } else if (this.$route.name === "annotate") {
@@ -85,6 +85,10 @@ export default {
     }
   },
   computed: {
+    uid() {
+      // Vue 2's this._uid
+      return this.$.uid;
+    },
     toggleKey() {
       return this.keysDown.toString().replace(/,/g, "+");
     }
@@ -96,7 +100,7 @@ export default {
       (this.onKeydown = this.onkeydown.bind(this))
     );
   },
-  destroyed() {
+  unmounted() {
     window.removeEventListener("keydown", this.onKeydown);
     window.removeEventListener("keydup", this.onKeyup);
   }

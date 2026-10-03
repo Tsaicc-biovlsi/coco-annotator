@@ -58,9 +58,12 @@ export default {
     }
   },
   watch: {
-    process() {
-      if (this.process.length === 1) {
-        this.lastProcess = this.process[0];
+    process: {
+      deep: true,
+      handler() {
+        if (this.process.length === 1) {
+          this.lastProcess = this.process[0];
+        }
       }
     }
   }

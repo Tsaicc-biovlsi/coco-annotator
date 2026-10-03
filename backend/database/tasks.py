@@ -85,7 +85,7 @@ class TaskModel(DynamicDocument):
                     'progress': percent,
                     'errors': self.errors,
                     'warnings': self.warnings
-                }, broadcast=True)
+                })
             
             self._progress_update += self._update_every
     

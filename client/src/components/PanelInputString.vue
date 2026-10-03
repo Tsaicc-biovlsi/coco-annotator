@@ -14,10 +14,7 @@
 <script>
 export default {
   name: "PanelInputString",
-  model: {
-    prop: "value",
-    event: "update"
-  },
+  emits: ["submit", "update:value"],
   props: {
     name: {
       type: String,
@@ -35,7 +32,7 @@ export default {
   },
   watch: {
     localValue() {
-      this.$emit("update", this.localValue);
+      this.$emit("update:value", this.localValue);
     },
     value(newValue) {
       this.localValue = newValue;

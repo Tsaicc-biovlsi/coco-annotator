@@ -120,7 +120,7 @@
               <div class="form-group">
                 <label>Default Categories</label>
                 <TagsInput
-                  v-model="selectedCategories"
+                  v-model:value="selectedCategories"
                   element-id="changeDataset"
                   :existing-tags="categoryTags"
                   :typeahead="true"
@@ -178,7 +178,7 @@
               <div class="form-group">
                 <label>Users shared with</label>
                 <TagsInput
-                  v-model="sharedUsers"
+                  v-model:value="sharedUsers"
                   element-id="usersList"
                   :existing-tags="users"
                   :typeahead="true"
@@ -212,10 +212,12 @@
 </template>
 
 <script>
+import noImageImg from "@/assets/no-image.png";
+import notFoundImageImg from "@/assets/404-image.png";
 import axios from "axios";
-import Metadata from "@/components/Metadata";
+import Metadata from "@/components/Metadata.vue";
 
-import TagsInput from "@/components/TagsInput";
+import TagsInput from "@/components/TagsInput.vue";
 
 import { mapMutations } from "vuex";
 
@@ -237,8 +239,8 @@ export default {
       imageError: false,
       selectedCategories: [],
       defaultMetadata: this.dataset.default_annotation_metadata,
-      noImageUrl: require("@/assets/no-image.png"),
-      notFoundImageUrl: require("@/assets/404-image.png"),
+      noImageUrl: noImageImg,
+      notFoundImageUrl: notFoundImageImg,
       sharedUsers: []
     };
   },

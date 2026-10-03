@@ -1,10 +1,11 @@
 import datetime
 
-from flask_restplus import Namespace, Resource
+from flask_restx import Namespace, Resource
 from flask_login import login_required, current_user
 from flask import request
 
 from ..util import query_util, coco_util, profile, thumbnails
+from geometry import polygon_to_rbbox
 
 from config import Config
 from database import (
@@ -98,10 +99,13 @@ class AnnotatorData(Resource):
                 if keypoints:
                     counted = True
 
+                isrbbox = bool(annotation.get('isrbbox', False))
+
                 db_annotation.update(
                     add_to_set__events=sessions,
                     inc__milliseconds=total_time,
                     set__isbbox=annotation.get('isbbox', False),
+                    set__isrbbox=isrbbox,
                     set__keypoints=keypoints,
                     set__metadata=annotation.get('metadata'),
                     set__color=annotation.get('color')
@@ -119,10 +123,16 @@ class AnnotatorData(Resource):
                     segmentation, area, bbox = coco_util.\
                         paperjs_to_coco(width, height, paperjs_object)
 
+                    rbbox = []
+                    if isrbbox and len(segmentation) == 1:
+                        rbbox = polygon_to_rbbox(segmentation[0])
+
                     db_annotation.update(
                         set__segmentation=segmentation,
                         set__area=area,
                         set__isbbox=annotation.get('isbbox', False),
+                        set__isrbbox=isrbbox and bool(rbbox),
+                        set__rbbox=rbbox,
                         set__bbox=bbox,
                         set__paper_object=paperjs_object,
                     )

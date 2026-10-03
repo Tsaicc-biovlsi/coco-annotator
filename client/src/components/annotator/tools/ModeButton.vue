@@ -3,11 +3,8 @@ import button from "@/mixins/toolBar/button";
 
 export default {
   name: "ModeButton",
+  emits: ["update:mode"],
   mixins: [button],
-  model: {
-    prop: "mode",
-    event: "update"
-  },
   props: {
     mode: {
       type: String,
@@ -37,7 +34,7 @@ export default {
       return "segment";
     },
     execute() {
-      this.$emit("update", this.next());
+      this.$emit("update:mode", this.next());
     }
   }
 };

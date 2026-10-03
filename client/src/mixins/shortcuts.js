@@ -78,6 +78,20 @@ export default {
           }
         },
         {
+          default: ["o"],
+          name: "Rotated BBox Tool",
+          function: () => {
+            if (!this.$refs.rbbox.isDisabled) this.activeTool = "Rotated BBox";
+          }
+        },
+        {
+          default: ["a"],
+          name: "SAM Tool",
+          function: () => {
+            if (!this.$refs.sam.isDisabled) this.activeTool = "SAM";
+          }
+        },
+        {
           default: ["n"],
           name: "Next Image",
           function: this.nextImage
@@ -138,7 +152,7 @@ export default {
           title: "BBox Tool Shortcuts",
           default: ["escape"],
           name: "Remove Current BBox",
-          function: this.$refs.bbox.deletePolygon
+          function: this.$refs.bbox.deleteBbox
         },
         {
           title: "Polygon Tool Shortcuts",

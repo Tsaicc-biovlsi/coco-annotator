@@ -80,12 +80,23 @@ Several annotation tools are currently available, with most applications as a de
 - Annotate disconnect objects as a single instance
 - Labeling image segments with any number of labels simultaneously
 - Allow custom metadata for each instance or object
-- Advanced selection tools such as, [DEXTR](https://github.com/jsbroks/dextr-keras), [MaskRCNN](https://github.com/matterport/Mask_RCNN) and Magic Wand
+- **Rotated (oriented) bounding boxes** with rotate / resize / move handles, exported as `rbbox = [cx, cy, w, h, angle]` and convertible to DOTA / YOLO-OBB
+- AI-assisted segmentation with [Segment Anything](https://github.com/facebookresearch/segment-anything) (click / box prompts) and Magic Wand
 - Annotate images with semi-trained models
-- Generate datasets using google images
 - User authentication system
 
 For examples and more information check out the [wiki](https://github.com/jsbroks/coco-annotator/wiki).
+
+# Quick start
+
+```bash
+docker compose up -d --build        # http://localhost:5000
+```
+
+Put images in `./datasets/<dataset name>/`. For Segment Anything run
+`./models/download_sam.sh` and build with `SAM=cpu` (or use
+`docker-compose.gpu.yml`). Upgrading an existing installation? Read
+[UPGRADE.md](UPGRADE.md) first — the MongoDB data needs a one-time migration.
 
 # Demo
 
@@ -115,16 +126,17 @@ Thanks to all these wonderful libaries/frameworks:
 
 ### Backend
 
-- [Flask](http://flask.pocoo.org/) - Python web microframework
-- [MongoDB](https://www.mongodb.com/) - Cross-platform document-oriented database
-- [MongoEngine](http://mongoengine.org/) - Python object data mapper for MongoDB
+- [Flask](https://flask.palletsprojects.com/) 3 + [Flask-RESTX](https://github.com/python-restx/flask-restx) - Python web framework and REST API
+- [MongoDB](https://www.mongodb.com/) 7 + [MongoEngine](http://mongoengine.org/) - Document database and object mapper
+- [Celery](https://docs.celeryq.dev/) 5 + [RabbitMQ](https://www.rabbitmq.com/) - Background tasks
+- [Segment Anything](https://github.com/facebookresearch/segment-anything) + [PyTorch](https://pytorch.org/) - AI-assisted segmentation (optional)
 
 ### Frontend
 
-- [Vue](https://vuejs.org/) - JavaScript framework for building user interfaces
+- [Vue](https://vuejs.org/) 3 + [Vite](https://vite.dev/) - JavaScript framework and build tool
 - [Axios](https://github.com/axios/axios) - Promise based HTTP client
 - [PaperJS](http://paperjs.org/) - HTML canvas vector graphics library
-- [Bootstrap](https://getbootstrap.com/) - Frontend component library
+- [Bootstrap](https://getbootstrap.com/) 4 - Frontend component library
 
 # License
 

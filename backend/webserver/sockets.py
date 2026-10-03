@@ -18,7 +18,7 @@ import logging
 logger = logging.getLogger('gunicorn.error')
 
 
-socketio = SocketIO()
+socketio = SocketIO(async_mode='threading')
 
 
 def authenticated_only(f):

@@ -64,7 +64,7 @@
 </template>
 
 <script>
-import TagsInput from "@/components/TagsInput";
+import TagsInput from "@/components/TagsInput.vue";
 
 const DISTINCT_COLORS = [
   "#bf5c4d",
@@ -103,6 +103,7 @@ const DISTINCT_COLORS = [
 
 export default {
   name: "KeypointsDefinition",
+  emits: ["initialized", "update:value"],
   components: { TagsInput },
   props: {
     value: {
@@ -216,7 +217,7 @@ export default {
     colorUpdated(index, color) {
       this.keypoints[index].color = color;
       this.hiddenValue = this.propFomKeypoints();
-      this.$emit("input", this.hiddenValue);
+      this.$emit("update:value", this.hiddenValue);
     },
     keypointLabelUpdated(index, label) {
       let current_kp = this.keypoints[index];
@@ -255,7 +256,7 @@ export default {
           }
         }
         this.hiddenValue = this.propFomKeypoints();
-        this.$emit("input", this.hiddenValue);
+        this.$emit("update:value", this.hiddenValue);
       } else if (label !== "") {
         for (let i = 0; i < this.keypoints.length; ++i) {
           if (i !== index) {
@@ -293,7 +294,7 @@ export default {
 
       this.keypoints[index].edges = edges;
       this.hiddenValue = this.propFomKeypoints();
-      this.$emit("input", this.hiddenValue);
+      this.$emit("update:value", this.hiddenValue);
     },
     propFomKeypoints() {
       let edge_labels = {};

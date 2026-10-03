@@ -1,18 +1,17 @@
 import paper from "paper";
+import { renderToolIcon } from "./render";
 
 export default {
-  model: {
-    prop: "selected",
-    event: "update"
-  },
+  emits: ["setcursor", "update:selected"],
   props: {
     selected: {
       type: String,
       required: true
     }
   },
-  template:
-    "<div><i v-tooltip.right='tooltip' class='fa fa-x' :class='icon' :style='{ color: iconColor }' @click='click'></i><br></div>",
+  render() {
+    return renderToolIcon(this, this.tooltip);
+  },
   data() {
     return {
       tool: null,
@@ -37,7 +36,7 @@ export default {
     update() {
       if (this.isDisabled) return;
 
-      this.$emit("update", this.name);
+      this.$emit("update:selected", this.name);
     },
     setPreferences() {}
   },
@@ -75,7 +74,7 @@ export default {
     },
     isDisabled(disabled) {
       if (disabled && this.isActive) {
-        this.$emit("update", "Select");
+        this.$emit("update:selected", "Select");
       }
     }
   },

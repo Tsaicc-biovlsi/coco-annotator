@@ -2,7 +2,7 @@
 from flask_login import current_user
 from mongoengine import *
 
-import imantics as im
+from .colors import random_color
 
 
 class CategoryModel(DynamicDocument):
@@ -46,7 +46,7 @@ class CategoryModel(DynamicDocument):
     def save(self, *args, **kwargs):
 
         if not self.color:
-            self.color = im.Color.random().hex
+            self.color = random_color()
 
         if current_user:
             self.creator = current_user.username
@@ -55,16 +55,6 @@ class CategoryModel(DynamicDocument):
       
         return super(CategoryModel, self).save(*args, **kwargs)
 
-    def __call__(self):
-        """ Generates imantics category object """
-        data = {
-            'name': self.name,
-            'color': self.color,
-            'parent': self.supercategory,
-            'metadata': self.metadata,
-            'id': self.id
-        }
-        return im.Category(**data)
     
     def is_owner(self, user):
 

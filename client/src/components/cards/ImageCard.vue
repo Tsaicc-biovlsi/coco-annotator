@@ -89,6 +89,7 @@
 </template>
 
 <script>
+import loaderImg from "@/assets/loader.gif";
 import axios from "axios";
 
 export default {
@@ -103,7 +104,7 @@ export default {
     return {
       hover: false,
       showAnnotations: true,
-      loaderUrl: require("@/assets/loader.gif")
+      loaderUrl: loaderImg
     };
   },
   methods: {
