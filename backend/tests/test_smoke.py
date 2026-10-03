@@ -188,3 +188,8 @@ def test_missing_thumbnail_is_generated_on_request(world):
     assert r.status_code == 200, r.data[:200]
     assert r.mimetype == "image/jpeg"
     assert os.path.isfile(image.thumbnail_path())
+
+
+def test_thumbnail_task_ignores_missing_image(world):
+    from workers.tasks import thumbnail_generate_single_image
+    thumbnail_generate_single_image(999999)  # must not raise
