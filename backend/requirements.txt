@@ -22,7 +22,6 @@ scipy
 Pillow
 shapely==2.*
 pycocotools
-imantics==0.1.12
 
 # Testing
 pytest==8.*
