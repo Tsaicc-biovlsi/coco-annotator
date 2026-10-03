@@ -17,7 +17,7 @@
       </div>
 
       <b v-if="annotated" class="overlay-text text-center">
-        Being annotated by {{image.annotating.join(', ')}}
+        {{ $t('imageCard.beingAnnotated', { users: image.annotating.join(', ') }) }}
       </b>
 
       <div class="card-body" style="width: 100%" :style="{'opacity': annotated ? 0.3 : 1}">
@@ -48,29 +48,26 @@
               class="btn dropdown-item"
               @click="onDeleteClick"
             >
-              Delete
+              {{ $t('imageCard.delete') }}
             </button>
             <button class="btn dropdown-item" @click="openAnnotator">
-              Annotate
+              {{ $t('imageCard.annotate') }}
             </button>
             <button
               class="btn dropdown-item"
               @click="onDownloadClick"
             >
-              Download Image & COCO
+              {{ $t('imageCard.downloadImageCoco') }}
             </button>
           </div>
         </div>
 
         <div class="row">
           <p v-show="image.num_annotations > 0">
-            {{ image.num_annotations }} annotation<span
-              v-show="image.num_annotations > 1"
-              >s</span
-            >
+            {{ $t('imageCard.annotations', { n: image.num_annotations }, image.num_annotations) }}
           </p>
-          <p v-show="image.annotated == true && image.num_annotations < 0">Annotated</p>
-          <p v-show="image.annotated == false">No annotations</p>
+          <p v-show="image.annotated == true && image.num_annotations < 0">{{ $t('imageCard.annotated') }}</p>
+          <p v-show="image.annotated == false">{{ $t('imageCard.noAnnotations') }}</p>
         </div>
 
         <div class="row">

@@ -1,6 +1,6 @@
 <template>
   <div v-show="select.isActive">
-    <PanelToggle name="Show Hover Text" v-model:value="select.hover.showText" />
+    <PanelToggle :name="$t('selectPanel.showHoverText')" v-model:value="select.hover.showText" />
   </div>
 </template>
 

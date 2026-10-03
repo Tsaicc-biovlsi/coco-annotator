@@ -6,9 +6,9 @@
       style="overflow: auto; height: calc(100vh - 55px)"
     >
       <div class="container">
-        <h2 class="text-center">Users</h2>
+        <h2 class="text-center">{{ $t('adminPanel.users') }}</h2>
         <p class="text-center">
-          Total of <strong>{{ total }}</strong> user accounts.
+          <i18n-t keypath="admin.total" tag="span"><template #n><strong>{{ total }}</strong></template></i18n-t>
         </p>
 
         <div class="row justify-content-md-center">
@@ -23,17 +23,17 @@
               data-bs-toggle="modal"
               data-bs-target="#createUser"
             >
-              Create User
+              {{ $t('adminPanel.createUser') }}
             </button>
             <button type="button" class="btn btn-secondary" @click="updatePage">
-              Refresh
+              {{ $t('adminPanel.refresh') }}
             </button>
           </div>
         </div>
 
         <div class="row justify-content-md-center" style="padding-bottom: 10px">
           <div class="col-md-2 text-end">
-            <span>Limit</span>
+            <span>{{ $t('adminPanel.limit') }}</span>
           </div>
           <div class="col-md-2">
             <select
@@ -52,12 +52,12 @@
           <table class="table table-hover table-sm">
             <thead class="remove-top-border">
               <tr>
-                <th scope="col">Username</th>
-                <th scope="col">Name</th>
-                <th scope="col">Admin</th>
-                <!-- <th class="text-center" scope="col">Edit</th> -->
+                <th scope="col">{{ $t('adminPanel.username') }}</th>
+                <th scope="col">{{ $t('adminPanel.name') }}</th>
+                <th scope="col">{{ $t('adminPanel.admin') }}</th>
+                <!-- <th class="text-center" scope="col">{{ $t('adminPanel.edit') }}</th> -->
                 <th class="text-center" scope="col" @click="deleteUser(user)">
-                  Delete
+                  {{ $t('adminPanel.delete') }}
                 </th>
               </tr>
             </thead>
@@ -88,7 +88,7 @@
       <div class="modal-dialog" role="document">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">Create a User</h5>
+            <h5 class="modal-title">{{ $t('adminPanel.createAUser') }}</h5>
             <button
               type="button"
               class="btn-close"
@@ -102,11 +102,11 @@
                 class="mb-3"
                 :class="{ 'was-validated': create.username.length !== 0 }"
               >
-                <label>Username</label>
+                <label>{{ $t('adminPanel.username') }}</label>
                 <input
                   v-model="create.username"
                   class="form-control"
-                  placeholder="Username"
+                  :placeholder="$t('adminPanel.username')"
                   required
                 />
               </div>
@@ -114,11 +114,11 @@
                 class="mb-3"
                 :class="{ 'was-validated': create.password.length !== 0 }"
               >
-                <label>Password</label>
+                <label>{{ $t('adminPanel.password') }}</label>
                 <input
                   v-model="create.password"
                   class="form-control"
-                  placeholder="Password"
+                  :placeholder="$t('adminPanel.password')"
                   required
                 />
               </div>
@@ -126,11 +126,11 @@
                 class="mb-3"
                 :class="{ 'was-validated': create.name.length !== 0 }"
               >
-                <label>Name</label>
+                <label>{{ $t('adminPanel.name') }}</label>
                 <input
                   v-model="create.name"
                   class="form-control"
-                  placeholder="Name"
+                  :placeholder="$t('adminPanel.name')"
                   required
                 />
               </div>
@@ -141,20 +141,20 @@
                   class="form-check-input m-0"
                   id="createUserAdmin"
                 />
-                <label class="form-check-label mb-0" for="createUserAdmin">Admin</label>
+                <label class="form-check-label mb-0" for="createUserAdmin">{{ $t('adminPanel.admin') }}</label>
               </div>
             </form>
           </div>
           <div class="modal-footer">
             <button type="submit" class="btn btn-primary" @click="createUser">
-              Create User
+              {{ $t('adminPanel.createUser') }}
             </button>
             <button
               type="button"
               class="btn btn-secondary"
               data-bs-dismiss="modal"
             >
-              Close
+              {{ $t('adminPanel.close') }}
             </button>
           </div>
         </div>

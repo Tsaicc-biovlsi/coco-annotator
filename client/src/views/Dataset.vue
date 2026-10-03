@@ -8,19 +8,19 @@
     >
       <nav class="nav border-bottom shadow-sm" style="background-color: #4b5162">
         <a class="btn tab" @click="tab = 'images'" :style="{'color': tab == 'images' ? 'white' : 'darkgray'}">
-          <i class="fa fa-picture-o" aria-hidden="true"></i> Images
+          <i class="fa fa-picture-o" aria-hidden="true"></i> {{ $t('dataset.images') }}
         </a>
         <a class="btn tab" @click="tab = 'exports'" :style="{'color': tab == 'exports' ? 'white' : 'darkgray'}">
-          <i class="fa fa-share" aria-hidden="true"></i> Exports
+          <i class="fa fa-share" aria-hidden="true"></i> {{ $t('dataset.exports') }}
         </a>
         <a class="btn tab" @click="tab = 'members'" :style="{'color': tab == 'members' ? 'white' : 'darkgray'}">
-          <i class="fa fa-users" aria-hidden="true"></i> Members
+          <i class="fa fa-users" aria-hidden="true"></i> {{ $t('dataset.members') }}
         </a>
         <a class="btn tab" @click="tab = 'statistics'" :style="{'color': tab == 'statistics' ? 'white' : 'darkgray'}">
-          <i class="fa fa-bar-chart" aria-hidden="true"></i> Statistics
+          <i class="fa fa-bar-chart" aria-hidden="true"></i> {{ $t('dataset.statistics') }}
         </a>
         <a class="btn tab" @click="tab = 'settings'" :style="{'color': tab == 'settings' ? 'white' : 'darkgray'}">
-          <i class="fa fa-cog" aria-hidden="true"></i> Settings
+          <i class="fa fa-cog" aria-hidden="true"></i> {{ $t('dataset.settings') }}
         </a>
       </nav>
     
@@ -50,7 +50,7 @@
           </ol>
 
           <p class="text-center" v-if="images.length < 1">
-            No images found in directory.
+            {{ $t('dataset.noImagesFoundInDirectory') }}
           </p>
           <div v-else>
             <Pagination :pages="pages" @pagechange="updatePage" />
@@ -63,11 +63,11 @@
         </div>
         <div class="container" v-show="tab == 'exports'">
           <div class="card my-3 p-3 shadow-sm me-2">
-            <h6 class="border-bottom border-gray pb-2"><b>Exports</b></h6>
+            <h6 class="border-bottom border-gray pb-2"><b>{{ $t('dataset.exports') }}</b></h6>
             
             <div class="d-flex align-items-start text-muted pt-3" v-for="exp in datasetExports" :key="exp.id">
               <div class="flex-grow-1 lh-125 border-bottom border-gray">
-                  {{exp.id}}. Exported {{ exp.ago.length > 0 ? exp.ago : 0 + " seconds" }} ago
+                  {{ exp.id }}. {{ $t('dataset.exportedAgo', { time: $ago(exp.ago) }) }}
                   <div style="display: inline">
                     <span
                       v-for="tag in exp.tags"
@@ -83,7 +83,7 @@
                     style="float: right; margin: 2px; padding: 2px"
                     @click="downloadExport(exp.id)"
                   >
-                    Download
+                    {{ $t('dataset.download') }}
                   </button>
               </div>
             </div>
@@ -93,12 +93,12 @@
         <div class="container" v-show="tab == 'members'">
 
           <div class="card my-3 p-3 shadow-sm me-2">
-            <h6 class="border-bottom border-gray pb-2"><b>Invite Members</b></h6>
+            <h6 class="border-bottom border-gray pb-2"><b>{{ $t('dataset.inviteMembers') }}</b></h6>
             
           </div>
           
           <div class="card my-3 p-3 shadow-sm me-2">
-            <h6 class="border-bottom border-gray pb-2"><b>Existing Members</b></h6>
+            <h6 class="border-bottom border-gray pb-2"><b>{{ $t('dataset.existingMembers') }}</b></h6>
             
             <div class="d-flex align-items-start text-muted pt-3" v-for="user in users" :key="user.username">
               <img :src="userAvatar" class="me-2 rounded" style="width: 32px; height: 32px;">
@@ -109,7 +109,7 @@
                   </div>
                   <a href="#">{{ user.group }}</a>
                 </div>
-                <span class="d-block">Last seen: {{ new Date(user.last_seen['$date']).toISOString().slice(0, 19).replace('T', ' ') }} UTC</span>
+                <span class="d-block">{{ $t('dataset.lastSeen', { time: new Date(user.last_seen['$date']).toISOString().slice(0, 19).replace('T', ' ') }) }}</span>
               </div>
             </div>
           </div>
@@ -117,30 +117,30 @@
         </div>
         <div class="container" v-show="tab == 'statistics'">
           <div v-if="stats == null">
-            Crunching numbers...
+            {{ $t('dataset.crunchingNumbers') }}
           </div>
 
           <div v-else>
             <div class="row">
               
               <div v-if="stats.total" class="card my-3 p-3 shadow-sm col-3 me-2">
-                <h6 class="border-bottom border-gray pb-2"><b>Total</b></h6>
+                <h6 class="border-bottom border-gray pb-2"><b>{{ $t('dataset.total') }}</b></h6>
                 <div class="row" v-for="stat in Object.keys(stats.total)" :key="stat">
-                  <strong class="col-8">{{stat}}:</strong>
+                  <strong class="col-8">{{ $tr('stat', stat) }}:</strong>
                   <span class="col-4">{{stats.total[stat].toFixed(0)}}</span>
                 </div>
               </div>
 
               <div v-if="stats.average" class="card my-3 p-3 shadow-sm col-4 me-2">
-                <h6 class="border-bottom border-gray pb-2"><b>Average</b></h6>
+                <h6 class="border-bottom border-gray pb-2"><b>{{ $t('dataset.average') }}</b></h6>
                 <div class="row" v-for="stat in Object.keys(stats.average)" :key="stat">
-                  <strong class="col-8">{{stat}}:</strong>
+                  <strong class="col-8">{{ $tr('stat', stat) }}:</strong>
                   <span class="col-4">{{stats.average[stat].toFixed(0)}}</span>
                 </div>
               </div>
 
               <div v-if="stats.categories" class="card my-3 p-3 shadow-sm col-4 me-2">
-                <h6 class="border-bottom border-gray pb-2"><b>Annotations Per Category</b></h6>
+                <h6 class="border-bottom border-gray pb-2"><b>{{ $t('dataset.annotationsPerCategory') }}</b></h6>
                 <div class="row" v-for="stat in Object.keys(stats.categories)" :key="stat">
                   <strong class="col-8">{{stat}}:</strong>
                   <span class="col-4">{{stats.categories[stat].toFixed(0)}}</span>
@@ -148,7 +148,7 @@
               </div>
 
               <div v-if="stats.images_per_category" class="card my-3 p-3 shadow-sm col-4 me-2">
-                <h6 class="border-bottom border-gray pb-2"><b>Annotated Images Per Category</b></h6>
+                <h6 class="border-bottom border-gray pb-2"><b>{{ $t('dataset.annotatedImagesPerCategory') }}</b></h6>
                 <div class="row" v-for="stat in Object.keys(stats.images_per_category)" :key="stat">
                   <strong class="col-8">{{stat}}:</strong>
                   <span class="col-4">{{stats.images_per_category[stat].toFixed(0)}}</span>
@@ -156,11 +156,11 @@
               </div>
 
               <div v-if="stats.users" class="card my-3 p-3 shadow-sm col-6 me-2">
-                <h6 class="border-bottom border-gray pb-2"><b>Annotations per User</b></h6>
+                <h6 class="border-bottom border-gray pb-2"><b>{{ $t('dataset.annotationsPerUser') }}</b></h6>
                 <h6 class="row border-bottom border-gray pb-2">
-                    <span class="col-4">Username</span>
-                    <span class="col-4">Annotations</span>
-                    <span class="col-4">Images</span>
+                    <span class="col-4">{{ $t('dataset.username') }}</span>
+                    <span class="col-4">{{ $t('dataset.annotations') }}</span>
+                    <span class="col-4">{{ $t('dataset.images') }}</span>
                 </h6>
                 <div class="row" v-for="stat in Object.keys(stats.users)" :key="stat">
                   <strong class="col-4">{{stat}}:</strong>
@@ -175,13 +175,13 @@
         </div>
         <div class="container" v-show="tab == 'settings'">
           <div class="card my-3 p-3 shadow-sm me-2">
-            <h6 class="border-bottom border-gray pb-2"><b>Metadata</b></h6>
+            <h6 class="border-bottom border-gray pb-2"><b>{{ $t('dataset.metadata') }}</b></h6>
             
             <button 
               class="btn btn-sm w-100 btn-danger"
               @click="resetMetadata"
             >
-              Rest All Metadata
+              {{ $t('dataset.restAllMetadata') }}
             </button>
           </div>
         </div>
@@ -198,8 +198,10 @@
       <div style="padding-top: 10px" />
       <h3>{{ dataset.name }}</h3>
       <p class="text-center" style="color: lightgray">
-        Total of <strong style="color: white">{{ imageCount }}</strong> images
-        displayed on <strong style="color: white">{{ pages }}</strong> pages.
+        <i18n-t keypath="dataset.totalImages" tag="span">
+          <template #images><strong style="color: white">{{ imageCount }}</strong></template>
+          <template #pages><strong style="color: white">{{ pages }}</strong></template>
+        </i18n-t>
       </p>
       <div class="row justify-content-md-center sidebar-section-buttons">
         <button
@@ -212,10 +214,10 @@
               class="progress-bar bg-secondary"
               :style="{ 'width': `${scan.progress}%` }"
             >
-              Scanning
+              {{ $t('dataset.scanning') }}
             </div>
           </div>
-          <div v-else>Scan</div>
+          <div v-else>{{ $t('dataset.scan') }}</div>
         </button>
 
         <button
@@ -228,10 +230,10 @@
               class="progress-bar bg-primary"
               :style="{ 'width': `${importing.progress}%` }"
             >
-              Importing
+              {{ $t('dataset.importing') }}
             </div>
           </div>
-          <div v-else>Import COCO</div>
+          <div v-else>{{ $t('dataset.importCoco') }}</div>
         </button>
 
         <button
@@ -244,14 +246,14 @@
               class="progress-bar bg-dark"
               :style="{ 'width': `${exporting.progress}%` }"
             >
-              Exporting
+              {{ $t('dataset.exporting') }}
             </div>
           </div>
-          <div v-else>Export COCO</div>
+          <div v-else>{{ $t('dataset.exportCoco') }}</div>
         </button>
       </div>
       <hr>
-      <h6 class="sidebar-title text-center">Subdirectories</h6>
+      <h6 class="sidebar-title text-center">{{ $t('dataset.subdirectories') }}</h6>
       <div class="sidebar-section" style="max-height: 30%; color: lightgray">
         <div v-if="subdirectories.length > 0">
           <button
@@ -265,30 +267,30 @@
           </button>
         </div>
         <p v-else style="margin: 0; font-size: 13px; color: gray">
-          No subdirectory found.
+          {{ $t('dataset.noSubdirectoryFound') }}
         </p>
       </div>
       <hr>
-      <h6 class="sidebar-title text-center">Filtering Options</h6>
+      <h6 class="sidebar-title text-center">{{ $t('dataset.filteringOptions') }}</h6>
       <div
         class="sidebar-section"
         style="max-height: 30%; color: lightgray"
       >
-        <PanelString name="Contains" v-model:value="query.file_name__icontains" @submit="updatePage" />
-        <PanelToggle name="Show Annotated" v-model:value="panel.showAnnotated" />
-        <PanelToggle name="Show Not Annotated" v-model:value="panel.showNotAnnotated" />
-        <PanelDropdown name="Order" v-model:value="order" :values="orderTypes" />
+        <PanelString :name="$t('dataset.contains')" v-model:value="query.file_name__icontains" @submit="updatePage" />
+        <PanelToggle :name="$t('dataset.showAnnotated')" v-model:value="panel.showAnnotated" />
+        <PanelToggle :name="$t('dataset.showNotAnnotated')" v-model:value="panel.showNotAnnotated" />
+        <PanelDropdown :name="$t('dataset.order')" v-model:value="order" :values="orderTypes" />
       </div>
         <div
           class="sidebar-section"
           style="max-height: 30%; color: lightgray"
         >
           <div class="mb-3">
-            <label>Show Annotated Categories </label>
+            <label>{{ $t('dataset.showAnnotatedCategories') }} </label>
             <TagsInput
               v-model:value="selected.categories"
               element-id="selectedCategories"
-              title="Only shows images annotated with the selected categories for 'Show Annotated' button. Leave empty to show all annotated images."
+              :title="$t('dataset.onlyShowsImagesAnnotatedWith')"
               :existing-tags="categoryTags"
               :typeahead="true"
               :typeahead-activation-threshold="0"
@@ -302,7 +304,7 @@
       <div class="modal-dialog" role="document">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">Upload COCO Annotaitons</h5>
+            <h5 class="modal-title">{{ $t('dataset.uploadCocoAnnotaitons') }}</h5>
             <button
               type="button"
               class="btn-close"
@@ -313,7 +315,7 @@
           <div class="modal-body">
             <form>
               <div class="mb-3">
-                <label for="coco">COCO Annotation file (.json)</label>
+                <label for="coco">{{ $t('dataset.cocoAnnotationFileJson') }}</label>
                 <input type="file" class="form-control-file" id="coco" />
               </div>
             </form>
@@ -325,14 +327,14 @@
               @click="importCOCO"
               data-bs-dismiss="modal"
             >
-              Upload
+              {{ $t('dataset.upload') }}
             </button>
             <button
               type="button"
               class="btn btn-secondary"
               data-bs-dismiss="modal"
             >
-              Close
+              {{ $t('dataset.close') }}
             </button>
           </div>
         </div>
@@ -343,7 +345,7 @@
       <div class="modal-dialog" role="document">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">Export {{dataset.name}}</h5>
+            <h5 class="modal-title">{{ $t('dataset.exportTitle', { name: dataset.name }) }}</h5>
             <button
               type="button"
               class="btn-close"
@@ -354,7 +356,7 @@
           <div class="modal-body">
             <form>
               <div class="mb-3">
-                <label>Categories (Empty export all)</label>
+                <label>{{ $t('dataset.categoriesEmptyExportAll') }}</label>
                 <TagsInput
                   v-model:value="exporting.categories"
                   element-id="exportCategories"
@@ -366,7 +368,7 @@
               <div class="form-check d-inline-flex align-items-center gap-2 ps-0">
                 <input type="checkbox" class="form-check-input m-0" id="exportWithEmpty"
                   v-model="exporting.with_empty_images">
-                <label class="form-check-label mb-0" for="exportWithEmpty">export with not annotated images</label>
+                <label class="form-check-label mb-0" for="exportWithEmpty">{{ $t('dataset.exportWithNotAnnotatedImages') }}</label>
               </div>
             </form>
           </div>
@@ -376,14 +378,14 @@
               class="btn btn-primary"
               @click="exportCOCO"
             >
-              Export
+              {{ $t('dataset.export') }}
             </button>
             <button
               type="button"
               class="btn btn-secondary"
               data-bs-dismiss="modal"
             >
-              Close
+              {{ $t('dataset.close') }}
             </button>
           </div>
         </div>

@@ -1,10 +1,10 @@
 <template>
   <div v-show="sam.isActive">
     <PanelText :name="sam.statusText" />
-    <PanelButton name="Apply (Enter)" @click="sam.apply()" />
-    <PanelButton name="Undo Last Prompt" @click="sam.undoPoint()" />
-    <PanelButton name="Clear Prompts" @click="sam.reset()" />
-    <PanelToggle name="Replace Annotation" v-model:value="sam.settings.replace" />
+    <PanelButton :name="$t('sAMPanel.applyEnter')" @click="sam.apply()" />
+    <PanelButton :name="$t('sAMPanel.undoLastPrompt')" @click="sam.undoPoint()" />
+    <PanelButton :name="$t('sAMPanel.clearPrompts')" @click="sam.reset()" />
+    <PanelToggle :name="$t('sAMPanel.replaceAnnotation')" v-model:value="sam.settings.replace" />
   </div>
 </template>
 

@@ -7,7 +7,7 @@
     >
       <div class="container">
         <h2 class="text-center">
-          Categories
+          {{ $t('categories.categories') }}
           <i
             class="fa fa-question-circle help-icon"
             data-bs-toggle="modal"
@@ -17,7 +17,7 @@
         </h2>
 
         <p class="text-center">
-          Loaded <strong>{{ categoryCount }}</strong> categories.
+          <i18n-t keypath="categories.loaded" tag="span"><template #n><strong>{{ categoryCount }}</strong></template></i18n-t>
         </p>
 
         <div class="row justify-content-md-center">
@@ -32,10 +32,10 @@
               data-bs-toggle="modal"
               data-bs-target="#createCategories"
             >
-              Create
+              {{ $t('categories.create') }}
             </button>
             <button type="button" class="btn btn-secondary" @click="updatePage">
-              Refresh
+              {{ $t('categories.refresh') }}
             </button>
           </div>
         </div>
@@ -43,7 +43,7 @@
         <hr />
 
         <p v-if="categories.length < 1" class="text-center">
-          You need to create a category!
+          {{ $t('categories.youNeedToCreateA') }}
         </p>
         <div v-else>
           <Pagination :pages="pages" @pagechange="updatePage" />
@@ -63,7 +63,7 @@
       <div class="modal-dialog" role="document">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">Creating a Category</h5>
+            <h5 class="modal-title">{{ $t('categories.creatingACategory') }}</h5>
             <button
               type="button"
               class="btn-close"
@@ -74,27 +74,27 @@
           <div class="modal-body">
             <form>
               <div class="mb-3">
-                <label>Name:</label>
+                <label>{{ $t('categories.name2') }}</label>
                 <input
                   v-model="newCategoryName"
                   class="form-control"
                   :class="{'is-invalid': newCategoryName.trim().length === 0}"
                   required="true"
-                  placeholder="Name"
+                  :placeholder="$t('categories.name')"
                 />
               </div>
 
               <div class="mb-3">
-                <label>Supercategory:</label>
+                <label>{{ $t('categories.supercategory2') }}</label>
                 <input
                   v-model="newCategorySupercategory"
                   class="form-control"
-                  placeholder="Supercategory"
+                  :placeholder="$t('categories.supercategory')"
                 />
               </div>
 
               <div class="mb-3 row">
-                <label class="col-sm-2 col-form-label">Color:</label>
+                <label class="col-sm-2 col-form-label">{{ $t('categories.color') }}</label>
                 <div class="col-sm-9">
                   <input v-model="newCategoryColor" type="color" class="form-control form-control-color w-100" />
                 </div>
@@ -104,7 +104,7 @@
                 <KeypointsDefinition ref="keypoints"
                   v-model:value="newCategoryKeypoint"
                   element-id="keypoints"
-                  placeholder="Add a keypoint"
+                  :placeholder="$t('categories.addAKeypoint')"
                 ></KeypointsDefinition>
               </div>
             </form>
@@ -117,14 +117,14 @@
               :class="{disabled: !isFormValid}"
               @click="createCategory"
             >
-              Create Category
+              {{ $t('categories.createCategory') }}
             </button>
             <button
               type="button"
               class="btn btn-secondary"
               data-bs-dismiss="modal"
             >
-              Close
+              {{ $t('categories.close') }}
             </button>
           </div>
         </div>
@@ -135,7 +135,7 @@
       <div class="modal-dialog" role="document">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">Categories</h5>
+            <h5 class="modal-title">{{ $t('categories.categories') }}</h5>
             <button
               type="button"
               class="btn-close"
@@ -144,17 +144,16 @@
             ></button>
           </div>
           <div class="modal-body">
-            More information can be found in the
+            {{ $t('categories.moreInformationCanBeFound') }}
             <a href="https://github.com/jsbroks/coco-annotator/wiki/Usage#creating-categories">
-              getting started section
+              {{ $t('categories.gettingStartedSection') }}
             </a>.
             <hr />
-            <h6>What is a category?</h6>
+            <h6>{{ $t('categories.whatIsACategory') }}</h6>
 
             <hr />
-            <h6>How do I create one?</h6>
-            Click on the "Create" button found on this webpage. You must
-            provided a name for the category.
+            <h6>{{ $t('categories.howDoICreateOne') }}</h6>
+            {{ $t('categories.clickOnTheCreateButton') }}
           </div>
           <div class="modal-footer">
             <button
@@ -162,7 +161,7 @@
               class="btn btn-secondary"
               data-bs-dismiss="modal"
             >
-              Close
+              {{ $t('categories.close') }}
             </button>
           </div>
         </div>

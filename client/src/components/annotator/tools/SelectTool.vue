@@ -72,13 +72,13 @@ export default {
         let visibilityDesc = this.keypoint.keypoint.getVisibilityDescription();
         let annotationId = this.keypoint.keypoints.annotationId;
         let categoryName = this.keypoint.keypoints.categoryName;
-        string += "Keypoint: " + label + " \n";
-        string += "Visibility: " + visibility + " (" + visibilityDesc + ") \n";
+        string += this.$t("hover.keypoint") + ": " + label + " \n";
+        string += this.$t("hover.visibility") + ": " + visibility + " (" + this.$tr("option", visibilityDesc) + ") \n";
         if (annotationId !== -1) {
           string += "ID: " + annotationId + " \n";
         }
         if (categoryName) {
-          string += "Category: " + categoryName + " \n";
+          string += this.$t("hover.category") + ": " + categoryName + " \n";
         }
         return string.replace(/\n/g, " \n ").slice(0, -2);
       }
@@ -87,13 +87,13 @@ export default {
         let id = this.hover.textId;
         let category = this.hover.category.category.name;
         string += "ID: " + id + " \n";
-        string += "Category: " + category + " \n";
+        string += this.$t("hover.category") + ": " + category + " \n";
       }
 
       if (this.$store.getters["user/loginEnabled"]) {
         let creator = this.hover.annotation.annotation.creator;
         if (creator != null) {
-          string += "Created by " + creator + "\n\n";
+          string += this.$t("common.createdBy", { name: creator }) + "\n\n";
         }
       }
 
@@ -105,9 +105,9 @@ export default {
       let metadata = this.hover.annotation.$refs.metadata.metadataList;
 
       if (metadata == null || metadata.length === 0) {
-        string += "No Metadata \n";
+        string += this.$t("hover.noMetadata") + " \n";
       } else {
-        string += "Metadata \n";
+        string += this.$t("hover.metadata") + " \n";
         metadata.forEach(element => {
           if (element.key.length !== 0) {
             string += " " + element.key + " = " + element.value + " \n";

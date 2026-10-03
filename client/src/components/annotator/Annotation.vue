@@ -38,7 +38,7 @@
         <template v-else> {{ name }} </template>
         {{ annotation.name }}
         <i v-if="isEmpty" style="padding-left: 5px; color: lightgray"
-          >(Empty)</i
+          >({{ $t('annotation.empty') }})</i
         >
         <i v-else style="padding-left: 5px; color: lightgray"
           >(id: {{ annotation.id }})</i
@@ -118,7 +118,7 @@
           <div class="modal-body">
             <form>
               <div class="mb-3 row">
-                <label class="col-sm-3 col-form-label">Visibility</label>
+                <label class="col-sm-3 col-form-label">{{ $t('annotation.visibility') }}</label>
                 <div class="col-sm-8">
                   <select v-model="keypoint.visibility" class="form-select">
                     <option v-for="(desc, label) in visibilityOptions" 
@@ -134,7 +134,7 @@
               class="btn btn-secondary"
               data-bs-dismiss="modal"
             >
-              Close
+              {{ $t('annotation.close') }}
             </button>
           </div>
         </div>
@@ -164,19 +164,19 @@
           <div class="modal-body">
             <form>
               <div class="mb-3 row">
-                <label class="col-sm-3 col-form-label">Color</label>
+                <label class="col-sm-3 col-form-label">{{ $t('annotation.color') }}</label>
                 <div class="col-sm-8">
                   <input v-model="color" type="color" class="form-control form-control-color w-100" />
                 </div>
               </div>
               <div class="mb-3 row">
-                <label class="col-sm-3 col-form-label">Name</label>
+                <label class="col-sm-3 col-form-label">{{ $t('annotation.name') }}</label>
                 <div class="col-sm-8">
                   <input v-model="name" class="form-control" />
                 </div>
               </div>
               <div class="mb-3 row">
-                <label class="col-sm-3 col-form-label">Category</label>
+                <label class="col-sm-3 col-form-label">{{ $t('annotation.category') }}</label>
                 <div class="col-sm-8">
                   <select class="form-select" @change="setCategory">
                     <option
@@ -203,14 +203,14 @@
               class="btn btn-danger"
               data-bs-dismiss="modal"
             >
-              Delete
+              {{ $t('annotation.delete') }}
             </button>
             <button
               type="button"
               class="btn btn-secondary"
               data-bs-dismiss="modal"
             >
-              Close
+              {{ $t('annotation.close') }}
             </button>
           </div>
         </div>

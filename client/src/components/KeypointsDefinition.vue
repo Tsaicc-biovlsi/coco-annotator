@@ -6,21 +6,21 @@
       @click="createKeypoints"
     />
 
-    <p class="title" style="margin: 0">{{ title }}</p>
+    <p class="title" style="margin: 0">{{ title || $t('keypointsDefinition.title') }}</p>
 
     <div class="row">
       <div class="col-sm-5">
-        <p class="subtitle">{{ keyTitle }}:</p>
+        <p class="subtitle">{{ keyTitle || $t('keypointsDefinition.label') }}:</p>
       </div>
       <div class="col-sm-7">
-        <p class="subtitle">{{ valueTitle }}:</p>
+        <p class="subtitle">{{ valueTitle || $t('keypointsDefinition.connectsTo') }}:</p>
       </div>
     </div>
 
     <form>
       <ul class="list-group" style="height: 50%;">
         <li v-if="keypoints.length == 0" class="list-group-item keypoint-item">
-          <i class="subtitle">No keypoints.</i>
+          <i class="subtitle">{{ $t('keypointsDefinition.noKeypoints') }}</i>
         </li>
         <li v-for="(object, index) in keypoints" :key="index" class="list-group-item keypoint-item">
           <div class="row mb-3" style="cell">
@@ -32,7 +32,7 @@
                 class="keypoint-input form-control"
                 :class="{'is-invalid': object.label_error.length !== 0}"
                 :required="object.edges.length !== 0"
-                :placeholder="keyTitle"
+                :placeholder="keyTitle || $t('keypointsDefinition.label')"
                 @input="keypointLabelUpdated(index, $event.target.value)"
               />
               <div class="invalid-feedback">{{ object.label_error }}</div>
@@ -46,7 +46,7 @@
             <div class="col-sm-6" style="padding-left: 5px;">
               <TagsInput
                 :value="object.edges"
-                placeholder="Add connected label"
+                :placeholder="$t('keypointsDefinition.addConnectedLabel')"
                 class="keypoint-input"
                 :elementId="`index${index}`"
                 :existing-tags="otherKeypointLabels(object.label)"
@@ -112,15 +112,15 @@ export default {
     },
     title: {
       type: String,
-      default: "Keypoints"
+      default: ""
     },
     keyTitle: {
       type: String,
-      default: "Label"
+      default: ""
     },
     valueTitle: {
       type: String,
-      default: "Connects to"
+      default: ""
     },
     exclude: {
       type: String,
@@ -229,7 +229,7 @@ export default {
           if (i !== index) {
             let kp = this.keypoints[i];
             if (label === kp.label) {
-              current_kp.label_error = "Duplicate keypoint label";
+              current_kp.label_error = this.$t("keypointsDefinition.duplicateLabel");
               kp.label_error = current_kp.label_error;
             } else if (
               previous_label === kp.label &&
@@ -240,7 +240,7 @@ export default {
           }
         }
       } else if (current_kp.edges.length !== 0) {
-        current_kp.label_error = "Label is required";
+        current_kp.label_error = this.$t("keypointsDefinition.labelRequired");
       }
 
       current_kp.label = label;

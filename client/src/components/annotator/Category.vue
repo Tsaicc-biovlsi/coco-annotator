@@ -55,7 +55,7 @@
         <input
           v-model="search"
           class="annotation-search"
-          placeholder="Search"
+          :placeholder="$t('category.search')"
           :disabled="this.category.annotations.length < 2"
         />
       </li>
@@ -105,7 +105,7 @@
           <div class="modal-body">
             <form>
               <div class="mb-3">
-                <label>Supercategory</label>
+                <label>{{ $t('category.supercategory') }}</label>
                 <input
                   type="text"
                   class="form-control"
@@ -115,7 +115,7 @@
               </div>
 
               <div class="mb-3 row">
-                <label class="col-sm-2 col-form-label">Color</label>
+                <label class="col-sm-2 col-form-label">{{ $t('category.color') }}</label>
                 <div class="col-sm-9">
                   <input v-model="color" type="color" class="form-control form-control-color w-100" />
                 </div>
@@ -137,13 +137,13 @@
               :disabled="!isFormValid"
               :class="{ disabled: !isFormValid }"
               data-bs-dismiss="modal"
-            >Update</button>
+            >{{ $t('category.update') }}</button>
             <button
               type="button"
               class="btn btn-secondary"
               data-bs-dismiss="modal"
             >
-              Close
+              {{ $t('category.close') }}
             </button>
           </div>
         </div>

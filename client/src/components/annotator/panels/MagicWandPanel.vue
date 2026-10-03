@@ -1,14 +1,14 @@
 <template>
   <div v-show="magicwand.isActive">
     <PanelInputNumber
-      name="Threshold"
+      :name="$t('magicWandPanel.threshold')"
       min="0"
       max="1000"
       step="5"
       v-model:value="magicwand.wand.threshold"
     />
     <PanelInputNumber
-      name="Blur"
+      :name="$t('magicWandPanel.blur')"
       min="0"
       max="1000"
       step="5"

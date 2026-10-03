@@ -24,16 +24,16 @@
             class="dropdown-item"
             href="#"
           >
-            <RouterLink class="route" to="/admin/panel">Admin Panel</RouterLink>
+            <RouterLink class="route" to="/admin/panel">{{ $t('user.adminPanel') }}</RouterLink>
           </a>
         </li>
         <li>
           <a class="dropdown-item" href="#">
-            <RouterLink class="route" to="/user">User Settings</RouterLink>
+            <RouterLink class="route" to="/user">{{ $t('user.userSettings') }}</RouterLink>
           </a>
         </li>
         <li>
-          <a class="dropdown-item" href="#" @click="logoutButton">Logout</a>
+          <a class="dropdown-item" href="#" @click="logoutButton">{{ $t('user.logout') }}</a>
         </li>
       </ul>
     </div>

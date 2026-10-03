@@ -1,12 +1,12 @@
 <template>
   <div>
     <div class="bg-light" v-if="shortcut.title != null" style="font-size: 13px">
-      {{ shortcut.title }}
+      {{ $tr('shortcut', shortcut.title) }}
     </div>
     <div class="row" style="cell">
       <div class="col-sm text-start">
-        {{ shortcut.name }}
-        <p v-show="readonly" class="mute">(readonly)</p>
+        {{ $tr('shortcut', shortcut.name) }}
+        <p v-show="readonly" class="mute">{{ $t('customShortcut.readonly') }}</p>
       </div>
 
       <div class="col-sm">

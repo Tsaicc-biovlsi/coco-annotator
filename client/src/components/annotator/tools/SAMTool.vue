@@ -56,21 +56,21 @@ export default {
     },
     tooltip() {
       if (this.status.checked && !this.status.available) {
-        return "SAM (not available on this server)";
+        return this.$t("sam.unavailableTooltip");
       }
-      if (this.isDisabled) return "SAM (select an annotation to activate tool)";
-      return "SAM Tool (Segment Anything)";
+      if (this.isDisabled) return this.$t("toolbar.needsAnnotation", { tool: "SAM" });
+      return this.$t("sam.tooltip");
     },
     hasPrompt() {
       return this.points.length > 0 || this.box != null;
     },
     statusText() {
-      if (!this.status.checked) return "Checking SAM…";
-      if (!this.status.available) return this.status.message || "SAM is not available";
-      if (this.status.preparing) return "Preparing image…";
-      if (this.status.predicting) return "Segmenting…";
-      if (this.preview) return `Score ${Math.max(0, this.score * 100).toFixed(0)}% · Enter to apply`;
-      return "Click object · Shift+click background · Drag box";
+      if (!this.status.checked) return this.$t("sam.checking");
+      if (!this.status.available) return this.status.message || this.$t("sam.unavailable");
+      if (this.status.preparing) return this.$t("sam.preparing");
+      if (this.status.predicting) return this.$t("sam.segmenting");
+      if (this.preview) return this.$t("sam.score", { score: Math.max(0, this.score * 100).toFixed(0) });
+      return this.$t("sam.hint");
     },
     imageId() {
       return this.$parent.image.id;
@@ -210,7 +210,7 @@ export default {
           if (id !== this.requestId) return;
           let message =
             (error.response && error.response.data && error.response.data.message) ||
-            "SAM request failed";
+            this.$t("sam.requestFailed");
           this.$toastr.error(message, "SAM", { positionClass: "toast-bottom-left" });
         })
         .finally(() => {

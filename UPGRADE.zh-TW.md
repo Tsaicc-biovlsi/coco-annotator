@@ -97,6 +97,12 @@ OLD_VOLUME=舊資料卷名稱 NEW_VOLUME=coco-annotator_mongodb7 ./scripts/migra
 - 匯出檔名出現 `b'...'`
 - 幾個參照不存在變數或 model 的錯誤
 
+## 介面語言
+
+介面提供 English 和繁體中文。在導覽列右上角的地球圖示選單切換，選擇會記在瀏覽器裡；第一次開啟時依瀏覽器語言決定，任何中文都會選繁體中文。
+
+翻譯檔在 `client/src/i18n/locales/*.json`（vue-i18n）。要新增其他語言：複製 `en.json` 翻譯後，在 `client/src/i18n/index.js` 的 `LANGUAGES` 加上一筆即可。伺服器回傳的錯誤訊息目前仍是英文。
+
 ## 關鍵點
 
 選取的標註必須先有 BBox 或旋轉框，關鍵點工具才會啟用：先畫出物件的框，再標關鍵點。

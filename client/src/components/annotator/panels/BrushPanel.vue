@@ -1,14 +1,14 @@
 <template>
   <div v-show="brush.isActive">
     <PanelInputNumber
-      name="Radius"
+      :name="$t('brushPanel.radius')"
       min="0"
       max="1000"
       step="5"
       v-model:value="brush.brush.pathOptions.radius"
     />
     <PanelInputString
-      name="Stroke Color"
+      :name="$t('brushPanel.strokeColor')"
       v-model:value="brush.brush.pathOptions.strokeColor"
     />
   </div>

@@ -81,13 +81,13 @@ export default {
     },
     hint() {
       if (this.drawing) {
-        if (this.drawing.points.length === 1) return "2/3 · Click the second corner";
-        return "3/3 · Set the width, click · Esc cancels";
+        if (this.drawing.points.length === 1) return this.$t("rbbox.step2");
+        return this.$t("rbbox.step3");
       }
       if (this.boxInfo) {
         return `${this.boxInfo.w} × ${this.boxInfo.h} px, ${this.boxInfo.angle}°`;
       }
-      return "1/3 · Click the first corner";
+      return this.$t("rbbox.step1");
     }
   },
   methods: {

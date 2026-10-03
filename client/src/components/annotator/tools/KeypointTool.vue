@@ -43,10 +43,10 @@ export default {
     },
     tooltip() {
       if (this.$parent.current.annotation === -1) {
-        return "Keypoints (select an annotation to activate tool)";
+        return this.$t("toolbar.needsAnnotation", { tool: this.label });
       }
-      if (!this.hasBox) return "Keypoints (draw a BBox for this annotation first)";
-      return "Keypoints Tool";
+      if (!this.hasBox) return this.$t("toolbar.needsBox", { tool: this.label });
+      return this.$t("toolbar.tool", { tool: this.label });
     }
   },
   watch: {},

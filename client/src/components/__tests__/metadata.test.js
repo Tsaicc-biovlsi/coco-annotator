@@ -1,9 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { shallowMount } from "@vue/test-utils";
+import i18n, { setLocale } from "@/i18n";
+
+setLocale("en");
+const global = { plugins: [i18n] };
 import Metadata from "@/components/Metadata.vue";
 
 describe("Metadata.vue Empty", () => {
   const wrapper = shallowMount(Metadata, {
+    global,
     props: { metadata: {} }
   });
 
@@ -53,6 +58,7 @@ describe("Metadata.vue with metadata", () => {
     //e: { test: true, data: "info" }
   };
   const wrapper = shallowMount(Metadata, {
+    global,
     props: {
       metadata: metadata,
       exclude: "name",

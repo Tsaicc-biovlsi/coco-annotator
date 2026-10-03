@@ -33,8 +33,7 @@
 
         <div>
           <div v-if="dataset.numberImages > 0">
-            {{ dataset.numberAnnotated }} of {{ dataset.numberImages }} images
-            annotated.
+            {{ $t('datasetCard.annotated', { done: dataset.numberAnnotated, total: dataset.numberImages }) }}
             <div class="progress">
               <div
                 class="progress-bar"
@@ -44,7 +43,7 @@
             </div>
           </div>
 
-          <p v-else>No images in dataset.</p>
+          <p v-else>{{ $t('datasetCard.noImagesInDataset') }}</p>
           <span
             v-for="(category, index) in listCategories"
             :key="index"
@@ -64,7 +63,7 @@
             data-bs-toggle="modal"
             :data-bs-target="'#datasetEdit' + dataset.id"
           >
-            Edit
+            {{ $t('datasetCard.edit') }}
           </button>
           <button
             v-if="dataset.permissions.owner"
@@ -72,14 +71,14 @@
             data-bs-toggle="modal"
             :data-bs-target="'#datasetShare' + dataset.id"
           >
-            Share
+            {{ $t('datasetCard.share') }}
           </button>
           <button
             class="dropdown-item"
             @click="onCocoDownloadClick"
             v-show="dataset.permissions.download"
           >
-            Download COCO
+            {{ $t('datasetCard.downloadCoco') }}
           </button>
           <hr v-show="dataset.permissions.delete" />
           <button
@@ -87,7 +86,7 @@
             v-show="dataset.permissions.delete"
             @click="onDeleteClick"
           >
-            Delete
+            {{ $t('datasetCard.delete') }}
           </button>
         </div>
       </div>
@@ -96,7 +95,7 @@
         v-show="$store.getters['user/loginEnabled']"
         class="card-footer text-muted"
       >
-        Created by {{ dataset.owner }}
+        {{ $t('common.createdBy', { name: dataset.owner }) }}
       </div>
     </div>
 
@@ -116,7 +115,7 @@
           <div class="modal-body">
             <form>
               <div class="mb-3">
-                <label>Default Categories</label>
+                <label>{{ $t('datasetCard.defaultCategories') }}</label>
                 <TagsInput
                   v-model:value="selectedCategories"
                   element-id="changeDataset"
@@ -128,7 +127,7 @@
 
               <Metadata
                 :metadata="defaultMetadata"
-                title="Default Annotation Metadata"
+                :title="$t('datasetCard.defaultAnnotationMetadata')"
                 key-name="Default Key"
                 value-name="Default Value"
                 ref="defaultAnnotation"
@@ -142,14 +141,14 @@
               @click="onSave"
               data-bs-dismiss="modal"
             >
-              Save
+              {{ $t('datasetCard.save') }}
             </button>
             <button
               type="button"
               class="btn btn-secondary"
               data-bs-dismiss="modal"
             >
-              Close
+              {{ $t('datasetCard.close') }}
             </button>
           </div>
         </div>
@@ -172,14 +171,14 @@
           <div class="modal-body">
             <form>
               <div class="mb-3">
-                <label>Users shared with</label>
+                <label>{{ $t('datasetCard.usersSharedWith') }}</label>
                 <TagsInput
                   v-model:value="sharedUsers"
                   element-id="usersList"
                   :existing-tags="users"
                   :typeahead="true"
                   :typeahead-activation-threshold="0"
-                  placeholder="Add usernames"
+                  :placeholder="$t('datasetCard.addUsernames')"
                 />
               </div>
             </form>
@@ -191,14 +190,14 @@
               @click="onShare"
               data-bs-dismiss="modal"
             >
-              Save
+              {{ $t('datasetCard.save') }}
             </button>
             <button
               type="button"
               class="btn btn-secondary"
               data-bs-dismiss="modal"
             >
-              Close
+              {{ $t('datasetCard.close') }}
             </button>
           </div>
         </div>

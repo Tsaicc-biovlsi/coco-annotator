@@ -6,15 +6,15 @@
       style="overflow: auto; height: calc(100vh - 55px)"
     >
       <div class="container">
-        <h2 class="text-center">Hello, {{ displayName }}</h2>
+        <h2 class="text-center">{{ $t('user.hello', { name: displayName }) }}</h2>
 
         <br />
         <div style="text-align: left">
-          <h4>Change Password</h4>
+          <h4>{{ $t('user.changePassword') }}</h4>
           <br />
           <form>
             <div class="mb-3">
-              <label>Current Password</label>
+              <label>{{ $t('user.currentPassword') }}</label>
               <input
                 v-model="changePassword.password"
                 type="password"
@@ -23,7 +23,7 @@
               />
             </div>
             <div class="mb-3">
-              <label>New Password</label>
+              <label>{{ $t('user.newPassword') }}</label>
               <input
                 v-model="changePassword.new_password"
                 :class="inputPasswordClasses(changePassword.new_password)"
@@ -32,11 +32,11 @@
                 required
               />
               <div class="invalid-feedback">
-                Minimum length of 5 characters.
+                {{ $t('user.minimumLengthOf5Characters') }}
               </div>
             </div>
             <div class="mb-3">
-              <label>Confirm Password</label>
+              <label>{{ $t('user.confirmPassword') }}</label>
               <input
                 v-model="changePassword.confirm_password"
                 :class="{
@@ -54,7 +54,7 @@
               class="btn btn-primary w-100"
               @click.prevent="changeUserPassword"
             >
-              Submit
+              {{ $t('user.submit') }}
             </button>
           </form>
         </div>

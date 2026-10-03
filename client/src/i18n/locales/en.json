@@ -1,0 +1,417 @@
+{
+  "about": {
+    "webBasedImageAnnotaitonTool": "Web-based Image Annotaiton Tool"
+  },
+  "admin": {
+    "total": "Total of {n} user accounts."
+  },
+  "adminPanel": {
+    "admin": "Admin",
+    "close": "Close",
+    "createAUser": "Create a User",
+    "createUser": "Create User",
+    "delete": "Delete",
+    "edit": "Edit",
+    "limit": "Limit",
+    "name": "Name",
+    "password": "Password",
+    "refresh": "Refresh",
+    "username": "Username",
+    "users": "Users"
+  },
+  "annotation": {
+    "category": "Category",
+    "close": "Close",
+    "color": "Color",
+    "delete": "Delete",
+    "empty": "Empty",
+    "name": "Name",
+    "visibility": "Visibility"
+  },
+  "annotator": {
+    "beingAnnotated": "This image is being annotated by {users}.",
+    "categorySearch": "Category Search",
+    "noCategoriesHaveBeenEnabled": "No categories have been enabled for this image."
+  },
+  "auth": {
+    "confirmPassword": "Confirm Password",
+    "description": "COCO Annotator is a web-based image annotation tool designed for versatility and efficiently label images to create training data for image localization and object detection.",
+    "findOutMore": "Find out more",
+    "fullName": "Full Name",
+    "invalidUsernameFormat": "Invalid username format",
+    "issues": "issues",
+    "login": "Login",
+    "loginToCreate": "Login to create a datasets.",
+    "minimumLengthOf5Characters": "Minimum length of 5 characters.",
+    "optional": "(Optional)",
+    "password": "Password",
+    "questions": "If you have any questions please checkout the {wiki} before posting {issues}.",
+    "register": "Register",
+    "useTheRegisterationFormTo": "Use the registeration form to create an admin account",
+    "username": "Username",
+    "wiki": "wiki",
+    "youAreNotAllowedTo": "You are not allowed to register new accounts",
+    "youHaveSuccessfullyInstalledCoco": "You have successfully installed COCO Annotator!"
+  },
+  "bBoxPanel": {
+    "autoSelectColor": "Auto Select Color",
+    "deleteBbox": "Delete BBox",
+    "onlyBlackOrWhite": "Only Black or White",
+    "strokeColor": "Stroke Color"
+  },
+  "brushPanel": {
+    "radius": "Radius",
+    "strokeColor": "Stroke Color"
+  },
+  "categories": {
+    "addAKeypoint": "Add a keypoint",
+    "categories": "Categories",
+    "clickOnTheCreateButton": "Click on the \"Create\" button found on this webpage. You must provided a name for the category.",
+    "close": "Close",
+    "color": "Color:",
+    "create": "Create",
+    "createCategory": "Create Category",
+    "creatingACategory": "Creating a Category",
+    "gettingStartedSection": "getting started section",
+    "howDoICreateOne": "How do I create one?",
+    "loaded": "Loaded {n} categories.",
+    "moreInformationCanBeFound": "More information can be found in the",
+    "name": "Name",
+    "name2": "Name:",
+    "refresh": "Refresh",
+    "supercategory": "Supercategory",
+    "supercategory2": "Supercategory:",
+    "whatIsACategory": "What is a category?",
+    "youNeedToCreateA": "You need to create a category!"
+  },
+  "category": {
+    "close": "Close",
+    "color": "Color",
+    "search": "Search",
+    "supercategory": "Supercategory",
+    "update": "Update"
+  },
+  "categoryCard": {
+    "addAKeypoint": "Add a keypoint",
+    "close": "Close",
+    "color": "Color",
+    "delete": "Delete",
+    "downloadCocoImages": "Download COCO & Images",
+    "edit": "Edit",
+    "name": "Name",
+    "noAnnotationsUseThisCategory": "No annotations use this category",
+    "objects": "{n} objects have been made with this category.",
+    "supercategory": "Supercategory",
+    "title": "Category: {name}",
+    "update": "Update"
+  },
+  "common": {
+    "ago": "{time} ago",
+    "createdBy": "Created by {name}"
+  },
+  "copy": {
+    "invalidId": "Enter a valid image ID",
+    "notNumber": "Value must be a number",
+    "sameImage": "Sorry, you can not clone the same image"
+  },
+  "copyAnnotationsButton": {
+    "close": "Close",
+    "copy": "Copy",
+    "copyAnnotationsFromImage": "Copy Annotations From Image",
+    "copyOnlySelectedCategories": "Copy Only Selected Categories",
+    "enterAnImageId": "Enter an image ID",
+    "imageId": "Image ID",
+    "nextImage": "Next Image",
+    "previousImage": "Previous Image"
+  },
+  "customShortcut": {
+    "readonly": "(readonly)"
+  },
+  "dataset": {
+    "annotatedImagesPerCategory": "Annotated Images Per Category",
+    "annotations": "Annotations",
+    "annotationsPerCategory": "Annotations Per Category",
+    "annotationsPerUser": "Annotations per User",
+    "average": "Average",
+    "categoriesEmptyExportAll": "Categories (Empty export all)",
+    "close": "Close",
+    "cocoAnnotationFileJson": "COCO Annotation file (.json)",
+    "contains": "Contains",
+    "crunchingNumbers": "Crunching numbers...",
+    "download": "Download",
+    "existingMembers": "Existing Members",
+    "export": "Export",
+    "exportCoco": "Export COCO",
+    "exportTitle": "Export {name}",
+    "exportWithNotAnnotatedImages": "export with not annotated images",
+    "exportedAgo": "Exported {time} ago",
+    "exporting": "Exporting",
+    "exports": "Exports",
+    "filteringOptions": "Filtering Options",
+    "images": "Images",
+    "importCoco": "Import COCO",
+    "importing": "Importing",
+    "inviteMembers": "Invite Members",
+    "lastSeen": "Last seen: {time} UTC",
+    "members": "Members",
+    "metadata": "Metadata",
+    "noImagesFoundInDirectory": "No images found in directory.",
+    "noSubdirectoryFound": "No subdirectory found.",
+    "onlyShowsImagesAnnotatedWith": "Only shows images annotated with the selected categories for 'Show Annotated' button. Leave empty to show all annotated images.",
+    "order": "Order",
+    "restAllMetadata": "Rest All Metadata",
+    "scan": "Scan",
+    "scanning": "Scanning",
+    "settings": "Settings",
+    "showAnnotated": "Show Annotated",
+    "showAnnotatedCategories": "Show Annotated Categories",
+    "showNotAnnotated": "Show Not Annotated",
+    "statistics": "Statistics",
+    "subdirectories": "Subdirectories",
+    "total": "Total",
+    "totalImages": "Total of {images} images displayed on {pages} pages.",
+    "upload": "Upload",
+    "uploadCocoAnnotaitons": "Upload COCO Annotaitons",
+    "username": "Username"
+  },
+  "datasetCard": {
+    "addUsernames": "Add usernames",
+    "annotated": "{done} of {total} images annotated.",
+    "close": "Close",
+    "defaultAnnotationMetadata": "Default Annotation Metadata",
+    "defaultCategories": "Default Categories",
+    "delete": "Delete",
+    "downloadCoco": "Download COCO",
+    "edit": "Edit",
+    "noImagesInDataset": "No images in dataset.",
+    "save": "Save",
+    "share": "Share",
+    "usersSharedWith": "Users shared with"
+  },
+  "datasets": {
+    "aDatasetIsACollection": "A dataset is a collection of images. It provides default category options for all subsequent images. Each dataset has its own folder in the /datasets directory.",
+    "clickOnTheCreateButton": "Click on the \"Create\" button found on this webpage. A dataset name must be provided.",
+    "close": "Close",
+    "create": "Create",
+    "createDataset": "Create Dataset",
+    "creatingADataset": "Creating a Dataset",
+    "datasetName": "Dataset name",
+    "datasetName2": "Dataset Name",
+    "datasets": "Datasets",
+    "defaultCategories": "Default Categories",
+    "folderDirectory": "Folder Directory",
+    "helpSection": "help section",
+    "howDoIAddImages": "How do I add images?",
+    "howDoICreateOne": "How do I create one?",
+    "import": "Import",
+    "loaded": "Loaded {n} datasets.",
+    "moreInformationCanBeFound": "More information can be found in the",
+    "nameRequired": "Dataset name is required",
+    "onceYouHaveCreatedA": "Once you have created a dataset you can add images by placing them in the create folder (while the server is running).",
+    "refresh": "Refresh",
+    "whatIsADataset": "What is a dataset?",
+    "youNeedToCreateA": "You need to create a dataset!"
+  },
+  "eraserPanel": {
+    "radius": "Radius",
+    "strokeColor": "Stroke Color"
+  },
+  "home": {
+    "webBasedImageAnnotaitonTool": "Web-based Image Annotaiton Tool"
+  },
+  "hover": {
+    "category": "Category",
+    "keypoint": "Keypoint",
+    "metadata": "Metadata",
+    "noMetadata": "No Metadata",
+    "visibility": "Visibility"
+  },
+  "imageCard": {
+    "annotate": "Annotate",
+    "annotated": "Annotated",
+    "annotations": "{n} annotation | {n} annotations",
+    "beingAnnotated": "Being annotated by {users}",
+    "delete": "Delete",
+    "downloadImageCoco": "Download Image & COCO",
+    "noAnnotations": "No annotations"
+  },
+  "keypointPanel": {
+    "label": "Label",
+    "settingsForNextKeypoint": "Settings for next Keypoint",
+    "visibility": "Visibility"
+  },
+  "keypointsDefinition": {
+    "addConnectedLabel": "Add connected label",
+    "connectsTo": "Connects to",
+    "duplicateLabel": "Duplicate keypoint label",
+    "label": "Label",
+    "labelRequired": "Label is required",
+    "noKeypoints": "No keypoints.",
+    "title": "Keypoints"
+  },
+  "magicWandPanel": {
+    "blur": "Blur",
+    "threshold": "Threshold"
+  },
+  "metadata": {
+    "keys": "Keys",
+    "noItemsInMetadata": "No items in metadata.",
+    "title": "Metadata",
+    "values": "Values"
+  },
+  "nav": {
+    "language": "Language"
+  },
+  "navBar": {
+    "admin": "Admin",
+    "categories": "Categories",
+    "datasets": "Datasets",
+    "help": "Help",
+    "tasks": "Tasks",
+    "undo": "Undo"
+  },
+  "pageNotFound": {
+    "couldNotFindThePage": "Could not find the page you are looking for.",
+    "sorry404Error": "Sorry! 404 Error"
+  },
+  "pagination": {
+    "next": "Next",
+    "previous": "Previous"
+  },
+  "polygonPanel": {
+    "autoCompleteDistance": "Auto Complete Distance",
+    "autoSelectColor": "Auto Select Color",
+    "closePolygon": "Close Polygon",
+    "deletePolygon": "Delete Polygon",
+    "guidance": "Guidance",
+    "minDistance": "Min Distance",
+    "onlyBlackOrWhite": "Only Black or White",
+    "strokeColor": "Stroke Color"
+  },
+  "process": {
+    "copyingFrom": "Copying annotations from {from}",
+    "generatingCoco": "Generating COCO for {name}",
+    "loadingUndo": "Loading undo for {type} instance type"
+  },
+  "rbbox": {
+    "step1": "1/3 · Click the first corner",
+    "step2": "2/3 · Click the second corner",
+    "step3": "3/3 · Set the width, click · Esc cancels"
+  },
+  "rotatedBBoxPanel": {
+    "arrowKeysMove1Px": "Arrow keys: move 1 px (Shift: 10 px)",
+    "handleColor": "Handle Color",
+    "rotate5": "Rotate −5°",
+    "rotate52": "Rotate +5°",
+    "shiftSnap": "Shift Snap (°)",
+    "swapHeading90": "Swap Heading (90°)"
+  },
+  "sAMPanel": {
+    "applyEnter": "Apply (Enter)",
+    "clearPrompts": "Clear Prompts",
+    "replaceAnnotation": "Replace Annotation",
+    "undoLastPrompt": "Undo Last Prompt"
+  },
+  "sam": {
+    "checking": "Checking SAM…",
+    "hint": "Click object · Shift+click background · Drag box",
+    "preparing": "Preparing image…",
+    "requestFailed": "SAM request failed",
+    "score": "Score {score}% · Enter to apply",
+    "segmenting": "Segmenting…",
+    "tooltip": "SAM Tool (Segment Anything)",
+    "unavailable": "SAM is not available",
+    "unavailableTooltip": "SAM (not available on this server)"
+  },
+  "selectPanel": {
+    "showHoverText": "Show Hover Text"
+  },
+  "settingsButton": {
+    "annotateApi": "Annotate API",
+    "close": "Close",
+    "imageSettings": "Image Settings",
+    "keyboardShortcuts": "Keyboard Shortcuts",
+    "operation": "Operation",
+    "shortcut": "Shortcut",
+    "simplify": "Simplify"
+  },
+  "status": {
+    "done": "Done",
+    "doneWith": "Done {process}",
+    "multiple": "Multiple tasks running ...",
+    "running": "{process}"
+  },
+  "tagsInput": {
+    "addACategory": "Add a category"
+  },
+  "task": {
+    "delete": "Delete",
+    "errors": "{n} error | {n} errors",
+    "running": "{running} of {total} task running | {running} of {total} tasks running",
+    "warnings": "{n} warning | {n} warnings"
+  },
+  "taskName": {
+    "export": "Exporting {name} into {format} format",
+    "import": "Import COCO format into {name}",
+    "scan": "Scanning {name} for new images"
+  },
+  "tasks": {
+    "running": "{n} tasks are running",
+    "tasks": "Tasks"
+  },
+  "time": {
+    "day": "{n} day | {n} days",
+    "hour": "{n} hour | {n} hours",
+    "minute": "{n} minute | {n} minutes",
+    "month": "{n} month | {n} months",
+    "second": "{n} second | {n} seconds",
+    "year": "{n} year | {n} years"
+  },
+  "toast": {
+    "connectionLost": "Connection Lost",
+    "connectionLostToTheBackend": "Connection lost to the backend"
+  },
+  "toolbar": {
+    "mode": {
+      "label": "label",
+      "segment": "segment"
+    },
+    "modeLabel": "Mode: {mode}",
+    "needsAnnotation": "{tool} (select an annotation to activate tool)",
+    "needsBox": "{tool} (draw a BBox for this annotation first)",
+    "nothingToUndo": "Nothing to undo",
+    "tool": "{tool} Tool",
+    "undoLast": "Undo (Last Action: {name} {action})"
+  },
+  "undo": {
+    "all": "All",
+    "annotations": "Annotations",
+    "categories": "Categories",
+    "datasets": "Datasets",
+    "date": "Date",
+    "delete": "Delete",
+    "deleteAll": "Delete All",
+    "id": "ID",
+    "instanceType": "Instance Type",
+    "limit": "Limit",
+    "name": "Name",
+    "nothingToUndone": "Nothing to undone!",
+    "refresh": "Refresh",
+    "rollback": "Rollback",
+    "total": "Total of {n} items can be undone.",
+    "undo": "Undo",
+    "undoAll": "Undo All"
+  },
+  "user": {
+    "adminPanel": "Admin Panel",
+    "changePassword": "Change Password",
+    "confirmPassword": "Confirm Password",
+    "currentPassword": "Current Password",
+    "hello": "Hello, {name}",
+    "logout": "Logout",
+    "minimumLengthOf5Characters": "Minimum length of 5 characters.",
+    "newPassword": "New Password",
+    "submit": "Submit",
+    "userSettings": "User Settings"
+  }
+}

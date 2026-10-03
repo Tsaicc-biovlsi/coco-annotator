@@ -2,6 +2,7 @@ import { createApp } from "vue";
 import App from "./App.vue";
 import router from "./router";
 import store from "./store";
+import i18n, { formatAgo, tr, taskName } from "./i18n";
 import paper from "paper";
 import toastr from "toastr";
 import FloatingVue from "floating-vue";
@@ -26,9 +27,13 @@ window.toastr = toastr;
 const app = createApp(App);
 
 app.config.globalProperties.$toastr = toastr;
+app.config.globalProperties.$ago = formatAgo;
+app.config.globalProperties.$tr = tr;
+app.config.globalProperties.$taskName = taskName;
 
 app.use(router);
 app.use(store);
+app.use(i18n);
 app.use(FloatingVue, { themes: { tooltip: { delay: { show: 300, hide: 0 } } } });
 app.use(LoadingPlugin);
 app.use(socket, { connection: window.location.origin });

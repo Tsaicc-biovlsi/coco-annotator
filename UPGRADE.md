@@ -183,6 +183,19 @@ breadcrumb, container width). If you customised templates, rename
 (`ml-/mr-` → `ms-/me-`, `text-left/right` → `text-start/end`, `badge-*` →
 `text-bg-*`, `btn-block` → `w-100`, …).
 
+## Languages
+
+The interface is available in English and Traditional Chinese (繁體中文).
+Pick the language from the globe menu in the navigation bar; the choice is
+remembered in the browser, and on a first visit the browser language decides
+(any Chinese variant selects Traditional Chinese).
+
+Translations live in `client/src/i18n/locales/*.json` (vue-i18n). To add a
+language, copy `en.json`, translate it, and register it in `LANGUAGES` in
+`client/src/i18n/index.js`. A unit test checks that every English message has
+a Traditional Chinese translation. Messages returned by the server (API error
+texts) are still English.
+
 ## Keypoints
 
 The Keypoints tool is enabled only when the selected annotation has a BBox or

@@ -1,18 +1,18 @@
 <template>
   <div v-show="rbbox.isActive">
     <PanelText :name="rbbox.hint" />
-    <PanelText v-if="rbbox.box && !rbbox.drawing" name="Arrow keys: move 1 px (Shift: 10 px)" />
-    <PanelButton name="Rotate −5°" @click="rbbox.rotateBy(-5)" />
-    <PanelButton name="Rotate +5°" @click="rbbox.rotateBy(5)" />
-    <PanelButton name="Swap Heading (90°)" @click="rbbox.swapHeading()" />
+    <PanelText v-if="rbbox.box && !rbbox.drawing" :name="$t('rotatedBBoxPanel.arrowKeysMove1Px')" />
+    <PanelButton :name="$t('rotatedBBoxPanel.rotate5')" @click="rbbox.rotateBy(-5)" />
+    <PanelButton :name="$t('rotatedBBoxPanel.rotate52')" @click="rbbox.rotateBy(5)" />
+    <PanelButton :name="$t('rotatedBBoxPanel.swapHeading90')" @click="rbbox.swapHeading()" />
     <PanelInputNumber
-      name="Shift Snap (°)"
+      :name="$t('rotatedBBoxPanel.shiftSnap')"
       min="0"
       max="90"
       step="5"
       v-model:value="rbbox.settings.snap"
     />
-    <PanelInputString name="Handle Color" v-model:value="rbbox.settings.strokeColor" />
+    <PanelInputString :name="$t('rotatedBBoxPanel.handleColor')" v-model:value="rbbox.settings.strokeColor" />
   </div>
 </template>
 

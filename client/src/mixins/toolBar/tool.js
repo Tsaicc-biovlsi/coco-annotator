@@ -1,5 +1,6 @@
 import paper from "paper";
 import { renderToolIcon } from "./render";
+import { tr } from "@/i18n";
 
 export default {
   emits: ["setcursor", "update:selected"],
@@ -61,11 +62,14 @@ export default {
     isDisabled() {
       return false;
     },
+    label() {
+      return tr("toolbar", this.name);
+    },
     tooltip() {
       if (this.isDisabled) {
-        return this.name + " (select an annotation to activate tool)";
+        return this.$t("toolbar.needsAnnotation", { tool: this.label });
       }
-      return this.name + " Tool";
+      return this.$t("toolbar.tool", { tool: this.label });
     }
   },
   watch: {

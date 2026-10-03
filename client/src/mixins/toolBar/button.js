@@ -1,8 +1,9 @@
 import { renderToolIcon } from "./render";
+import { tr } from "@/i18n";
 
 export default {
   render() {
-    return renderToolIcon(this, this.name);
+    return renderToolIcon(this, this.buttonLabel !== undefined ? this.buttonLabel : tr("toolbar", this.name));
   },
   data() {
     return {

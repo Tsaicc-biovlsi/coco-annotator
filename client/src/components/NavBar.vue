@@ -1,7 +1,7 @@
 <template>
   <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
     
-    <i class="fa fa-circle" :style="{ color: color }" style="padding: 0 10px; font-size: 10px" v-tooltip="backendStatus"></i>
+    <i class="fa fa-circle" :style="{ color: color }" style="padding: 0 10px; font-size: 10px" v-tooltip="$tr('status', backendStatus)"></i>
 
     <RouterLink class="navbar-brand" to="/">
       <strong>{{ name }}</strong>
@@ -23,7 +23,7 @@
     <div class="collapse navbar-collapse" id="navbarSupportedContent">
       <ul class="navbar-nav me-auto">
         <li class="nav-item" :class="{ active: $route.name === 'datasets' || $route.name === 'dataset' }">
-          <RouterLink class="nav-link" to="/datasets">Datasets</RouterLink>
+          <RouterLink class="nav-link" to="/datasets">{{ $t('navBar.datasets') }}</RouterLink>
         </li>
         <li
           class="nav-item"
@@ -38,20 +38,20 @@
           </RouterLink>
         </li>
         <li class="nav-item" :class="{ active: $route.name === 'categories' }">
-          <RouterLink class="nav-link" to="/categories">Categories</RouterLink>
+          <RouterLink class="nav-link" to="/categories">{{ $t('navBar.categories') }}</RouterLink>
         </li>
         <li class="nav-item" :class="{ active: $route.name === 'undo' }">
-          <RouterLink class="nav-link" to="/undo">Undo</RouterLink>
+          <RouterLink class="nav-link" to="/undo">{{ $t('navBar.undo') }}</RouterLink>
         </li>
         <li class="nav-item" :class="{ active: $route.name === 'tasks' }">
-          <RouterLink class="nav-link" to="/tasks">Tasks</RouterLink>
+          <RouterLink class="nav-link" to="/tasks">{{ $t('navBar.tasks') }}</RouterLink>
         </li>
         <li
           v-show="$store.getters['user/isAdmin']"
           class="nav-item"
           :class="{ active: $route.name === 'admin' }"
         >
-          <RouterLink class="nav-link d-none d-xl-block" to="/admin/panel">Admin</RouterLink>
+          <RouterLink class="nav-link d-none d-xl-block" to="/admin/panel">{{ $t('navBar.admin') }}</RouterLink>
         </li>
         <li class="nav-item d-none d-xl-block">
           <a class="nav-link" href="/api">API</a>
@@ -60,11 +60,12 @@
           <a
             class="nav-link"
             href="https://github.com/jsbroks/coco-annotator/wiki"
-            >Help</a
+            >{{ $t('navBar.help') }}</a
           >
         </li>
       </ul>
       <Status class="nav-link left" />
+      <LanguageSwitcher />
       <User class="nav-link left" v-if="loginEnabled" />
     </div>
   </nav>
@@ -73,10 +74,11 @@
 <script>
 import User from "@/components/User.vue";
 import Status from "@/components/Status.vue";
+import LanguageSwitcher from "@/components/LanguageSwitcher.vue";
 
 export default {
   name: "NavBar",
-  components: { Status, User },
+  components: { Status, User, LanguageSwitcher },
   data() {
     return {
       color: "white",

@@ -22,6 +22,9 @@ export default {
     }
   },
   computed: {
+    buttonLabel() {
+      return this.$t("toolbar.modeLabel", { mode: this.$t("toolbar.mode." + this.mode) });
+    },
     icon() {
       if (this.mode == "segment") return "fa-pencil-square-o";
       if (this.mode == "label") return "fa-tags";

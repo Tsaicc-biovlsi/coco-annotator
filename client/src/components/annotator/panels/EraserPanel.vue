@@ -1,14 +1,14 @@
 <template>
   <div v-show="eraser.isActive">
     <PanelInputNumber
-      name="Radius"
+      :name="$t('eraserPanel.radius')"
       min="0"
       max="1000"
       step="5"
       v-model:value="eraser.eraser.pathOptions.radius"
     />
     <PanelInputString
-      name="Stroke Color"
+      :name="$t('eraserPanel.strokeColor')"
       v-model:value="eraser.eraser.pathOptions.strokeColor"
     />
   </div>

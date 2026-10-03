@@ -18,7 +18,7 @@
       <input
         type="text"
         ref="taginput"
-        :placeholder="showPlaceholder ? placeholder : ''"
+        :placeholder="showPlaceholder ? placeholder || $t('tagsInput.addACategory') : ''"
         v-model="input"
         @keydown.enter.prevent="tagFromInput"
         @keydown.8="removeLastTag"
@@ -122,7 +122,7 @@ export default {
     },
     placeholder: {
       type: String,
-      default: "Add a category"
+      default: ""
     },
     limit: {
       type: Number,

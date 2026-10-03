@@ -1,27 +1,27 @@
 <template>
   <div v-show="polygon.isActive">
-    <PanelButton name="Close Polygon" @click="polygon.complete" />
-    <PanelButton name="Delete Polygon" @click="polygon.deletePolygon" />
-    <PanelToggle name="Guidance" v-model:value="polygon.polygon.guidance" />
-    <PanelToggle name="Auto Select Color" v-model:value="polygon.color.auto" />
+    <PanelButton :name="$t('polygonPanel.closePolygon')" @click="polygon.complete" />
+    <PanelButton :name="$t('polygonPanel.deletePolygon')" @click="polygon.deletePolygon" />
+    <PanelToggle :name="$t('polygonPanel.guidance')" v-model:value="polygon.polygon.guidance" />
+    <PanelToggle :name="$t('polygonPanel.autoSelectColor')" v-model:value="polygon.color.auto" />
     <PanelToggle
       v-show="polygon.color.auto"
-      name="Only Black or White"
+      :name="$t('polygonPanel.onlyBlackOrWhite')"
       v-model:value="polygon.color.blackOrWhite"
     />
     <PanelInputString
-      name="Stroke Color"
+      :name="$t('polygonPanel.strokeColor')"
       v-model:value="polygon.polygon.pathOptions.strokeColor"
     />
     <PanelInputNumber
-      name="Auto Complete Distance"
+      :name="$t('polygonPanel.autoCompleteDistance')"
       min="0"
       max="1000"
       step="5"
       v-model:value="polygon.polygon.completeDistance"
     />
     <PanelInputNumber
-      name="Min Distance"
+      :name="$t('polygonPanel.minDistance')"
       min="0"
       max="500"
       step="2"

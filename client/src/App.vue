@@ -64,8 +64,8 @@ export default {
         };
 
         this.$toastr.warning(
-          "Connection lost to the backend",
-          "Connection Lost",
+          this.$t("toast.connectionLostToTheBackend"),
+          this.$t("toast.connectionLost"),
           options
         );
       }, 1000);

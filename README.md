@@ -84,6 +84,7 @@ Several annotation tools are currently available, with most applications as a de
 - AI-assisted segmentation with [Segment Anything](https://github.com/facebookresearch/segment-anything) (click / box prompts) and Magic Wand
 - Annotate images with semi-trained models
 - User authentication system
+- Interface in English and Traditional Chinese (繁體中文)
 
 For examples and more information check out the [wiki](https://github.com/jsbroks/coco-annotator/wiki).
 

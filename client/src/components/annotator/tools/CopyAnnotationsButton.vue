@@ -1,7 +1,7 @@
 <template>
   <div>
     <i
-      v-tooltip.right="name"
+      v-tooltip.right="$tr('toolbar', name)"
       class="fa fa-x fa-clone"
       style="color: white"
       data-bs-toggle="modal"
@@ -22,7 +22,7 @@
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="copyAnnotationsLabel">
-              Copy Annotations From Image
+              {{ $t('copyAnnotationsButton.copyAnnotationsFromImage') }}
             </h5>
             <button
               type="button"
@@ -39,7 +39,7 @@
                 style="float: left"
                 @click="fromId = previous.toString()"
               >
-                <i class="fa fa-arrow-left"></i> Previous Image
+                <i class="fa fa-arrow-left"></i> {{ $t('copyAnnotationsButton.previousImage') }}
               </button>
               <button
                 type="button"
@@ -47,25 +47,25 @@
                 style="float: right; margin-left: 8px"
                 @click="fromId = next.toString()"
               >
-                Next Image <i class="fa fa-arrow-right"></i>
+                {{ $t('copyAnnotationsButton.nextImage') }} <i class="fa fa-arrow-right"></i>
               </button>
 
               <div class="mb-3">
-                <label>Image ID</label>
+                <label>{{ $t('copyAnnotationsButton.imageId') }}</label>
                 <input
                   v-model="fromId"
                   :class="{
                     'form-control': true,
                     'is-invalid': validImageId.length !== 0
                   }"
-                  placeholder="Enter an image ID"
+                  :placeholder="$t('copyAnnotationsButton.enterAnImageId')"
                   required
                 />
                 <div class="invalid-feedback">{{ validImageId }}</div>
               </div>
 
               <div class="mb-3">
-                <label>Copy Only Selected Categories</label>
+                <label>{{ $t('copyAnnotationsButton.copyOnlySelectedCategories') }}</label>
                 <TagsInput
                   v-model:value="selectedCategories"
                   element-id="categoriesToCopy"
@@ -79,14 +79,14 @@
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" @click="close()">
-              Close
+              {{ $t('copyAnnotationsButton.close') }}
             </button>
             <button
               type="button"
               class="btn btn-primary"
               @click="copyAnnotations()"
             >
-              Copy
+              {{ $t('copyAnnotationsButton.copy') }}
             </button>
           </div>
         </div>
@@ -189,14 +189,14 @@ export default {
   },
   computed: {
     validImageId() {
-      let errorMsg = "Enter a valid image ID";
+      let errorMsg = this.$t("copy.invalidId");
 
       if (this.fromId == null) return errorMsg;
       if (this.fromId === "") return errorMsg;
-      if (isNaN(this.fromId)) return "Value must be a number";
-      if (this.fromId.trim() !== this.fromId) return "Value must be a number";
+      if (isNaN(this.fromId)) return this.$t("copy.notNumber");
+      if (this.fromId.trim() !== this.fromId) return this.$t("copy.notNumber");
       if (this.fromId === this.imageId)
-        return "Sorry, you can not clone the same image";
+        return this.$t("copy.sameImage");
 
       return "";
     },

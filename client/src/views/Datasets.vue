@@ -8,7 +8,7 @@
     >
       <div class="container">
         <h2 class="text-center">
-          Datasets
+          {{ $t('datasets.datasets') }}
           <i
             class="fa fa-question-circle help-icon"
             data-bs-toggle="modal"
@@ -18,7 +18,7 @@
         </h2>
 
         <p class="text-center">
-          Loaded <strong>{{ datasets.length }}</strong> datasets.
+          <i18n-t keypath="datasets.loaded" tag="span"><template #n><strong>{{ datasets.length }}</strong></template></i18n-t>
         </p>
 
         <div class="row justify-content-md-center">
@@ -33,22 +33,22 @@
               data-bs-toggle="modal"
               data-bs-target="#createDataset"
             >
-              Create
+              {{ $t('datasets.create') }}
             </button>
-            <button type="button" class="btn btn-primary">Import</button>
+            <button type="button" class="btn btn-primary">{{ $t('datasets.import') }}</button>
             <button
               type=" button"
               class="btn btn-secondary"
               @click="updatePage(page)"
             >
-              Refresh
+              {{ $t('datasets.refresh') }}
             </button>
           </div>
         </div>
 
         <hr />
         <p v-if="datasets.length < 1" class="text-center">
-          You need to create a dataset!
+          {{ $t('datasets.youNeedToCreateA') }}
         </p>
         <div v-else style="background-color: gray">
           <Pagination :pages="pages" @pagechange="updatePage" />
@@ -68,7 +68,7 @@
       <div class="modal-dialog" role="document">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">Creating a Dataset</h5>
+            <h5 class="modal-title">{{ $t('datasets.creatingADataset') }}</h5>
             <button
               type="button"
               class="btn-close"
@@ -82,11 +82,11 @@
                 class="mb-3"
                 :class="{ 'was-validated': validDatasetName.length !== 0 }"
               >
-                <label>Dataset Name</label>
+                <label>{{ $t('datasets.datasetName2') }}</label>
                 <input
                   v-model="create.name"
                   class="form-control"
-                  placeholder="Dataset name"
+                  :placeholder="$t('datasets.datasetName')"
                   required
                 />
                 <div class="invalid-feedback">
@@ -95,7 +95,7 @@
               </div>
 
               <div class="mb-3">
-                <label>Default Categories</label>
+                <label>{{ $t('datasets.defaultCategories') }}</label>
                 <TagsInput
                   v-model:value="create.categories"
                   element-id="createCategory"
@@ -106,7 +106,7 @@
               </div>
 
               <div class="mb-3" required>
-                <label>Folder Directory</label>
+                <label>{{ $t('datasets.folderDirectory') }}</label>
                 <input class="form-control" disabled :value="directory" />
               </div>
             </form>
@@ -117,14 +117,14 @@
               class="btn btn-primary"
               @click="createDataset"
             >
-              Create Dataset
+              {{ $t('datasets.createDataset') }}
             </button>
             <button
               type="button"
               class="btn btn-secondary"
               data-bs-dismiss="modal"
             >
-              Close
+              {{ $t('datasets.close') }}
             </button>
           </div>
         </div>
@@ -135,7 +135,7 @@
       <div class="modal-dialog" role="document">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">Datasets</h5>
+            <h5 class="modal-title">{{ $t('datasets.datasets') }}</h5>
             <button
               type="button"
               class="btn-close"
@@ -145,21 +145,17 @@
           </div>
 
           <div class="modal-body">
-            More information can be found in the
-            <a href="/help">help section</a>.
+            {{ $t('datasets.moreInformationCanBeFound') }}
+            <a href="/help">{{ $t('datasets.helpSection') }}</a>.
             <hr />
-            <h6>What is a dataset?</h6>
-            A dataset is a collection of images. It provides default category
-            options for all subsequent images. Each dataset has its own folder
-            in the /datasets directory.
+            <h6>{{ $t('datasets.whatIsADataset') }}</h6>
+            {{ $t('datasets.aDatasetIsACollection') }}
             <hr />
-            <h6>How do I create one?</h6>
-            Click on the "Create" button found on this webpage. A dataset name
-            must be provided.
+            <h6>{{ $t('datasets.howDoICreateOne') }}</h6>
+            {{ $t('datasets.clickOnTheCreateButton') }}
             <hr />
-            <h6>How do I add images?</h6>
-            Once you have created a dataset you can add images by placing them
-            in the create folder (while the server is running).
+            <h6>{{ $t('datasets.howDoIAddImages') }}</h6>
+            {{ $t('datasets.onceYouHaveCreatedA') }}
           </div>
 
           <div class="modal-footer">
@@ -168,7 +164,7 @@
               class="btn btn-secondary"
               data-bs-dismiss="modal"
             >
-              Close
+              {{ $t('datasets.close') }}
             </button>
           </div>
         </div>
@@ -270,7 +266,7 @@ export default {
       return tags;
     },
     validDatasetName() {
-      if (this.create.name.length === 0) return "Dataset name is required";
+      if (this.create.name.length === 0) return this.$t("datasets.nameRequired");
       return "";
     },
     user() {

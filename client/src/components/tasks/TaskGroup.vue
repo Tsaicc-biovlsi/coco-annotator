@@ -3,10 +3,10 @@
     <div class="card">
 
       <div class="card-header text-start" @click="showTasks = !showTasks">
-        {{ name }}
+        {{ $tr('taskGroup', name) }}
 
         <span style="float: right; color: light-gray">
-          {{ runningTasks.length }} of {{ tasks.length }} task<span v-show="tasks.length != 1">s</span> running
+          {{ $t('task.running', { running: runningTasks.length, total: tasks.length }, tasks.length) }}
         </span>
       </div>
 

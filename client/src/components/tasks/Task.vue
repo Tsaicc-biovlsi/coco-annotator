@@ -7,18 +7,18 @@
   
     <div class="card-body title" @click="showLogs = !showLogs">
       
-      <span class="text-muted">{{ task.id }}.</span> {{ task.name }}
+      <span class="text-muted">{{ task.id }}.</span> {{ $taskName(task.name) }}
 
       <!--<span class="time text-muted">(Running for {{ time }})</span>-->
       
       <div style="float: right">
        
         <span v-show="errors > 0" class="badge text-bg-danger" @click.stop="onlyErrors = !onlyErrors">
-          {{ errors }} error<span v-show="errors > 1">s</span>
+          {{ $t('task.errors', { n: errors }, errors) }}
         </span>
         
         <span v-show="warnings > 0" class="badge text-bg-warning" @click.stop="onlyWarnings = !onlyWarnings">
-          {{ warnings }} warning<span v-show="warnings > 1">s</span>
+          {{ $t('task.warnings', { n: warnings }, warnings) }}
         </span>
 
       </div>
@@ -34,7 +34,7 @@
         >{{ line }}</p>
       </div>
       <button v-show="completed" class="btn btn-danger w-100 btn-sm delete" @click="deleteTask">
-        Delete
+        {{ $t('task.delete') }}
       </button>
     </div>
 

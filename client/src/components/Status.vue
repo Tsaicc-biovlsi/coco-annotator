@@ -18,6 +18,7 @@
 </template>
 
 <script>
+import { processLabel } from "@/i18n";
 export default {
   name: "Status",
   data() {
@@ -37,21 +38,19 @@ export default {
     },
     message() {
       if (this.process.length > 1) {
-        return "Multiple tasks running ...";
+        return this.$t("status.multiple");
       }
       if (this.process.length === 1) {
-        return this.process[0];
+        return this.$t("status.running", { process: processLabel(this.process[0]) });
       }
 
       if (this.lastProcess === "") {
-        return "Done";
+        return this.$t("status.done");
       }
 
-      return (
-        "Done " +
-        this.lastProcess.charAt(0).toLowerCase() +
-        this.lastProcess.slice(1)
-      );
+      let label = processLabel(this.lastProcess);
+      // "Done loading datasets" (English keeps the original lower-casing)
+      return this.$t("status.doneWith", { process: label.charAt(0).toLowerCase() + label.slice(1) });
     },
     allLoaded() {
       return this.process.length === 0;

@@ -115,7 +115,7 @@
           <input
             v-model="search"
             class="search"
-            placeholder="Category Search"
+            :placeholder="$t('annotator.categorySearch')"
           />
         </div>
       </div>
@@ -128,7 +128,7 @@
           v-if="categories.length == 0"
           style="color: lightgray; font-size: 12px"
         >
-          No categories have been enabled for this image.
+          {{ $t('annotator.noCategoriesHaveBeenEnabled') }}
         </p>
 
         <div
@@ -167,7 +167,7 @@
 
       <div v-show="mode == 'segment'">
         <hr />
-        <h6 class="sidebar-title text-center">{{ activeTool }}</h6>
+        <h6 class="sidebar-title text-center">{{ $tr('toolbar', activeTool) }}</h6>
 
         <div class="tool-section" style="max-height: 30%; color: lightgray">
           <div v-if="refsReady && $refs.bbox != null">
@@ -217,7 +217,7 @@
 
     <div v-show="annotating.length > 0" class="fixed-bottom alert alert-warning alert-dismissible fade show">
       <span>
-      This image is being annotated by <b>{{ annotating.join(', ') }}</b>.
+      <i18n-t keypath="annotator.beingAnnotated" tag="span"><template #users><b>{{ annotating.join(', ') }}</b></template></i18n-t>
       </span>
       
       <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>

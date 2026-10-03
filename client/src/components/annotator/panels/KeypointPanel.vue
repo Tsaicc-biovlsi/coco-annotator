@@ -1,13 +1,13 @@
 <template>
   <div v-show="keypoint.isActive">
-    <PanelText name="Settings for next Keypoint" />
+    <PanelText :name="$t('keypointPanel.settingsForNextKeypoint')" />
     <div class="input-group tool-input-group">
-      <span class="input-group-text tool-option-font tool-option-pre">Label</span>
+      <span class="input-group-text tool-option-font tool-option-pre">{{ $t('keypointPanel.label') }}</span>
       <div class="form-control tool-option-input text-start">
         {{ keypointLabel }}
       </div>
     </div>
-    <PanelInputDropdown name="Visibility" v-model:value="visibility" :values="visibilityOptions" />
+    <PanelInputDropdown :name="$t('keypointPanel.visibility')" v-model:value="visibility" :values="visibilityOptions" />
   </div>
 </template>
 <script>

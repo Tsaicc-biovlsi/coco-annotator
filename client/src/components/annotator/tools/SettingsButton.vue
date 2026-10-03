@@ -1,7 +1,7 @@
 <template>
   <div>
     <i
-      v-tooltip.right="name"
+      v-tooltip.right="$tr('toolbar', name)"
       class="fa fa-x fa-cog"
       style="color: white"
       data-bs-toggle="modal"
@@ -21,7 +21,7 @@
       <div class="modal-dialog" role="document">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" id="settingsLabel">Image Settings</h5>
+            <h5 class="modal-title" id="settingsLabel">{{ $t('settingsButton.imageSettings') }}</h5>
             <button
               type="button"
               class="btn-close"
@@ -31,7 +31,7 @@
           </div>
           <div class="modal-body">
             <div class="mb-3 row">
-              <label class="col-sm-2 col-form-label">Simplify</label>
+              <label class="col-sm-2 col-form-label">{{ $t('settingsButton.simplify') }}</label>
               <div class="col-sm-9">
                 <input
                   v-model.number="$parent.simplify"
@@ -42,7 +42,7 @@
             </div>
 
             <div class="mb-3 row">
-              <label class="col-sm-2 col-form-label">Annotate API</label>
+              <label class="col-sm-2 col-form-label">{{ $t('settingsButton.annotateApi') }}</label>
               <div class="col-sm-9">
                 <input
                   type="string"
@@ -54,14 +54,14 @@
 
             <Metadata :metadata="metadata" ref="metadata" />
 
-            <p style="margin: 30px 0 0 0">Keyboard Shortcuts</p>
+            <p style="margin: 30px 0 0 0">{{ $t('settingsButton.keyboardShortcuts') }}</p>
 
             <div class="row">
               <div class="col-sm">
-                <p class="subtitle">Operation</p>
+                <p class="subtitle">{{ $t('settingsButton.operation') }}</p>
               </div>
               <div class="col-sm">
-                <p class="subtitle">Shortcut</p>
+                <p class="subtitle">{{ $t('settingsButton.shortcut') }}</p>
               </div>
             </div>
 
@@ -80,7 +80,7 @@
               class="btn btn-secondary"
               data-bs-dismiss="modal"
             >
-              Close
+              {{ $t('settingsButton.close') }}
             </button>
           </div>
         </div>

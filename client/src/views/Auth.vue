@@ -11,26 +11,22 @@
           <h1>COCO Annotator</h1>
           <hr />
           <div v-if="totalUsers === 0">
-            <h3>You have successfully installed COCO Annotator!</h3>
-            <p>Use the registeration form to create an admin account</p>
+            <h3>{{ $t('auth.youHaveSuccessfullyInstalledCoco') }}</h3>
+            <p>{{ $t('auth.useTheRegisterationFormTo') }}</p>
             <p>
-              If you have any questions please checkout the
-              <a href="https://github.com/jsbroks/coco-annotator/wiki">wiki</a>
-              before posting
-              <a href="https://github.com/jsbroks/coco-annotator/issues"
-                >issues</a
-              >.
+              <i18n-t keypath="auth.questions" tag="span">
+                <template #wiki><a href="https://github.com/jsbroks/coco-annotator/wiki">{{ $t('auth.wiki') }}</a></template>
+                <template #issues><a href="https://github.com/jsbroks/coco-annotator/issues">{{ $t('auth.issues') }}</a></template>
+              </i18n-t>
             </p>
           </div>
           <div v-else>
             <p>
-              COCO Annotator is a web-based image annotation tool designed for
-              versatility and efficiently label images to create training data
-              for image localization and object detection.
+              {{ $t('auth.description') }}
               <br /><br />
-              Login to create a datasets.
+              {{ $t('auth.loginToCreate') }}
               <br /><br />
-              Find out more
+              {{ $t('auth.findOutMore') }}
               <a href="https://github.com/jsbroks/coco-annotator">Github</a>
             </p>
           </div>
@@ -50,7 +46,7 @@
                 aria-selected="true"
                 @click="tab = 'login'"
               >
-                Login
+                {{ $t('auth.login') }}
               </a>
             </li>
             <li class="nav-item" v-show="showRegistrationForm">
@@ -66,7 +62,7 @@
                 @click="tab = 'register'"
                 ref="registerTab"
               >
-                Register
+                {{ $t('auth.register') }}
               </a>
             </li>
           </ul>
@@ -81,17 +77,17 @@
             >
               <form class="vld-parent" ref="loginForm">
                 <div class="mb-3">
-                  <label>Username</label>
+                  <label>{{ $t('auth.username') }}</label>
                   <input
                     v-model="loginForm.username"
                     type="text"
                     class="form-control"
                     required
                   />
-                  <div class="invalid-feedback">Invalid username format</div>
+                  <div class="invalid-feedback">{{ $t('auth.invalidUsernameFormat') }}</div>
                 </div>
                 <div class="mb-3">
-                  <label>Password</label>
+                  <label>{{ $t('auth.password') }}</label>
                   <input
                     v-model="loginForm.password"
                     type="password"
@@ -104,7 +100,7 @@
                   :class="{ disabled: !loginValid }"
                   @click.prevent="loginUser"
                 >
-                  Login
+                  {{ $t('auth.login') }}
                 </button>
               </form>
             </div>
@@ -115,12 +111,12 @@
               aria-labelledby="register-tab"
             >
               <div v-if="!showRegistrationForm">
-                You are not allowed to register new accounts
+                {{ $t('auth.youAreNotAllowedTo') }}
               </div>
               <form v-else class="vld-parent" ref="registerForm">
                 <div class="mb-3" novalidate="">
                   <label
-                    >Full Name <span class="text-mute">(Optional)</span></label
+                    >{{ $t('auth.fullName') }} <span class="text-mute">{{ $t('auth.optional') }}</span></label
                   >
                   <input
                     v-model="registerForm.name"
@@ -130,7 +126,7 @@
                 </div>
 
                 <div class="mb-3">
-                  <label>Username</label>
+                  <label>{{ $t('auth.username') }}</label>
                   <input
                     v-model="registerForm.username"
                     :class="inputUsernameClasses(registerForm.username)"
@@ -138,11 +134,11 @@
                     class="form-control"
                     required
                   />
-                  <div class="invalid-feedback">Invalid username format</div>
+                  <div class="invalid-feedback">{{ $t('auth.invalidUsernameFormat') }}</div>
                 </div>
 
                 <div class="mb-3">
-                  <label>Password</label>
+                  <label>{{ $t('auth.password') }}</label>
                   <input
                     v-model="registerForm.password"
                     :class="inputPasswordClasses(registerForm.password)"
@@ -151,12 +147,12 @@
                     required
                   />
                   <div class="invalid-feedback">
-                    Minimum length of 5 characters.
+                    {{ $t('auth.minimumLengthOf5Characters') }}
                   </div>
                 </div>
 
                 <div class="mb-3">
-                  <label>Confirm Password</label>
+                  <label>{{ $t('auth.confirmPassword') }}</label>
                   <input
                     v-model="registerForm.confirmPassword"
                     :class="{
@@ -174,7 +170,7 @@
                   :class="{ disabled: !registerValid }"
                   @click.prevent="registerUser"
                 >
-                  Register
+                  {{ $t('auth.register') }}
                 </button>
               </form>
             </div>

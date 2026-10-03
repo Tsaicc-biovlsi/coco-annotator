@@ -1,14 +1,14 @@
 <template>
   <div v-show="bbox.isActive">
-    <PanelButton name="Delete BBox" @click="bbox.deleteBbox" />
-    <PanelToggle name="Auto Select Color" v-model:value="bbox.color.auto" />
+    <PanelButton :name="$t('bBoxPanel.deleteBbox')" @click="bbox.deleteBbox" />
+    <PanelToggle :name="$t('bBoxPanel.autoSelectColor')" v-model:value="bbox.color.auto" />
     <PanelToggle
       v-show="bbox.color.auto"
-      name="Only Black or White"
+      :name="$t('bBoxPanel.onlyBlackOrWhite')"
       v-model:value="bbox.color.blackOrWhite"
     />
     <PanelInputString
-      name="Stroke Color"
+      :name="$t('bBoxPanel.strokeColor')"
       v-model:value="bbox.polygon.pathOptions.strokeColor"
     />
   </div>
