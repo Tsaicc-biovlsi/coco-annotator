@@ -35,6 +35,8 @@ draw a box with three clicks:
 
 Edit the selected box by dragging the round handle (rotate, **Shift** snaps),
 a corner (resize, the opposite corner stays fixed) or the inside (move).
+Arrow keys move it by 1 px (**Shift**: 10 px). Like a BBox, it can also be
+moved or resized with the **Select** tool (`S`); it stays a rectangle.
 The thicker edge shows the box's *heading* (first edge); *Swap Heading*
 rotates the corner order by 90° without moving the box. While this tool or
 SAM is active, clicking an existing shape does not select it (so you can

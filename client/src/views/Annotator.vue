@@ -669,6 +669,8 @@ export default {
       }
     },
     onKeypointsComplete() {
+      // also emitted while annotations load, before anything is selected
+      if (this.currentAnnotation == null) return;
       this.currentAnnotation.keypoint.next.label = -1;
       this.$refs.select.click();
     },

@@ -41,6 +41,8 @@ export default {
         annotationText: null
       },
       keypoint: null,
+      // dragging a rotated box: { mode: "move"|"resize", owner, ... }
+      rbboxDrag: null,
       hitOptions: {
         segments: true,
         stroke: true,
@@ -176,12 +178,80 @@ export default {
       let annotation = category.getAnnotation(annotationId);
       return annotation.annotation.isbbox;
     },
+    /** Annotation component of a rotated box under `item`, if any */
+    rotatedBoxAnnotation(item) {
+      if (!item || item.className !== "CompoundPath") return null;
+      let data = item.data || {};
+      if (data.annotationId == null || data.categoryId == null) return null;
+      let category = this.$parent.getCategory(data.categoryId);
+      if (!category) return null;
+      let annotation = category.getAnnotation(data.annotationId);
+      if (!annotation || !annotation.getRotatedBoxCorners()) return null;
+      return annotation;
+    },
+    /**
+     * Rotated boxes stay rectangles: dragging inside moves the box (like a
+     * BBox), dragging a corner resizes it keeping its angle with the
+     * opposite corner fixed. Edges never get extra points.
+     */
+    startRotatedBoxDrag(event, hitResult) {
+      let onOutline =
+        hitResult && (hitResult.type === "segment" || hitResult.type === "stroke");
+      let item = onOutline ? hitResult.item.parent : event.item;
+      let owner = this.rotatedBoxAnnotation(item);
+      if (!owner) return false;
+      if (event.modifiers.shift) return true; // no point removal on boxes
+
+      if (hitResult && hitResult.type === "segment") {
+        let corners = owner.getRotatedBoxCorners();
+        let i = hitResult.segment.index;
+        this.rbboxDrag = { mode: "resize", owner, corners, corner: i, anchor: corners[(i + 2) % 4] };
+      } else {
+        this.rbboxDrag = { mode: "move", owner, last: event.point };
+      }
+      return true;
+    },
+    dragRotatedBox(event) {
+      let d = this.rbboxDrag;
+      let path = d.owner.compoundPath && d.owner.compoundPath.children[0];
+      if (!path) return;
+      if (!d.undoSaved) {
+        d.owner.createUndoAction(d.mode === "move" ? "Move" : "Resize");
+        d.undoSaved = true;
+        path = d.owner.compoundPath.children[0];
+      }
+
+      if (d.mode === "move") {
+        let delta = event.point.subtract(d.last);
+        path.segments.forEach(seg => {
+          seg.point = seg.point.add(delta);
+        });
+        d.last = event.point;
+        return;
+      }
+
+      let [c0, c1, c2] = d.corners;
+      let u = c1.subtract(c0).normalize();
+      let v = c2.subtract(c1).normalize();
+      let diff = event.point.subtract(d.anchor);
+      let w = Math.abs(diff.dot(u));
+      let h = Math.abs(diff.dot(v));
+      if (w < 1 || h < 1) return;
+      let center = d.anchor.add(diff.divide(2));
+      let signs = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+      path.segments.forEach((seg, k) => {
+        seg.point = center
+          .add(u.multiply((signs[k][0] * w) / 2))
+          .add(v.multiply((signs[k][1] * h) / 2));
+      });
+    },
     onMouseDown(event) {
       let hitResult = this.$parent.paper.project.hitTest(
         event.point,
         this.hitOptions
       );
 
+      if (this.startRotatedBoxDrag(event, hitResult)) return;
       if (!hitResult) return;
 
       if (event.modifiers.shift) {
@@ -234,6 +304,10 @@ export default {
       this.point.indicator = true;
     },
     onMouseDrag(event) {
+      if (this.rbboxDrag) {
+        this.dragRotatedBox(event);
+        return;
+      }
       if (this.isBbox && this.moveObject) {
         let delta_x = this.initPoint.x - event.point.x;
         let delta_y = this.initPoint.y - event.point.y;
@@ -274,6 +348,10 @@ export default {
     },
 
     onMouseUp(event) {
+      if (this.rbboxDrag && this.rbboxDrag.undoSaved) {
+        this.rbboxDrag.owner.emitModify();
+      }
+      this.rbboxDrag = null;
       this.clear();
     },
 
