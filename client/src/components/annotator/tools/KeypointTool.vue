@@ -26,12 +26,27 @@ export default {
       return {};
     },
     onMouseDown(event) {
+      if (this.isDisabled) return;
       this.$parent.currentAnnotation.addKeypoint(event.point);
     }
   },
   computed: {
+    /** Keypoints belong to an object: its box must be drawn first */
+    hasBox() {
+      let annotation = this.$parent.currentAnnotation;
+      if (!annotation) return false;
+      return !!(annotation.annotation.isbbox || annotation.annotation.isrbbox);
+    },
     isDisabled() {
-      return this.$parent.current.annotation === -1;
+      if (this.$parent.current.annotation === -1) return true;
+      return !this.hasBox;
+    },
+    tooltip() {
+      if (this.$parent.current.annotation === -1) {
+        return "Keypoints (select an annotation to activate tool)";
+      }
+      if (!this.hasBox) return "Keypoints (draw a BBox for this annotation first)";
+      return "Keypoints Tool";
     }
   },
   watch: {},

@@ -121,7 +121,7 @@ export default {
           default: ["k"],
           name: "Keypoints Tool",
           function: () => {
-            if (!this.$refs.magicwand.isDisabled) this.activeTool = "Keypoints";
+            if (!this.$refs.keypoint.isDisabled) this.activeTool = "Keypoints";
           }
         },
         {
