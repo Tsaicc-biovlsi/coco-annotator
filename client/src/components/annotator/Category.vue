@@ -31,8 +31,8 @@
 
         <i
           class="fa fa-gear category-icon"
-          data-toggle="modal"
-          :data-target="'#categorySettings' + category.id"
+          data-bs-toggle="modal"
+          :data-bs-target="'#categorySettings' + category.id"
           style="float: right; color: white"
           aria-hidden="true"
         />
@@ -49,7 +49,7 @@
     <ul v-show="showAnnotations" ref="collapse" class="list-group">
       <li
         v-show="this.category.annotations.length > 0"
-        class="list-group-item btn btn-link btn-sm text-left"
+        class="list-group-item btn btn-link btn-sm text-start"
         :style="{ 'background-color': backgroundColor, color: 'white' }"
       >
         <input
@@ -97,16 +97,14 @@
             <h5 class="modal-title">{{ category.name }}</h5>
             <button
               type="button"
-              class="close"
-              data-dismiss="modal"
+              class="btn-close"
+              data-bs-dismiss="modal"
               aria-label="Close"
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
+            ></button>
           </div>
           <div class="modal-body">
             <form>
-              <div class="form-group">
+              <div class="mb-3">
                 <label>Supercategory</label>
                 <input
                   type="text"
@@ -116,14 +114,14 @@
                 />
               </div>
 
-              <div class="form-group row">
+              <div class="mb-3 row">
                 <label class="col-sm-2 col-form-label">Color</label>
                 <div class="col-sm-9">
-                  <input v-model="color" type="color" class="form-control" />
+                  <input v-model="color" type="color" class="form-control form-control-color w-100" />
                 </div>
               </div>
 
-              <div class="form-group">
+              <div class="mb-3">
                 <KeypointsDefinition ref="keypoints"
                   v-model:value="keypoint"
                   element-id="keypointLabels"
@@ -138,12 +136,12 @@
               @click="onUpdateClick"
               :disabled="!isFormValid"
               :class="{ disabled: !isFormValid }"
-              data-dismiss="modal"
+              data-bs-dismiss="modal"
             >Update</button>
             <button
               type="button"
               class="btn btn-secondary"
-              data-dismiss="modal"
+              data-bs-dismiss="modal"
             >
               Close
             </button>
@@ -155,14 +153,13 @@
 </template>
 
 <script>
+import { onModalHidden } from "@/libs/modal";
 import paper from "paper";
 
 import Annotations from "@/models/annotations";
 import Annotation from "@/components/annotator/Annotation.vue";
 import KeypointsDefinition from "@/components/KeypointsDefinition.vue";
-import JQuery from "jquery";
 
-let $ = JQuery;
 
 export default {
   name: "Category",
@@ -560,8 +557,7 @@ export default {
   },
   mounted() {
     this.initCategory();
-    $(this.$refs.category_settings).on(
-      "hidden.bs.modal", this.resetCategorySettings);
+    onModalHidden(this.$refs.category_settings, this.resetCategorySettings);
     this.isMounted = true;
   }
 };

@@ -1,12 +1,12 @@
 <template>
-  <div class="form-inline my-2 my-lg-0" style="margin-right: 10px">
+  <div class="d-flex align-items-center my-2 my-lg-0" style="margin-right: 10px">
     <div class="dropdown show">
       <a
-        class="btn-outline-light btn-sm dropdown-toggle"
+        class="btn btn-outline-light btn-sm dropdown-toggle"
         href="#"
         role="button"
         id="dropdownMenuLink"
-        data-toggle="dropdown"
+        data-bs-toggle="dropdown"
         aria-haspopup="true"
         aria-expanded="false"
       >
@@ -14,7 +14,7 @@
       </a>
 
       <ul
-        class="dropdown-menu dropdown-menu-right"
+        class="dropdown-menu dropdown-menu-end"
         aria-labelledby="dropdownMenuLink"
         role="menu"
       >

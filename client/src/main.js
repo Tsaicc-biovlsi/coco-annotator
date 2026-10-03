@@ -9,16 +9,13 @@ import { LoadingPlugin } from "vue-loading-overlay";
 import VLazyImage from "v-lazy-image";
 import socket from "./plugins/socket";
 
-import $ from "jquery";
 import "bootstrap";
 import "bootstrap/dist/css/bootstrap.min.css";
+import "./assets/bootstrap-compat.css";
 import "font-awesome/css/font-awesome.min.css";
 import "toastr/build/toastr.min.css";
 import "floating-vue/dist/style.css";
 import "vue-loading-overlay/dist/css/index.css";
-
-// Bootstrap 4 plugins (modals, dropdowns, tabs) are driven through jQuery
-window.$ = window.jQuery = $;
 
 // paper.js objects must never be wrapped in Vue reactive proxies: paper
 // compares items by identity internally and deep-observing them is slow.

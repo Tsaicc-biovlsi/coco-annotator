@@ -19,6 +19,7 @@ box tool.
 | Message broker | RabbitMQ 3.7 | RabbitMQ 4.1 |
 | AI assistance | DEXTR + Mask R-CNN (Keras 2.1 / TF 1.14) | **Segment Anything (PyTorch)** |
 | Image libs | OpenCV 4.0, imantics, Pillow 5 | OpenCV 4.x headless, NumPy 2, Shapely 2, Pillow 11 |
+| CSS framework | Bootstrap 4.1 + jQuery | **Bootstrap 5.3** (no jQuery) |
 
 ## New features
 
@@ -172,8 +173,19 @@ Backend tests run against an in-memory MongoDB and execute Celery tasks
 eagerly (`tests/conftest.py`), including an end-to-end API smoke test
 (`tests/test_smoke.py`).
 
-## Not changed (yet)
+## Bootstrap 5
 
-* **Bootstrap 4.6 + jQuery** are kept for the existing modals and dropdowns;
-  Bootstrap 4 is end-of-life and moving to Bootstrap 5 is the next step.
-* The REST API and the URL scheme (`/#/annotate/<id>`) are unchanged.
+The UI moved from Bootstrap 4 + jQuery to Bootstrap 5.3 without jQuery
+(modals use `src/libs/modal.js`). `src/assets/bootstrap-compat.css` keeps the
+previous look where Bootstrap 5 changed defaults (link underlines, grid rows,
+breadcrumb, container width). If you customised templates, rename
+`data-toggle/target/dismiss` to `data-bs-*` and update renamed classes
+(`ml-/mr-` → `ms-/me-`, `text-left/right` → `text-start/end`, `badge-*` →
+`text-bg-*`, `btn-block` → `w-100`, …).
+
+## Keypoints
+
+The Keypoints tool is enabled only when the selected annotation has a BBox or
+rotated box: draw the object's box first, then place its keypoints.
+
+The REST API and the URL scheme (`/#/annotate/<id>`) are unchanged.

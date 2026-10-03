@@ -23,7 +23,7 @@
           <i class="subtitle">No keypoints.</i>
         </li>
         <li v-for="(object, index) in keypoints" :key="index" class="list-group-item keypoint-item">
-          <div class="row form-group" style="cell">
+          <div class="row mb-3" style="cell">
             <!-- :class="{'was-validated': object.label_error.length === 0 }" -->
             <div class="col-sm-5" style="padding-right: 5px;">
               <input
@@ -39,8 +39,8 @@
             </div>
 
             <div class="col-sm-1 keypoint-color">
-              <!-- <input v-model="object.color" type="color" class="form-control" /> -->
-              <input :value="object.color" @input="colorUpdated(index, $event.target.value)" type="color" class="form-control" />
+              <!-- <input v-model="object.color" type="color" class="form-control form-control-color w-100" /> -->
+              <input :value="object.color" @input="colorUpdated(index, $event.target.value)" type="color" class="form-control form-control-color w-100" />
             </div>
 
             <div class="col-sm-6" style="padding-left: 5px;">

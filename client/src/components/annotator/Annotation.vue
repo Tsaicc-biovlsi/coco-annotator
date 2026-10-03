@@ -5,7 +5,7 @@
   >
     <li
       v-show="showSideMenu"
-      class="list-group-item btn btn-link btn-sm text-left"
+      class="list-group-item btn btn-link btn-sm text-start"
       :style="{ 'background-color': backgroundColor, color: 'white' }"
     >
       <div @click="isVisible = !isVisible">
@@ -22,7 +22,7 @@
       </div>
 
       <button
-          class="btn btn-sm btn-link collapsed text-left annotation-text"
+          class="btn btn-sm btn-link collapsed text-start annotation-text"
           :style="{
             float: 'left',
             width: '70%',
@@ -49,8 +49,8 @@
       <i
         class="fa fa-gear annotation-icon"
         style="float:right"
-        data-toggle="modal"
-        :data-target="'#annotationSettings' + annotation.id"
+        data-bs-toggle="modal"
+        :data-bs-target="'#annotationSettings' + annotation.id"
       />
       <i
         @click="deleteAnnotation"
@@ -63,7 +63,7 @@
         class="list-group keypoint-list">
       <li v-for="(kp, index) in keypointListView" :key="index"
           :style="{'background-color': kp.backgroundColor}"
-          class="list-group-item text-left keypoint-item">
+          class="list-group-item text-start keypoint-item">
         <div>
           <i class="fa fa-map-marker keypoint-icon"
               :style="{ color: kp.iconColor}"
@@ -84,8 +84,8 @@
           @click="onAnnotationKeypointSettingsClick(index)"
           class="fa fa-gear annotation-icon"
           style="float:right; color: lightgray;"
-          data-toggle="modal"
-          :data-target="'#keypointSettings' + annotation.id"
+          data-bs-toggle="modal"
+          :data-bs-target="'#keypointSettings' + annotation.id"
         />
         <i
           v-if="kp.visibility !== 0"
@@ -110,19 +110,17 @@
             </h5>
             <button
               type="button"
-              class="close"
-              data-dismiss="modal"
+              class="btn-close"
+              data-bs-dismiss="modal"
               aria-label="Close"
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
+            ></button>
           </div>
           <div class="modal-body">
             <form>
-              <div class="form-group row">
+              <div class="mb-3 row">
                 <label class="col-sm-3 col-form-label">Visibility</label>
                 <div class="col-sm-8">
-                  <select v-model="keypoint.visibility" class="form-control">
+                  <select v-model="keypoint.visibility" class="form-select">
                     <option v-for="(desc, label) in visibilityOptions" 
                       :key="label" :value="label" :selected="keypoint.visibility == label">{{desc}}</option>
                   </select>
@@ -134,7 +132,7 @@
             <button
               type="button"
               class="btn btn-secondary"
-              data-dismiss="modal"
+              data-bs-dismiss="modal"
             >
               Close
             </button>
@@ -158,31 +156,29 @@
             </h5>
             <button
               type="button"
-              class="close"
-              data-dismiss="modal"
+              class="btn-close"
+              data-bs-dismiss="modal"
               aria-label="Close"
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
+            ></button>
           </div>
           <div class="modal-body">
             <form>
-              <div class="form-group row">
+              <div class="mb-3 row">
                 <label class="col-sm-3 col-form-label">Color</label>
                 <div class="col-sm-8">
-                  <input v-model="color" type="color" class="form-control" />
+                  <input v-model="color" type="color" class="form-control form-control-color w-100" />
                 </div>
               </div>
-              <div class="form-group row">
+              <div class="mb-3 row">
                 <label class="col-sm-3 col-form-label">Name</label>
                 <div class="col-sm-8">
                   <input v-model="name" class="form-control" />
                 </div>
               </div>
-              <div class="form-group row">
+              <div class="mb-3 row">
                 <label class="col-sm-3 col-form-label">Category</label>
                 <div class="col-sm-8">
-                  <select class="form-control" @change="setCategory">
+                  <select class="form-select" @change="setCategory">
                     <option
                       v-for="option in allCategories"
                       :selected="annotation.category_id === option.value"
@@ -205,14 +201,14 @@
               @click="deleteAnnotation"
               type="button"
               class="btn btn-danger"
-              data-dismiss="modal"
+              data-bs-dismiss="modal"
             >
               Delete
             </button>
             <button
               type="button"
               class="btn btn-secondary"
-              data-dismiss="modal"
+              data-bs-dismiss="modal"
             >
               Close
             </button>
@@ -224,10 +220,10 @@
 </template>
 
 <script>
+import { hideModal, onModalHidden, showModal } from "@/libs/modal";
 import paper from "paper";
 import axios from "axios";
 import simplifyjs from "simplify-js";
-import JQuery from "jquery";
 
 import { Keypoint, Keypoints, VisibilityOptions } from "@/libs/keypoints";
 import { mapMutations } from "vuex";
@@ -235,7 +231,6 @@ import UndoAction from "@/undo";
 
 import Metadata from "@/components/Metadata.vue";
 
-let $ = JQuery;
 
 const CLICK_THROUGH_TOOLS = ["Rotated BBox", "SAM"];
 
@@ -379,7 +374,7 @@ export default {
       this.compoundPath = new paper.CompoundPath();
       this.compoundPath.onDoubleClick = () => {
         if (this.activeTool !== "Select") return;
-        $(`#annotationSettings${this.annotation.id}`).modal("show");
+        showModal(`#annotationSettings${this.annotation.id}`);
       };
       this.keypoints = new Keypoints(this.keypointEdges, this.keypointLabels,
         this.keypointColors, {
@@ -622,7 +617,7 @@ export default {
           this.keypoint.tag = indexLabel == -1 ? [] : [indexLabel.toString()];
           this.keypoint.visibility = this.currentKeypoint.visibility;
 
-          $(id).modal("show");
+          showModal(id);
         },
         onMouseDrag: event => {
           let keypoint = event.target.keypoint;
@@ -767,7 +762,7 @@ export default {
         oldCategory,
         newCategoryName
       );
-      $(`#annotationSettings${annotation.id}`).modal("hide");
+      hideModal(`#annotationSettings${annotation.id}`);
     },
     export() {
       if (this.compoundPath == null) this.createCompoundPath();
@@ -1047,7 +1042,7 @@ export default {
   },
   mounted() {
     this.initAnnotation();
-    $(`#keypointSettings${this.annotation.id}`).on("hidden.bs.modal", () => {
+    onModalHidden(`#keypointSettings${this.annotation.id}`, () => {
       this.currentKeypoint = null;
     });
   }

@@ -20,8 +20,8 @@
             <button
               type="button"
               class="btn btn-success"
-              data-toggle="modal"
-              data-target="#createUser"
+              data-bs-toggle="modal"
+              data-bs-target="#createUser"
             >
               Create User
             </button>
@@ -32,13 +32,13 @@
         </div>
 
         <div class="row justify-content-md-center" style="padding-bottom: 10px">
-          <div class="col-md-2 text-right">
+          <div class="col-md-2 text-end">
             <span>Limit</span>
           </div>
           <div class="col-md-2">
             <select
               v-model="limit"
-              class="form-control form-control-sm text-inline"
+              class="form-select form-select-sm text-inline"
             >
               <option>50</option>
               <option>100</option>
@@ -91,17 +91,15 @@
             <h5 class="modal-title">Create a User</h5>
             <button
               type="button"
-              class="close"
-              data-dismiss="modal"
+              class="btn-close"
+              data-bs-dismiss="modal"
               aria-label="Close"
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
+            ></button>
           </div>
           <div class="modal-body">
             <form>
               <div
-                class="form-group"
+                class="mb-3"
                 :class="{ 'was-validated': create.username.length !== 0 }"
               >
                 <label>Username</label>
@@ -113,7 +111,7 @@
                 />
               </div>
               <div
-                class="form-group"
+                class="mb-3"
                 :class="{ 'was-validated': create.password.length !== 0 }"
               >
                 <label>Password</label>
@@ -125,7 +123,7 @@
                 />
               </div>
               <div
-                class="form-group"
+                class="mb-3"
                 :class="{ 'was-validated': create.name.length !== 0 }"
               >
                 <label>Name</label>
@@ -136,13 +134,14 @@
                   required
                 />
               </div>
-              <div class="form-check">
+              <div class="form-check d-inline-flex align-items-center gap-2 ps-0">
                 <input
                   v-model="create.isAdmin"
                   type="checkbox"
-                  class="form-check-input"
+                  class="form-check-input m-0"
+                  id="createUserAdmin"
                 />
-                <label class="form-check-label">Admin</label>
+                <label class="form-check-label mb-0" for="createUserAdmin">Admin</label>
               </div>
             </form>
           </div>
@@ -153,7 +152,7 @@
             <button
               type="button"
               class="btn btn-secondary"
-              data-dismiss="modal"
+              data-bs-dismiss="modal"
             >
               Close
             </button>

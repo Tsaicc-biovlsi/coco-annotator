@@ -4,7 +4,7 @@
       <li class="page-item" @click="previousPage">
         <a class="page-link" aria-label="Previous">
           <span aria-hidden="true">&laquo;</span>
-          <span class="sr-only">Previous</span>
+          <span class="visually-hidden">Previous</span>
         </a>
       </li>
       <li
@@ -22,7 +22,7 @@
       >
         <a class="page-link" aria-label="Next">
           <span aria-hidden="true">&raquo;</span>
-          <span class="sr-only">Next</span>
+          <span class="visually-hidden">Next</span>
         </a>
       </li>
     </ul>

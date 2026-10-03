@@ -6,7 +6,7 @@
       style="overflow: auto; height: calc(100vh - 55px)"
     >
       <div class="row">
-        <div class="col-sm text-left">
+        <div class="col-sm text-start">
           <!-- Change this section to whatever you would like -->
           <h1>COCO Annotator</h1>
           <hr />
@@ -43,7 +43,7 @@
                 class="nav-link"
                 :class="{ active: tab === 'login' }"
                 id="home-tab"
-                data-toggle="tab"
+                data-bs-toggle="tab"
                 href="#login"
                 role="tab"
                 aria-controls="home"
@@ -58,7 +58,7 @@
                 class="nav-link"
                 :class="{ active: tab === 'register' }"
                 id="contact-tab"
-                data-toggle="tab"
+                data-bs-toggle="tab"
                 href="#register"
                 role="tab"
                 aria-controls="contact"
@@ -71,7 +71,7 @@
             </li>
           </ul>
           <div
-            class="tab-content panel border-bottom border-right border-left text-left"
+            class="tab-content panel border-bottom border-end border-start text-start"
           >
             <div
               class="tab-pane fade show active"
@@ -80,7 +80,7 @@
               aria-labelledby="login-tab"
             >
               <form class="vld-parent" ref="loginForm">
-                <div class="form-group">
+                <div class="mb-3">
                   <label>Username</label>
                   <input
                     v-model="loginForm.username"
@@ -90,7 +90,7 @@
                   />
                   <div class="invalid-feedback">Invalid username format</div>
                 </div>
-                <div class="form-group">
+                <div class="mb-3">
                   <label>Password</label>
                   <input
                     v-model="loginForm.password"
@@ -100,7 +100,7 @@
                 </div>
                 <button
                   type="submit"
-                  class="btn btn-primary btn-block"
+                  class="btn btn-primary w-100"
                   :class="{ disabled: !loginValid }"
                   @click.prevent="loginUser"
                 >
@@ -118,7 +118,7 @@
                 You are not allowed to register new accounts
               </div>
               <form v-else class="vld-parent" ref="registerForm">
-                <div class="form-group" novalidate="">
+                <div class="mb-3" novalidate="">
                   <label
                     >Full Name <span class="text-mute">(Optional)</span></label
                   >
@@ -129,7 +129,7 @@
                   />
                 </div>
 
-                <div class="form-group">
+                <div class="mb-3">
                   <label>Username</label>
                   <input
                     v-model="registerForm.username"
@@ -141,7 +141,7 @@
                   <div class="invalid-feedback">Invalid username format</div>
                 </div>
 
-                <div class="form-group">
+                <div class="mb-3">
                   <label>Password</label>
                   <input
                     v-model="registerForm.password"
@@ -155,7 +155,7 @@
                   </div>
                 </div>
 
-                <div class="form-group">
+                <div class="mb-3">
                   <label>Confirm Password</label>
                   <input
                     v-model="registerForm.confirmPassword"
@@ -170,7 +170,7 @@
                 </div>
                 <button
                   type="submit"
-                  class="btn btn-primary btn-block"
+                  class="btn btn-primary w-100"
                   :class="{ disabled: !registerValid }"
                   @click.prevent="registerUser"
                 >

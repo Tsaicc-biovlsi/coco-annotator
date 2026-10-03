@@ -13,7 +13,7 @@
           <h4>Change Password</h4>
           <br />
           <form>
-            <div class="form-group">
+            <div class="mb-3">
               <label>Current Password</label>
               <input
                 v-model="changePassword.password"
@@ -22,7 +22,7 @@
                 required
               />
             </div>
-            <div class="form-group">
+            <div class="mb-3">
               <label>New Password</label>
               <input
                 v-model="changePassword.new_password"
@@ -35,7 +35,7 @@
                 Minimum length of 5 characters.
               </div>
             </div>
-            <div class="form-group">
+            <div class="mb-3">
               <label>Confirm Password</label>
               <input
                 v-model="changePassword.confirm_password"
@@ -51,7 +51,7 @@
             </div>
             <button
               type="submit"
-              class="btn btn-primary btn-block"
+              class="btn btn-primary w-100"
               @click.prevent="changeUserPassword"
             >
               Submit

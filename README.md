@@ -136,7 +136,7 @@ Thanks to all these wonderful libaries/frameworks:
 - [Vue](https://vuejs.org/) 3 + [Vite](https://vite.dev/) - JavaScript framework and build tool
 - [Axios](https://github.com/axios/axios) - Promise based HTTP client
 - [PaperJS](http://paperjs.org/) - HTML canvas vector graphics library
-- [Bootstrap](https://getbootstrap.com/) 4 - Frontend component library
+- [Bootstrap](https://getbootstrap.com/) 5 - Frontend component library
 
 # License
 

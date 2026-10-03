@@ -1,8 +1,6 @@
 <template>
   <div class="input-group tool-input-group">
-    <div class="input-group-prepend tool-option-pre">
-      <span class="input-group-text tool-option-font">{{ name }}</span>
-    </div>
+    <span class="input-group-text tool-option-font tool-option-pre">{{ name }}</span>
     <input
       v-model="localValue"
       class="form-control tool-option-input"

@@ -10,8 +10,8 @@
           Categories
           <i
             class="fa fa-question-circle help-icon"
-            data-toggle="modal"
-            data-target="#helpCategories"
+            data-bs-toggle="modal"
+            data-bs-target="#helpCategories"
             aria-hidden="true"
           />
         </h2>
@@ -29,8 +29,8 @@
             <button
               type="button"
               class="btn btn-success"
-              data-toggle="modal"
-              data-target="#createCategories"
+              data-bs-toggle="modal"
+              data-bs-target="#createCategories"
             >
               Create
             </button>
@@ -66,16 +66,14 @@
             <h5 class="modal-title">Creating a Category</h5>
             <button
               type="button"
-              class="close"
-              data-dismiss="modal"
+              class="btn-close"
+              data-bs-dismiss="modal"
               aria-label="Close"
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
+            ></button>
           </div>
           <div class="modal-body">
             <form>
-              <div class="form-group">
+              <div class="mb-3">
                 <label>Name:</label>
                 <input
                   v-model="newCategoryName"
@@ -86,7 +84,7 @@
                 />
               </div>
 
-              <div class="form-group">
+              <div class="mb-3">
                 <label>Supercategory:</label>
                 <input
                   v-model="newCategorySupercategory"
@@ -95,14 +93,14 @@
                 />
               </div>
 
-              <div class="form-group row">
+              <div class="mb-3 row">
                 <label class="col-sm-2 col-form-label">Color:</label>
                 <div class="col-sm-9">
-                  <input v-model="newCategoryColor" type="color" class="form-control" />
+                  <input v-model="newCategoryColor" type="color" class="form-control form-control-color w-100" />
                 </div>
               </div>
 
-              <div class="form-group">
+              <div class="mb-3">
                 <KeypointsDefinition ref="keypoints"
                   v-model:value="newCategoryKeypoint"
                   element-id="keypoints"
@@ -124,7 +122,7 @@
             <button
               type="button"
               class="btn btn-secondary"
-              data-dismiss="modal"
+              data-bs-dismiss="modal"
             >
               Close
             </button>
@@ -140,12 +138,10 @@
             <h5 class="modal-title">Categories</h5>
             <button
               type="button"
-              class="close"
-              data-dismiss="modal"
+              class="btn-close"
+              data-bs-dismiss="modal"
               aria-label="Close"
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
+            ></button>
           </div>
           <div class="modal-body">
             More information can be found in the
@@ -164,7 +160,7 @@
             <button
               type="button"
               class="btn btn-secondary"
-              data-dismiss="modal"
+              data-bs-dismiss="modal"
             >
               Close
             </button>

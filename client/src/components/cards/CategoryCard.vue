@@ -10,7 +10,7 @@
         <i
           class="card-text fa fa-ellipsis-v fa-x icon-more"
           :id="'dropdownCategory' + category.id"
-          data-toggle="dropdown"
+          data-bs-toggle="dropdown"
           aria-haspopup="true"
           aria-expanded="false"
           aria-hidden="true"
@@ -33,8 +33,8 @@
           >-->
           <button
             class="dropdown-item"
-            data-toggle="modal"
-            :data-target="'#categoryEdit' + category.id"
+            data-bs-toggle="modal"
+            :data-bs-target="'#categoryEdit' + category.id"
           >Edit</button>
         </div>
       </div>
@@ -51,13 +51,11 @@
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">Category: {{ category.name }}</h5>
-            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-              <span aria-hidden="true">&times;</span>
-            </button>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
             <form>
-              <div class="form-group">
+              <div class="mb-3">
                 <label>Name</label>
                 <input
                   type="text"
@@ -69,7 +67,7 @@
                 />
               </div>
 
-              <div class="form-group">
+              <div class="mb-3">
                 <label>Supercategory</label>
                 <input
                   type="text"
@@ -79,14 +77,14 @@
                 />
               </div>
 
-              <div class="form-group row">
+              <div class="mb-3 row">
                 <label class="col-sm-2 col-form-label">Color</label>
                 <div class="col-sm-9">
-                  <input v-model="color" type="color" class="form-control" />
+                  <input v-model="color" type="color" class="form-control form-control-color w-100" />
                 </div>
               </div>
 
-              <div class="form-group">
+              <div class="mb-3">
                 <KeypointsDefinition
                   ref="keypoints"
                   v-model:value="keypoint"
@@ -103,9 +101,9 @@
               @click="onUpdateClick"
               :disabled="!isFormValid"
               :class="{ disabled: !isFormValid }"
-              data-dismiss="modal"
+              data-bs-dismiss="modal"
             >Update</button>
-            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
           </div>
         </div>
       </div>
@@ -114,13 +112,12 @@
 </template>
 
 <script>
+import { onModalHidden } from "@/libs/modal";
 import axios from "axios";
 import toastrs from "@/mixins/toastrs";
 // import TagsInput from "@/components/TagsInput.vue";
 import KeypointsDefinition from "@/components/KeypointsDefinition.vue";
-import JQuery from "jquery";
 
-let $ = JQuery;
 
 export default {
   name: "CategoryCard",
@@ -214,8 +211,7 @@ export default {
     }
   },
   mounted() {
-    $(this.$refs.category_settings).on(
-      "hidden.bs.modal", this.resetCategorySettings);
+    onModalHidden(this.$refs.category_settings, this.resetCategorySettings);
     this.isMounted = true;
   }
 };

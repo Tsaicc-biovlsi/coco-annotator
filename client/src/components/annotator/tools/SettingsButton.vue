@@ -4,8 +4,8 @@
       v-tooltip.right="name"
       class="fa fa-x fa-cog"
       style="color: white"
-      data-toggle="modal"
-      data-target="#settings"
+      data-bs-toggle="modal"
+      data-bs-target="#settings"
     ></i>
 
     <br />
@@ -24,15 +24,13 @@
             <h5 class="modal-title" id="settingsLabel">Image Settings</h5>
             <button
               type="button"
-              class="close"
-              data-dismiss="modal"
+              class="btn-close"
+              data-bs-dismiss="modal"
               aria-label="Close"
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
+            ></button>
           </div>
           <div class="modal-body">
-            <div class="form-group row">
+            <div class="mb-3 row">
               <label class="col-sm-2 col-form-label">Simplify</label>
               <div class="col-sm-9">
                 <input
@@ -43,7 +41,7 @@
               </div>
             </div>
 
-            <div class="form-group row">
+            <div class="mb-3 row">
               <label class="col-sm-2 col-form-label">Annotate API</label>
               <div class="col-sm-9">
                 <input
@@ -80,7 +78,7 @@
             <button
               type="button"
               class="btn btn-secondary"
-              data-dismiss="modal"
+              data-bs-dismiss="modal"
             >
               Close
             </button>

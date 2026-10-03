@@ -23,7 +23,7 @@
         <i
           class="card-text fa fa-ellipsis-v fa-x icon-more"
           :id="'dropdownDataset' + dataset.id"
-          data-toggle="dropdown"
+          data-bs-toggle="dropdown"
           aria-haspopup="true"
           aria-expanded="false"
           aria-hidden="true"
@@ -48,8 +48,8 @@
           <span
             v-for="(category, index) in listCategories"
             :key="index"
-            class="badge badge-pill badge-primary category-badge"
-            :style="{ 'background-color': category.color }"
+            class="badge rounded-pill text-white category-badge"
+            :style="{ 'background-color': category.color || 'var(--bs-primary)' }"
           >
             {{ category.name }}
           </span>
@@ -61,16 +61,16 @@
         >
           <button
             class="dropdown-item"
-            data-toggle="modal"
-            :data-target="'#datasetEdit' + dataset.id"
+            data-bs-toggle="modal"
+            :data-bs-target="'#datasetEdit' + dataset.id"
           >
             Edit
           </button>
           <button
             v-if="dataset.permissions.owner"
             class="dropdown-item"
-            data-toggle="modal"
-            :data-target="'#datasetShare' + dataset.id"
+            data-bs-toggle="modal"
+            :data-bs-target="'#datasetShare' + dataset.id"
           >
             Share
           </button>
@@ -108,16 +108,14 @@
             <h5 class="modal-title">{{ dataset.name }}</h5>
             <button
               type="button"
-              class="close"
-              data-dismiss="modal"
+              class="btn-close"
+              data-bs-dismiss="modal"
               aria-label="Close"
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
+            ></button>
           </div>
           <div class="modal-body">
             <form>
-              <div class="form-group">
+              <div class="mb-3">
                 <label>Default Categories</label>
                 <TagsInput
                   v-model:value="selectedCategories"
@@ -142,14 +140,14 @@
               type="button"
               class="btn btn-success"
               @click="onSave"
-              data-dismiss="modal"
+              data-bs-dismiss="modal"
             >
               Save
             </button>
             <button
               type="button"
               class="btn btn-secondary"
-              data-dismiss="modal"
+              data-bs-dismiss="modal"
             >
               Close
             </button>
@@ -166,16 +164,14 @@
             <h5 class="modal-title">{{ dataset.name }}</h5>
             <button
               type="button"
-              class="close"
-              data-dismiss="modal"
+              class="btn-close"
+              data-bs-dismiss="modal"
               aria-label="Close"
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
+            ></button>
           </div>
           <div class="modal-body">
             <form>
-              <div class="form-group">
+              <div class="mb-3">
                 <label>Users shared with</label>
                 <TagsInput
                   v-model:value="sharedUsers"
@@ -193,14 +189,14 @@
               type="button"
               class="btn btn-success"
               @click="onShare"
-              data-dismiss="modal"
+              data-bs-dismiss="modal"
             >
               Save
             </button>
             <button
               type="button"
               class="btn btn-secondary"
-              data-dismiss="modal"
+              data-bs-dismiss="modal"
             >
               Close
             </button>

@@ -4,7 +4,7 @@
       {{ shortcut.title }}
     </div>
     <div class="row" style="cell">
-      <div class="col-sm text-left">
+      <div class="col-sm text-start">
         {{ shortcut.name }}
         <p v-show="readonly" class="mute">(readonly)</p>
       </div>

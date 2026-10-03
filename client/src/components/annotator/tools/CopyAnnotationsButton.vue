@@ -4,8 +4,8 @@
       v-tooltip.right="name"
       class="fa fa-x fa-clone"
       style="color: white"
-      data-toggle="modal"
-      data-target="#copyAnnotations"
+      data-bs-toggle="modal"
+      data-bs-target="#copyAnnotations"
     ></i>
     <br />
     <!-- Modal -->
@@ -26,12 +26,10 @@
             </h5>
             <button
               type="button"
-              class="close"
-              data-dismiss="modal"
+              class="btn-close"
+              data-bs-dismiss="modal"
               aria-label="Close"
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
+            ></button>
           </div>
           <div class="modal-body">
             <form novalidate="true">
@@ -52,7 +50,7 @@
                 Next Image <i class="fa fa-arrow-right"></i>
               </button>
 
-              <div class="form-group">
+              <div class="mb-3">
                 <label>Image ID</label>
                 <input
                   v-model="fromId"
@@ -66,7 +64,7 @@
                 <div class="invalid-feedback">{{ validImageId }}</div>
               </div>
 
-              <div class="form-group">
+              <div class="mb-3">
                 <label>Copy Only Selected Categories</label>
                 <TagsInput
                   v-model:value="selectedCategories"
@@ -98,14 +96,13 @@
 </template>
 
 <script>
+import { hideModal } from "@/libs/modal";
 import axios from "axios";
-import JQuery from "jquery";
 
 import { mapMutations } from "vuex";
 import toastrs from "@/mixins/toastrs";
 import TagsInput from "@/components/TagsInput.vue";
 
-let $ = JQuery;
 
 export default {
   name: "CopyAnnotationsButton",
@@ -140,7 +137,7 @@ export default {
   methods: {
     ...mapMutations(["addProcess", "removeProcess", "resetUndo"]),
     close() {
-      $("#copyAnnotations").modal("hide");
+      hideModal("#copyAnnotations");
     },
     copyAnnotations() {
       if (this.validImageId !== "") return;

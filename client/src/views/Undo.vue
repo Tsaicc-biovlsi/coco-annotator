@@ -30,24 +30,24 @@
         </div>
 
         <div class="row justify-content-md-center" style="padding-bottom: 10px">
-          <div class="col-md-2 text-right">
+          <div class="col-md-2 text-end">
             <span>Instance Type</span>
           </div>
           <div class="col-md-2">
-            <select v-model="type" class="form-control form-control-sm">
+            <select v-model="type" class="form-select form-select-sm">
               <option value="all">All</option>
               <option value="annotation">Annotations</option>
               <option value="category">Categories</option>
               <option value="dataset">Datasets</option>
             </select>
           </div>
-          <div class="col-md-2 text-right">
+          <div class="col-md-2 text-end">
             <span>Limit</span>
           </div>
           <div class="col-md-2">
             <select
               v-model="limit"
-              class="form-control form-control-sm text-inline"
+              class="form-select form-select-sm text-inline"
             >
               <option>50</option>
               <option>100</option>

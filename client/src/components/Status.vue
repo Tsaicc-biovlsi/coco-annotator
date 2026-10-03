@@ -1,7 +1,7 @@
 <template>
-  <div class="form-inline my-2 my-lg-0" style="margin-right: 10px">
+  <div class="d-flex align-items-center my-2 my-lg-0" style="margin-right: 10px">
     <div
-      class="my-sm-0 btn-sm disabled"
+      class="btn my-sm-0 btn-sm status-button"
       :class="buttonType"
       style="border: none"
     >
@@ -71,6 +71,11 @@ export default {
 </script>
 
 <style scoped>
+.status-button {
+  cursor: default;
+  pointer-events: none;
+}
+
 .status-icon {
   margin: 3px 5px 0 0;
   float: left;

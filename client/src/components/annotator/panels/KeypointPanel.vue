@@ -2,10 +2,8 @@
   <div v-show="keypoint.isActive">
     <PanelText name="Settings for next Keypoint" />
     <div class="input-group tool-input-group">
-      <div class="input-group-prepend tool-option-pre">
-        <span class="input-group-text tool-option-font">Label</span>
-      </div>
-      <div class="form-control tool-option-input text-left">
+      <span class="input-group-text tool-option-font tool-option-pre">Label</span>
+      <div class="form-control tool-option-input text-start">
         {{ keypointLabel }}
       </div>
     </div>

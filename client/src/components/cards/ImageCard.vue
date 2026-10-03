@@ -34,7 +34,7 @@
           <i
             class="card-text fa fa-ellipsis-v fa-x icon-more"
             :id="'dropdownImage' + image.id"
-            data-toggle="dropdown"
+            data-bs-toggle="dropdown"
             aria-haspopup="true"
             aria-expanded="false"
             aria-hidden="true"
@@ -77,8 +77,8 @@
           <!--<span
             v-for="(category, index) in image.categories"
             :key="index"
-            class="badge badge-pill badge-primary category-badge"
-            :style="{ 'background-color': category.color }"
+            class="badge rounded-pill text-white category-badge"
+            :style="{ 'background-color': category.color || 'var(--bs-primary)' }"
           >
             {{ category.name }}
           </span>-->

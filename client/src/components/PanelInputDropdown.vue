@@ -1,9 +1,7 @@
 <template>
   <div class="input-group tool-input-group">
-    <div class="input-group-prepend tool-option-pre">
-      <span class="input-group-text tool-option-font">{{ name }}</span>
-    </div>
-    <select v-model="localValue" class="form-control tool-option-input">
+    <span class="input-group-text tool-option-font tool-option-pre">{{ name }}</span>
+    <select v-model="localValue" class="form-select tool-option-input">
       <option :key="option.key" v-for="option in options" :value="option.key" :selected="option.selected">{{ option.value }}</option>
     </select>
   </div>

@@ -11,8 +11,8 @@
           Datasets
           <i
             class="fa fa-question-circle help-icon"
-            data-toggle="modal"
-            data-target="#helpDataset"
+            data-bs-toggle="modal"
+            data-bs-target="#helpDataset"
             aria-hidden="true"
           />
         </h2>
@@ -30,8 +30,8 @@
             <button
               type="button"
               class="btn btn-success"
-              data-toggle="modal"
-              data-target="#createDataset"
+              data-bs-toggle="modal"
+              data-bs-target="#createDataset"
             >
               Create
             </button>
@@ -71,17 +71,15 @@
             <h5 class="modal-title">Creating a Dataset</h5>
             <button
               type="button"
-              class="close"
-              data-dismiss="modal"
+              class="btn-close"
+              data-bs-dismiss="modal"
               aria-label="Close"
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
+            ></button>
           </div>
           <div class="modal-body">
             <form>
               <div
-                class="form-group"
+                class="mb-3"
                 :class="{ 'was-validated': validDatasetName.length !== 0 }"
               >
                 <label>Dataset Name</label>
@@ -96,7 +94,7 @@
                 </div>
               </div>
 
-              <div class="form-group">
+              <div class="mb-3">
                 <label>Default Categories</label>
                 <TagsInput
                   v-model:value="create.categories"
@@ -107,7 +105,7 @@
                 ></TagsInput>
               </div>
 
-              <div class="form-group" required>
+              <div class="mb-3" required>
                 <label>Folder Directory</label>
                 <input class="form-control" disabled :value="directory" />
               </div>
@@ -124,7 +122,7 @@
             <button
               type="button"
               class="btn btn-secondary"
-              data-dismiss="modal"
+              data-bs-dismiss="modal"
             >
               Close
             </button>
@@ -140,12 +138,10 @@
             <h5 class="modal-title">Datasets</h5>
             <button
               type="button"
-              class="close"
-              data-dismiss="modal"
+              class="btn-close"
+              data-bs-dismiss="modal"
               aria-label="Close"
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
+            ></button>
           </div>
 
           <div class="modal-body">
@@ -170,7 +166,7 @@
             <button
               type="button"
               class="btn btn-secondary"
-              data-dismiss="modal"
+              data-bs-dismiss="modal"
             >
               Close
             </button>

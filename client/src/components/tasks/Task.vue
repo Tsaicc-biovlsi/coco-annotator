@@ -1,6 +1,6 @@
 <template>
   <div
-    class="card text-left"
+    class="card text-start"
     :id="'task-' + this.task.id"
     :style="{ 'background-color': highlight ? 'lightgreen' : 'white'}"
   >
@@ -13,11 +13,11 @@
       
       <div style="float: right">
        
-        <span v-show="errors > 0" class="badge badge-danger" @click.stop="onlyErrors = !onlyErrors">
+        <span v-show="errors > 0" class="badge text-bg-danger" @click.stop="onlyErrors = !onlyErrors">
           {{ errors }} error<span v-show="errors > 1">s</span>
         </span>
         
-        <span v-show="warnings > 0" class="badge badge-warning" @click.stop="onlyWarnings = !onlyWarnings">
+        <span v-show="warnings > 0" class="badge text-bg-warning" @click.stop="onlyWarnings = !onlyWarnings">
           {{ warnings }} warning<span v-show="warnings > 1">s</span>
         </span>
 
@@ -33,7 +33,7 @@
           :style="{ 'color': textColor(line) }"
         >{{ line }}</p>
       </div>
-      <button v-show="completed" class="btn btn-danger btn-block btn-sm delete" @click="deleteTask">
+      <button v-show="completed" class="btn btn-danger w-100 btn-sm delete" @click="deleteTask">
         Delete
       </button>
     </div>

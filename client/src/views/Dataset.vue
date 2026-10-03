@@ -24,7 +24,7 @@
         </a>
       </nav>
     
-      <div class="bg-light text-left" style="overflow: auto; height: calc(100vh - 100px); margin: 10px">
+      <div class="bg-light text-start" style="overflow: auto; height: calc(100vh - 100px); margin: 10px">
         <div class="container" v-show="tab == 'images'">
           
           <ol class="breadcrumb">
@@ -62,17 +62,17 @@
 
         </div>
         <div class="container" v-show="tab == 'exports'">
-          <div class="card my-3 p-3 shadow-sm mr-2">
+          <div class="card my-3 p-3 shadow-sm me-2">
             <h6 class="border-bottom border-gray pb-2"><b>Exports</b></h6>
             
-            <div class="media text-muted pt-3" v-for="exp in datasetExports" :key="exp.id">
-              <div class="media-body lh-125 border-bottom border-gray">
+            <div class="d-flex align-items-start text-muted pt-3" v-for="exp in datasetExports" :key="exp.id">
+              <div class="flex-grow-1 lh-125 border-bottom border-gray">
                   {{exp.id}}. Exported {{ exp.ago.length > 0 ? exp.ago : 0 + " seconds" }} ago
                   <div style="display: inline">
                     <span
                       v-for="tag in exp.tags"
                       :key="tag"
-                      class="badge badge-secondary"
+                      class="badge text-bg-secondary"
                       style="margin: 1px"
                     >
                       {{tag}}
@@ -92,17 +92,17 @@
 
         <div class="container" v-show="tab == 'members'">
 
-          <div class="card my-3 p-3 shadow-sm mr-2">
+          <div class="card my-3 p-3 shadow-sm me-2">
             <h6 class="border-bottom border-gray pb-2"><b>Invite Members</b></h6>
             
           </div>
           
-          <div class="card my-3 p-3 shadow-sm mr-2">
+          <div class="card my-3 p-3 shadow-sm me-2">
             <h6 class="border-bottom border-gray pb-2"><b>Existing Members</b></h6>
             
-            <div class="media text-muted pt-3" v-for="user in users" :key="user.username">
-              <img src="https://d1nhio0ox7pgb.cloudfront.net/_img/o_collection_png/green_dark_grey/256x256/plain/user.png" class="mr-2 rounded" style="width: 32px; height: 32px;">
-              <div class="media-body pb-3 mb-0 small lh-125 border-bottom border-gray">
+            <div class="d-flex align-items-start text-muted pt-3" v-for="user in users" :key="user.username">
+              <img :src="userAvatar" class="me-2 rounded" style="width: 32px; height: 32px;">
+              <div class="flex-grow-1 pb-3 mb-0 small lh-125 border-bottom border-gray">
                 <div class="d-flex justify-content-between align-items-center w-100">
                   <div class="text-gray-dark">
                     <strong>{{ user.name }}</strong> @{{user.username}}
@@ -123,7 +123,7 @@
           <div v-else>
             <div class="row">
               
-              <div v-if="stats.total" class="card my-3 p-3 shadow-sm col-3 mr-2">
+              <div v-if="stats.total" class="card my-3 p-3 shadow-sm col-3 me-2">
                 <h6 class="border-bottom border-gray pb-2"><b>Total</b></h6>
                 <div class="row" v-for="stat in Object.keys(stats.total)" :key="stat">
                   <strong class="col-8">{{stat}}:</strong>
@@ -131,7 +131,7 @@
                 </div>
               </div>
 
-              <div v-if="stats.average" class="card my-3 p-3 shadow-sm col-4 mr-2">
+              <div v-if="stats.average" class="card my-3 p-3 shadow-sm col-4 me-2">
                 <h6 class="border-bottom border-gray pb-2"><b>Average</b></h6>
                 <div class="row" v-for="stat in Object.keys(stats.average)" :key="stat">
                   <strong class="col-8">{{stat}}:</strong>
@@ -139,7 +139,7 @@
                 </div>
               </div>
 
-              <div v-if="stats.categories" class="card my-3 p-3 shadow-sm col-4 mr-2">
+              <div v-if="stats.categories" class="card my-3 p-3 shadow-sm col-4 me-2">
                 <h6 class="border-bottom border-gray pb-2"><b>Annotations Per Category</b></h6>
                 <div class="row" v-for="stat in Object.keys(stats.categories)" :key="stat">
                   <strong class="col-8">{{stat}}:</strong>
@@ -147,7 +147,7 @@
                 </div>
               </div>
 
-              <div v-if="stats.images_per_category" class="card my-3 p-3 shadow-sm col-4 mr-2">
+              <div v-if="stats.images_per_category" class="card my-3 p-3 shadow-sm col-4 me-2">
                 <h6 class="border-bottom border-gray pb-2"><b>Annotated Images Per Category</b></h6>
                 <div class="row" v-for="stat in Object.keys(stats.images_per_category)" :key="stat">
                   <strong class="col-8">{{stat}}:</strong>
@@ -155,7 +155,7 @@
                 </div>
               </div>
 
-              <div v-if="stats.users" class="card my-3 p-3 shadow-sm col-6 mr-2">
+              <div v-if="stats.users" class="card my-3 p-3 shadow-sm col-6 me-2">
                 <h6 class="border-bottom border-gray pb-2"><b>Annotations per User</b></h6>
                 <h6 class="row border-bottom border-gray pb-2">
                     <span class="col-4">Username</span>
@@ -174,11 +174,11 @@
           </div>
         </div>
         <div class="container" v-show="tab == 'settings'">
-          <div class="card my-3 p-3 shadow-sm mr-2">
+          <div class="card my-3 p-3 shadow-sm me-2">
             <h6 class="border-bottom border-gray pb-2"><b>Metadata</b></h6>
             
             <button 
-              class="btn btn-sm btn-block btn-danger"
+              class="btn btn-sm w-100 btn-danger"
               @click="resetMetadata"
             >
               Rest All Metadata
@@ -204,7 +204,7 @@
       <div class="row justify-content-md-center sidebar-section-buttons">
         <button
           type="button"
-          class="btn btn-secondary btn-block"
+          class="btn btn-secondary w-100"
           @click="createScanTask"
         >
           <div v-if="scan.id != null" class="progress">
@@ -220,7 +220,7 @@
 
         <button
           type="button"
-          class="btn btn-primary btn-block"
+          class="btn btn-primary w-100"
           @click="importModal"
         >
           <div v-if="importing.id != null" class="progress">
@@ -236,7 +236,7 @@
 
         <button
           type="button"
-          class="btn btn-dark btn-block"
+          class="btn btn-dark w-100"
           @click="exportModal"
         >
           <div v-if="exporting.id != null" class="progress">
@@ -257,7 +257,7 @@
           <button
             v-for="(subdirectory, subId) in subdirectories"
             :key="subId"
-            class="btn badge badge-pill badge-primary category-badge"
+            class="btn badge rounded-pill text-bg-primary category-badge"
             style="margin: 2px"
             @click="folders.push(subdirectory)"
           >
@@ -283,7 +283,7 @@
           class="sidebar-section"
           style="max-height: 30%; color: lightgray"
         >
-          <div class="form-group">
+          <div class="mb-3">
             <label>Show Annotated Categories </label>
             <TagsInput
               v-model:value="selected.categories"
@@ -305,16 +305,14 @@
             <h5 class="modal-title">Upload COCO Annotaitons</h5>
             <button
               type="button"
-              class="close"
-              data-dismiss="modal"
+              class="btn-close"
+              data-bs-dismiss="modal"
               aria-label="Close"
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
+            ></button>
           </div>
           <div class="modal-body">
             <form>
-              <div class="form-group">
+              <div class="mb-3">
                 <label for="coco">COCO Annotation file (.json)</label>
                 <input type="file" class="form-control-file" id="coco" />
               </div>
@@ -325,14 +323,14 @@
               type="button"
               class="btn btn-primary"
               @click="importCOCO"
-              data-dismiss="modal"
+              data-bs-dismiss="modal"
             >
               Upload
             </button>
             <button
               type="button"
               class="btn btn-secondary"
-              data-dismiss="modal"
+              data-bs-dismiss="modal"
             >
               Close
             </button>
@@ -348,16 +346,14 @@
             <h5 class="modal-title">Export {{dataset.name}}</h5>
             <button
               type="button"
-              class="close"
-              data-dismiss="modal"
+              class="btn-close"
+              data-bs-dismiss="modal"
               aria-label="Close"
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
+            ></button>
           </div>
           <div class="modal-body">
             <form>
-              <div class="form-group">
+              <div class="mb-3">
                 <label>Categories (Empty export all)</label>
                 <TagsInput
                   v-model:value="exporting.categories"
@@ -367,10 +363,10 @@
                   :typeahead-activation-threshold="0"
                 ></TagsInput>
               </div>
-              <div>
-                <input type="checkbox" class="form-check-input"
+              <div class="form-check d-inline-flex align-items-center gap-2 ps-0">
+                <input type="checkbox" class="form-check-input m-0" id="exportWithEmpty"
                   v-model="exporting.with_empty_images">
-                <label class="form-check-label">export with not annotated images</label>
+                <label class="form-check-label mb-0" for="exportWithEmpty">export with not annotated images</label>
               </div>
             </form>
           </div>
@@ -385,7 +381,7 @@
             <button
               type="button"
               class="btn btn-secondary"
-              data-dismiss="modal"
+              data-bs-dismiss="modal"
             >
               Close
             </button>
@@ -397,6 +393,8 @@
 </template>
 
 <script>
+import userAvatar from "@/assets/user.png";
+import { hideModal, showModal } from "@/libs/modal";
 import toastrs from "@/mixins/toastrs";
 import Dataset from "@/models/datasets";
 import Export from "@/models/exports";
@@ -405,12 +403,10 @@ import Pagination from "@/components/Pagination.vue";
 import PanelString from "@/components/PanelInputString.vue";
 import PanelToggle from "@/components/PanelToggle.vue";
 import PanelDropdown from "@/components/PanelInputDropdown.vue"
-import JQuery from "jquery";
 import TagsInput from "@/components/TagsInput.vue";
 
 import { mapMutations } from "vuex";
 
-let $ = JQuery;
 
 export default {
   name: "Dataset",
@@ -431,6 +427,7 @@ export default {
   },
   data() {
     return {
+      userAvatar,
       pages: 1,
       limit: 52,
       imageCount: 0,
@@ -573,10 +570,10 @@ export default {
         this.$router.push({ path: "/tasks", query: { id: this.exporting.id } });
         return;
       }
-      $("#exportDataset").modal("show");
+      showModal("#exportDataset");
     },
     exportCOCO() {
-      $("#exportDataset").modal("hide");
+      hideModal("#exportDataset");
       Dataset.exportingCOCO(this.dataset.id, this.exporting.categories, this.exporting.with_empty_images)
         .then(response => {
           let id = response.data.id;
@@ -596,7 +593,7 @@ export default {
         return;
       }
 
-      $("#cocoUpload").modal("show");
+      showModal("#cocoUpload");
     },
     importCOCO() {
       let uploaded = document.getElementById("coco");

@@ -9,7 +9,7 @@ export default [
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
-      globals: { ...globals.browser, $: "readonly", paper: "readonly" }
+      globals: { ...globals.browser, paper: "readonly" }
     },
     rules: {
       "no-unused-vars": "warn",

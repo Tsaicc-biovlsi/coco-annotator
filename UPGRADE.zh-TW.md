@@ -12,6 +12,7 @@
 | 背景任務 | Celery 4.2 | Celery 5.5 |
 | 資料庫 | MongoDB 4.0 | **MongoDB 7.0**（需要遷移，見下方） |
 | AI 輔助 | DEXTR + Mask R-CNN（TensorFlow 1.14） | **Segment Anything（PyTorch）** |
+| 介面框架 | Bootstrap 4 + jQuery | **Bootstrap 5.3**（不再使用 jQuery） |
 
 ## 新功能
 
@@ -96,6 +97,10 @@ OLD_VOLUME=舊資料卷名稱 NEW_VOLUME=coco-annotator_mongodb7 ./scripts/migra
 - 匯出檔名出現 `b'...'`
 - 幾個參照不存在變數或 model 的錯誤
 
-## 尚未處理
+## 關鍵點
 
-- Bootstrap 4.6 + jQuery 暫時保留（Bootstrap 4 已 EOL，下一步可升 Bootstrap 5）
+選取的標註必須先有 BBox 或旋轉框，關鍵點工具才會啟用：先畫出物件的框，再標關鍵點。
+
+## Bootstrap 5
+
+介面已從 Bootstrap 4 + jQuery 升級為 Bootstrap 5.3，不再使用 jQuery。`client/src/assets/bootstrap-compat.css` 讓畫面維持和原本一樣的外觀。如果你自己改過模板，`data-toggle` 等屬性要改成 `data-bs-*`，部分 class 名稱也有改變（例如 `mr-2` → `me-2`、`btn-block` → `w-100`）。
