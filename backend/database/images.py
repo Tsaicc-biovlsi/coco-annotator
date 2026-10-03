@@ -96,14 +96,14 @@ class ImageModel(DynamicDocument):
         AnnotationModel.objects(image_id=self.id).delete()
         return super(ImageModel, self).delete(*args, **kwargs)
 
-    def thumbnail(self):
+    def thumbnail(self, force=False):
         """
         Generates (if required) thumbnail
         """
-        
+
         thumbnail_path = self.thumbnail_path()
 
-        if self.regenerate_thumbnail:
+        if self.regenerate_thumbnail or force:
 
             pil_image = self.generate_thumbnail()
             pil_image = pil_image.convert("RGB")
@@ -123,6 +123,10 @@ class ImageModel(DynamicDocument):
         Return thumbnail
         """
         thumbnail_path = self.thumbnail_path()
+        if not os.path.isfile(thumbnail_path):
+            # Normally made by the Celery worker; build it now if it is not
+            # there yet (worker busy or down) instead of failing the request.
+            return self.thumbnail(force=True)
         return Image.open(thumbnail_path)
 
     def thumbnail_path(self):

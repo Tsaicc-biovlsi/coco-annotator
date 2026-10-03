@@ -174,3 +174,17 @@ def test_sam_disabled_without_checkpoint(world):
     assert c.get("/api/model/").get_json()["sam"]["available"] is False
     r = c.post(f"/api/model/sam/{image_id}", json={"points": [[10, 10]], "labels": [1]})
     assert r.status_code == 400
+
+
+def test_missing_thumbnail_is_generated_on_request(world):
+    from database import ImageModel
+    c = world["client"]
+    image_id = world["images"][1]["id"]
+    image = ImageModel.objects(id=image_id).first()
+    image.thumbnail_delete()
+    assert not os.path.isfile(image.thumbnail_path())
+
+    r = c.get(f"/api/image/{image_id}?thumbnail=true&width=250")
+    assert r.status_code == 200, r.data[:200]
+    assert r.mimetype == "image/jpeg"
+    assert os.path.isfile(image.thumbnail_path())

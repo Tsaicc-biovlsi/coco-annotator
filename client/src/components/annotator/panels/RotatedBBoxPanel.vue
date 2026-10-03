@@ -1,6 +1,7 @@
 <template>
   <div v-show="rbbox.isActive">
     <PanelText :name="rbbox.hint" />
+    <PanelText v-if="rbbox.box && !rbbox.drawing" name="Arrow keys: move 1 px (Shift: 10 px)" />
     <PanelButton name="Rotate −5°" @click="rbbox.rotateBy(-5)" />
     <PanelButton name="Rotate +5°" @click="rbbox.rotateBy(5)" />
     <PanelButton name="Swap Heading (90°)" @click="rbbox.swapHeading()" />

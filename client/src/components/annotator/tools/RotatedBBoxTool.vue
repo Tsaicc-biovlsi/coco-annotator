@@ -13,6 +13,7 @@ import tool from "@/mixins/toolBar/tool";
  *   Esc cancels. Hold Shift while placing point 2 to snap the angle.
  *
  * Editing the selected box:
+ *   - arrow keys                move 1 px (Shift: 10 px)
  *   - drag the round handle     rotate (hold Shift to snap)
  *   - drag a corner handle      resize, the opposite corner stays put
  *   - drag inside the box       move
@@ -56,6 +57,7 @@ export default {
       drag: null, // editing an existing box
       drawing: null, // { points: [p1, p2?], cursor } while placing a new box
       busy: false,
+      lastNudge: 0,
       settings: {
         snap: 15,
         strokeColor: "#00e5ff"
@@ -455,6 +457,37 @@ export default {
       }
       this.commit(this.box, false);
     },
+    /**
+     * Arrow keys move the selected box (1 image pixel, 10 with Shift).
+     * Registered in the capture phase so the annotator's own arrow-key
+     * shortcuts (next/previous annotation) do not also fire.
+     */
+    onNudgeKey(e) {
+      if (!this.isActive || this.drawing || this.drag || this.busy) return;
+      let step = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+      if (!step) return;
+      let tag = (e.target && e.target.tagName) || "";
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      this.syncFromAnnotation();
+      let annotation = this.annotationComponent;
+      if (!this.box || !annotation) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      let distance = e.shiftKey ? 10 : 1;
+      this.box = {
+        ...this.box,
+        cx: this.box.cx + step[0] * distance,
+        cy: this.box.cy + step[1] * distance
+      };
+      // one undo step per burst of key presses, not one per press
+      let now = Date.now();
+      annotation.setRotatedBox(this.corners(this.box), now - this.lastNudge > 1000);
+      this.lastNudge = now;
+      this.drawOverlay();
+    },
     onKeyDown(e) {
       if (!this.isActive || !this.drawing) return;
       if (e.key === "Escape") {
@@ -507,9 +540,11 @@ export default {
   },
   mounted() {
     window.addEventListener("keydown", this.onKeyDown);
+    window.addEventListener("keydown", this.onNudgeKey, true);
   },
   beforeUnmount() {
     window.removeEventListener("keydown", this.onKeyDown);
+    window.removeEventListener("keydown", this.onNudgeKey, true);
     this.clearOverlay();
   }
 };
