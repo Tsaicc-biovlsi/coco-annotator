@@ -17,7 +17,9 @@ export default {
       tool: null,
       enabled: false,
       cursor: "default",
-      color: {
+      // Named iconColors (not color): Vue 3 merges mixin data shallowly, and
+      // several tools have their own `color` settings object.
+      iconColors: {
         enabled: "white",
         active: "#2ecc71",
         disabled: "gray",
@@ -49,12 +51,12 @@ export default {
       return false;
     },
     iconColor() {
-      if (this.isDisabled) return this.color.disabled;
+      if (this.isDisabled) return this.iconColors.disabled;
 
-      if (this.isToggled) return this.color.toggle;
-      if (this.isActive) return this.color.active;
+      if (this.isToggled) return this.iconColors.toggle;
+      if (this.isActive) return this.iconColors.active;
 
-      return this.color.enabled;
+      return this.iconColors.enabled;
     },
     isDisabled() {
       return false;
