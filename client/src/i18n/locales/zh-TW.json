@@ -265,6 +265,38 @@
     "title": "中繼資料",
     "values": "值"
   },
+  "modelRun": {
+    "titleImage": "用模型標註這張圖片",
+    "titleDataset": "用模型預標註 {name}",
+    "datasetButton": "用模型預標註",
+    "loadingModels": "載入模型中…",
+    "notInstalled": "這台伺服器沒有安裝模型支援。請用 SAM=cuda（或 cpu）重新建置映像檔。",
+    "noModels": "找不到模型。請把訓練好的 YOLO .pt 檔複製到伺服器的 {folder} 資料夾，再重新打開這個視窗。",
+    "model": "模型",
+    "cannotLoad": "無法載入",
+    "classes": "共 {n} 個類別：",
+    "classesHint": "綠色：資料集已有同名的類別。預測結果會依名稱對應到類別。",
+    "confidence": "最低信心分數",
+    "confidenceHint": "分數低於這個值的預測會被略過。調低可以找到更多物體，但錯誤也會變多。",
+    "createCategories": "自動建立缺少的類別（並加入資料集）",
+    "skipAnnotated": "略過已經有標註的圖片",
+    "imageHint": "會先儲存目前的進度。預測結果會變成一般的標註，可以再修改或刪除。",
+    "datasetHint": "在背景執行，進度顯示在「任務」頁面。預測結果會變成一般的標註。",
+    "run": "執行",
+    "close": "關閉",
+    "running": "預標註中",
+    "imageDone": "已新增 {n} 個標註",
+    "datasetStarted": "已開始預標註，進度顯示在「任務」頁面。",
+    "skippedClasses": "沒有對應的類別，已略過：{classes}",
+    "keypointsMismatch": "模型的關鍵點數量和這些類別不同，沒有加入關鍵點：{categories}",
+    "task": {
+      "detect": "物件框",
+      "obb": "旋轉框",
+      "segment": "分割",
+      "pose": "關鍵點",
+      "classify": "分類"
+    }
+  },
   "nav": {
     "language": "語言"
   },
@@ -424,11 +456,13 @@
   "taskGroup": {
     "annotationExport": "匯出標註",
     "annotationImport": "匯入標註",
-    "directoryImageScan": "掃描資料夾圖片"
+    "directoryImageScan": "掃描資料夾圖片",
+    "modelPreAnnotation": "模型預標註"
   },
   "taskName": {
     "export": "將 {name} 匯出為 {format} 格式",
     "import": "將 COCO 匯入 {name}",
+    "preannotate": "用 {model} 預標註 {name}",
     "scan": "掃描 {name} 的新圖片"
   },
   "tasks": {
@@ -489,6 +523,7 @@
     "nothingToUndo": "沒有可以復原的動作",
     "polygon": "多邊形",
     "rotatedBBox": "旋轉框",
+    "runModel": "用模型標註",
     "sAM": "SAM",
     "save": "儲存",
     "select": "選取",

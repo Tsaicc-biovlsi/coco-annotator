@@ -265,6 +265,38 @@
     "title": "Metadata",
     "values": "Values"
   },
+  "modelRun": {
+    "titleImage": "Annotate this image with a model",
+    "titleDataset": "Pre-annotate {name} with a model",
+    "datasetButton": "Pre-annotate with Model",
+    "loadingModels": "Loading models…",
+    "notInstalled": "Model support is not installed on this server. Build the image with SAM=cuda (or cpu) to enable it.",
+    "noModels": "No models found. Copy your trained YOLO .pt files into the {folder} folder on the server, then open this dialog again.",
+    "model": "Model",
+    "cannotLoad": "cannot be loaded",
+    "classes": "{n} classes:",
+    "classesHint": "Green: the dataset has a category with this name. Predictions are matched to categories by name.",
+    "confidence": "Minimum confidence",
+    "confidenceHint": "Predictions below this score are ignored. Lower finds more objects but also more mistakes.",
+    "createCategories": "Create missing categories (and add them to the dataset)",
+    "skipAnnotated": "Skip images that already have annotations",
+    "imageHint": "Your current work is saved first. The predictions are added as normal annotations you can edit or delete.",
+    "datasetHint": "Runs in the background; progress is shown in Tasks. Predictions are added as normal annotations.",
+    "run": "Run",
+    "close": "Close",
+    "running": "Pre-annotating",
+    "imageDone": "Added {n} annotations",
+    "datasetStarted": "Pre-annotation started. Progress is shown in Tasks.",
+    "skippedClasses": "No category for: {classes} (skipped)",
+    "keypointsMismatch": "The keypoint count of the model differs from these categories, keypoints were not added: {categories}",
+    "task": {
+      "detect": "boxes",
+      "obb": "rotated boxes",
+      "segment": "polygons",
+      "pose": "keypoints",
+      "classify": "classification"
+    }
+  },
   "nav": {
     "language": "Language"
   },
@@ -359,6 +391,7 @@
   "taskName": {
     "export": "Exporting {name} into {format} format",
     "import": "Import COCO format into {name}",
+    "preannotate": "Pre-annotate {name} with {model}",
     "scan": "Scanning {name} for new images"
   },
   "tasks": {

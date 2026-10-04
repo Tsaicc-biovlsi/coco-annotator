@@ -84,7 +84,7 @@ export default {
       }
 
       if (this.hover.category && this.hover.annotation) {
-        let id = this.hover.textId;
+        let id = this.hover.annotation.annotation.id;
         let category = this.hover.category.category.name;
         string += "ID: " + id + " \n";
         string += this.$t("hover.category") + ": " + category + " \n";

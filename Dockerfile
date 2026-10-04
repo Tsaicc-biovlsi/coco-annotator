@@ -5,7 +5,8 @@
 #   workers               Celery worker (scans, imports, exports, thumbnails)
 #
 # Build args:
-#   SAM=none|cpu|cuda     install PyTorch + Segment Anything for the SAM tool
+#   SAM=none|cpu|cuda     install PyTorch, Segment Anything and Ultralytics
+#                         (SAM tool and pre-annotation with your YOLO models)
 #   VERSION               version string shown in the UI
 
 ############################ web client ############################
@@ -28,12 +29,20 @@ RUN apt-get update \
 
 COPY backend/requirements.txt backend/requirements-sam.txt ./
 RUN pip install -r requirements.txt
+# ultralytics pulls in the GUI build of OpenCV (needs libGL); keep only the
+# headless one, which provides the same cv2 module.
 RUN if [ "$SAM" = "cpu" ]; then \
       pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision \
       && pip install -r requirements-sam.txt; \
     elif [ "$SAM" = "cuda" ]; then \
       pip install -r requirements-sam.txt; \
+    fi \
+ && if [ "$SAM" != "none" ]; then \
+      pip uninstall -y opencv-python opencv-python-headless \
+      && pip install "opencv-python-headless==4.*"; \
     fi
+# Ultralytics settings/cache in a writable place, no online checks
+ENV YOLO_CONFIG_DIR=/tmp/Ultralytics YOLO_OFFLINE=1
 
 ############################ workers ###############################
 FROM python-base AS workers

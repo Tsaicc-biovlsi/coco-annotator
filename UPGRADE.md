@@ -87,6 +87,27 @@ docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build   #
 
 Without PyTorch or the checkpoint the tool is simply disabled.
 
+### Pre-annotate with your own YOLO models
+
+Copy trained Ultralytics YOLO weights (`.pt`, YOLOv8/YOLO11 and later) into
+the `models/` folder (`MODELS_DIR`); subfolders are fine. Detect, OBB, segment
+and pose models are supported and become boxes, rotated boxes, polygons and
+box + keypoints. Requires an image built with `SAM=cpu` or `SAM=cuda` (the
+same PyTorch install is used).
+
+* **One image:** the rocket button in the annotator toolbar. Your work is
+  saved, the model runs, and the predictions appear as normal annotations.
+* **Whole dataset:** *Pre-annotate with Model* in the dataset sidebar. Runs in
+  the background (progress under Tasks); optionally skips images that already
+  have annotations.
+
+Classes are matched to the dataset's categories by name (case-insensitive);
+missing ones can be created automatically. For pose models, a category
+without keypoint labels gets them from the model (COCO names and skeleton for
+17-keypoint models); keypoints below 0.5 confidence are left unlabelled.
+New `.pt` files are picked up without restarting. Only put model files from
+people you trust in this folder: loading a `.pt` file runs code from it.
+
 ## Migrating an existing installation
 
 ### 1. MongoDB data (required)
@@ -142,6 +163,8 @@ New ones:
 | `SAM_MODEL_TYPE` | `vit_b` | `vit_b`, `vit_l` or `vit_h` |
 | `SAM_CHECKPOINT` | `/models/sam_vit_b_01ec64.pth` | checkpoint path |
 | `SAM_DEVICE` | `auto` | `auto`, `cpu` or `cuda` |
+| `MODELS_DIRECTORY` | `/models` | folder (in the container) with your YOLO `.pt` files |
+| `YOLO_DEVICE` | `auto` | `auto`, `cpu`, `cuda:0`, … |
 | `CELERY_TASK_ALWAYS_EAGER` | `false` | run tasks in the web process (development) |
 | `VERSION` | git tag | version shown in the UI |
 | `ALLOW_REGISTRATION` | `true` | `false`: only the first account can self-register; admins create users in the Admin panel. Now passed through by `docker-compose.yml` (set it in `.env`) |

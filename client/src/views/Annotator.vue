@@ -70,6 +70,7 @@
       </div>
       <hr />
 
+      <ModelButton @open="$refs.modelRun.open()" />
       <AnnotateButton :annotate-url="dataset.annotate_url" />
 
       <div v-show="mode == 'segment'">
@@ -222,12 +223,21 @@
       
       <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
+
+    <ModelRunModal
+      ref="modelRun"
+      modal-id="modelRunImage"
+      :category-names="categories.map(c => c.name)"
+      :running="modelRunning"
+      @run="runModelOnImage"
+    />
   </div>
 </template>
 
 <script>
 import paper from "paper";
 import axios from "axios";
+import { hideModal } from "@/libs/modal";
 import Hammer from "hammerjs";
 
 import toastrs from "@/mixins/toastrs";
@@ -259,6 +269,8 @@ import UndoButton from "@/components/annotator/tools/UndoButton.vue";
 import ShowAllButton from "@/components/annotator/tools/ShowAllButton.vue";
 import HideAllButton from "@/components/annotator/tools/HideAllButton.vue";
 import AnnotateButton from "@/components/annotator/tools/AnnotateButton.vue";
+import ModelButton from "@/components/annotator/tools/ModelButton.vue";
+import ModelRunModal from "@/components/ModelRunModal.vue";
 
 import PolygonPanel from "@/components/annotator/panels/PolygonPanel.vue";
 import BBoxPanel from "@/components/annotator/panels/BBoxPanel.vue";
@@ -303,6 +315,8 @@ export default {
     ShowAllButton,
     KeypointPanel,
     AnnotateButton,
+    ModelButton,
+    ModelRunModal,
     RotatedBBoxTool,
     RotatedBBoxPanel,
     SAMTool,
@@ -370,6 +384,7 @@ export default {
       },
       search: "",
       refsReady: false,
+      modelRunning: false,
       hammer: null,
       annotating: [],
       pinching: {
@@ -927,6 +942,43 @@ export default {
       );
     },
 
+    runModelOnImage(options) {
+      this.modelRunning = true;
+      const done = () => (this.modelRunning = false);
+      // Save first: the predictions are added on the server and the
+      // annotations are then reloaded, so unsaved edits must not be lost.
+      this.save(() => {
+        axios
+          .post(`/api/model/yolo/image/${this.image.id}`, options)
+          .then(response => {
+            const result = response.data;
+            hideModal("#modelRunImage");
+            this.$toastr.success(
+              this.$t("modelRun.imageDone", { n: result.created })
+            );
+            if (result.skipped_classes && result.skipped_classes.length) {
+              this.$toastr.warning(
+                this.$t("modelRun.skippedClasses", {
+                  classes: result.skipped_classes.join(", ")
+                })
+              );
+            }
+            if (result.keypoints_mismatch && result.keypoints_mismatch.length) {
+              this.$toastr.warning(
+                this.$t("modelRun.keypointsMismatch", {
+                  categories: result.keypoints_mismatch.join(", ")
+                })
+              );
+            }
+            if (result.created > 0) this.getData();
+          })
+          .catch(error => {
+            const data = (error.response && error.response.data) || {};
+            this.axiosReqestError(this.$t("modelRun.titleImage"), data.message);
+          })
+          .finally(done);
+      });
+    },
     removeFromAnnotatingList() {
       if (this.user == null) return;
 

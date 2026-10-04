@@ -13,6 +13,7 @@ docs/.vuepress/dist/*
 models/*.h5
 models/*.pth
 models/*.pt
+models/**/*.pt
 db/*
 !db/.gitkeep
 mongo-dump-*/

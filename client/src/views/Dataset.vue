@@ -251,6 +251,22 @@
           </div>
           <div v-else>{{ $t('dataset.exportCoco') }}</div>
         </button>
+
+        <button
+          type="button"
+          class="btn btn-info w-100"
+          @click="modelModal"
+        >
+          <div v-if="preannotating.id != null" class="progress">
+            <div
+              class="progress-bar bg-info"
+              :style="{ 'width': `${preannotating.progress}%` }"
+            >
+              {{ $t('modelRun.running') }}
+            </div>
+          </div>
+          <div v-else><i class="fa fa-rocket" /> {{ $t('modelRun.datasetButton') }}</div>
+        </button>
       </div>
       <hr>
       <h6 class="sidebar-title text-center">{{ $t('dataset.subdirectories') }}</h6>
@@ -391,6 +407,15 @@
         </div>
       </div>
     </div>
+
+    <ModelRunModal
+      ref="modelRun"
+      modal-id="modelRunDataset"
+      :dataset="true"
+      :dataset-name="dataset.name"
+      :category-names="datasetCategoryNames"
+      @run="runModel"
+    />
   </div>
 </template>
 
@@ -406,6 +431,8 @@ import PanelString from "@/components/PanelInputString.vue";
 import PanelToggle from "@/components/PanelToggle.vue";
 import PanelDropdown from "@/components/PanelInputDropdown.vue"
 import TagsInput from "@/components/TagsInput.vue";
+import ModelRunModal from "@/components/ModelRunModal.vue";
+import axios from "axios";
 
 import { mapMutations } from "vuex";
 
@@ -418,7 +445,8 @@ export default {
     PanelString,
     PanelToggle,
     PanelDropdown,
-    TagsInput
+    TagsInput,
+    ModelRunModal
   },
   mixins: [toastrs],
   props: {
@@ -455,6 +483,10 @@ export default {
         id: null
       },
       importing: {
+        progress: 0,
+        id: null
+      },
+      preannotating: {
         progress: 0,
         id: null
       },
@@ -585,6 +617,26 @@ export default {
           this.axiosReqestError("Exporting COCO", error.response.data.message);
         });
     },
+    modelModal() {
+      if (this.preannotating.id != null) {
+        this.$router.push({ path: "/tasks", query: { id: this.preannotating.id } });
+        return;
+      }
+      this.$refs.modelRun.open();
+    },
+    runModel(options) {
+      axios
+        .post(`/api/model/yolo/dataset/${this.dataset.id}`, options)
+        .then(response => {
+          hideModal("#modelRunDataset");
+          this.preannotating.id = response.data.id;
+          this.$toastr.info(this.$t("modelRun.datasetStarted"));
+        })
+        .catch(error => {
+          const data = (error.response && error.response.data) || {};
+          this.axiosReqestError(this.$t("modelRun.datasetButton"), data.message);
+        });
+    },
     removeFolder(folder) {
       let index = this.folders.indexOf(folder);
       this.folders.splice(index + 1, this.folders.length);
@@ -643,6 +695,9 @@ export default {
 
       return showAnnotated;
     },
+    datasetCategoryNames() {
+      return this.categories.map(c => c.name);
+    },
     categoryTags() {
       let tags = {};
       this.categories.forEach(c => tags[c.id] = c.name);
@@ -661,6 +716,10 @@ export default {
 
       if (data.id === this.exporting.id) {
         this.exporting.progress = data.progress;
+      }
+
+      if (data.id === this.preannotating.id) {
+        this.preannotating.progress = data.progress;
       }
     },
     annotating(data) {
@@ -726,6 +785,15 @@ export default {
         setTimeout(() => {
           this.importing.progress = 0;
           this.importing.id = null;
+        }, 1000);
+      }
+    },
+    "preannotating.progress"(progress) {
+      if (progress >= 100) {
+        setTimeout(() => {
+          this.preannotating.progress = 0;
+          this.preannotating.id = null;
+          this.updatePage();
         }, 1000);
       }
     },

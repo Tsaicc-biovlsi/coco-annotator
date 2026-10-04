@@ -14,6 +14,7 @@ os.environ.setdefault("CELERY_TASK_ALWAYS_EAGER", "true")
 os.environ.setdefault("DATASET_DIRECTORY", _DATASETS + "/")
 os.environ.setdefault("LOGIN_DISABLED", "true")
 os.environ.setdefault("SAM_CHECKPOINT", "/nonexistent/sam.pth")
+os.environ.setdefault("MODELS_DIRECTORY", tempfile.mkdtemp(prefix="coco-annotator-models-"))
 
 from webserver import app  # noqa: E402
 
@@ -27,3 +28,34 @@ def client():
 @pytest.fixture(scope="session")
 def dataset_directory():
     return os.environ["DATASET_DIRECTORY"]
+
+
+@pytest.fixture(scope="session")
+def world(dataset_directory):
+    """A logged-in client with a dataset of two scanned 320x200 images."""
+    from PIL import Image
+    WIDTH, HEIGHT = 320, 200
+    from webserver import app
+    client = app.test_client()
+
+    client.post("/api/user/register", json={"username": "smoke", "password": "pw", "name": "Smoke"})
+
+    r = client.post("/api/dataset/", json={"name": "smoke", "categories": ["ship", "boat"]})
+    assert r.status_code == 200, r.data
+    dataset = r.get_json()
+
+    folder = os.path.join(dataset_directory, "smoke")
+    os.makedirs(folder, exist_ok=True)
+    for i in range(2):
+        Image.new("RGB", (WIDTH, HEIGHT), (20 * i, 80, 120)).save(os.path.join(folder, f"img_{i}.jpg"))
+
+    r = client.get(f"/api/dataset/{dataset['id']}/scan")
+    assert r.status_code == 200, r.data
+
+    r = client.get(f"/api/dataset/{dataset['id']}/data")
+    assert r.status_code == 200, r.data
+    images = r.get_json()["images"]
+    assert len(images) == 2
+
+    categories = {c["name"]: c["id"] for c in client.get("/api/category/").get_json()}
+    return {"client": client, "dataset": dataset, "images": images, "categories": categories}

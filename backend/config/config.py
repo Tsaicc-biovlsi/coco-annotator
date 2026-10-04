@@ -77,5 +77,9 @@ class Config:
     SAM_CHECKPOINT = os.getenv("SAM_CHECKPOINT", "/models/sam_vit_b_01ec64.pth")
     SAM_DEVICE = os.getenv("SAM_DEVICE", "auto")
 
+    ### Your own models (Ultralytics YOLO .pt files) for pre-annotation
+    MODELS_DIRECTORY = os.getenv("MODELS_DIRECTORY", "/models")
+    YOLO_DEVICE = os.getenv("YOLO_DEVICE", "auto")
+
 
 __all__ = ["Config"]
