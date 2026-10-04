@@ -91,20 +91,30 @@ Without PyTorch or the checkpoint the tool is simply disabled.
 
 ### 1. MongoDB data (required)
 
-MongoDB 7 cannot open a data directory written by MongoDB 4.0. Copy the data
-with a dump/restore (the old volume is only read):
+The new version keeps its data in the `mongodb7_data` volume. The original
+`mongodb_data` volume (MongoDB 4.0, which MongoDB 7 cannot open) is never
+touched, so the old installation can be restored at any time. Copy the data
+over once, with the stack stopped:
 
 ```bash
-docker compose down                                   # stop the old stack
-docker volume ls | grep mongodb_data                  # find the old volume name
-OLD_VOLUME=coco-annotator_mongodb_data NEW_VOLUME=coco-annotator_mongodb7 \
-  ./scripts/migrate_mongo.sh
+cd coco-annotator            # the folder you run docker compose in
+docker compose down
+git fetch && git checkout upgrade-2026   # or unpack the new version here
+./scripts/migrate_mongo.sh   # finds the old volume, dumps it, restores into mongodb7_data
+docker compose up -d --build
 ```
 
-Then point the `database` service in `docker-compose.yml` at `NEW_VOLUME`
-(declare it as `external: true`). If you prefer not to migrate yet, set the
-image back to `mongo:4.4` — the application works with MongoDB 4.4+ — but
-note 4.x is end-of-life.
+The script dumps only the application database (`flask`), keeps a copy of the
+dump in `mongo-dump-*/`, prints document counts per collection, and refuses to
+run while a container still uses the old volume. If it cannot tell which old
+volume to use (for example the project folder was renamed, or the stack was
+started with the old `docker-compose` v1, which names it
+`cocoannotator_mongodb_data`), pass it explicitly:
+`OLD_VOLUME=<name> ./scripts/migrate_mongo.sh`.
+
+Rolling back: `docker compose down`, check out the original code
+(`git checkout master`) and `docker compose up -d`; it still uses the old
+volume. Images in `datasets/` are shared by both versions and not modified.
 
 ### 2. Images are built locally
 

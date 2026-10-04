@@ -10,7 +10,7 @@ x-backend-env: &backend-env
   CELERY_RESULT_BACKEND: mongodb://database/flask
 
 volumes:
-  mongodb_data:
+  mongodb7_data:
   client_node_modules:
 
 networks:
@@ -82,7 +82,7 @@ services:
     image: mongo:7.0
     container_name: annotator_mongodb
     volumes:
-      - "mongodb_data:/data/db"
+      - "mongodb7_data:/data/db"
     ports:
       - "27017:27017"
     networks:

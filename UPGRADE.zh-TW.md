@@ -71,15 +71,19 @@ docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build   #
 
 ## 從舊版升級：一定要做的事
 
-**MongoDB 資料遷移**：MongoDB 7 無法直接開啟 4.0 的資料卷（不處理的話會像是資料不見了）。
+**MongoDB 資料遷移**：新版的資料存在 `mongodb7_data` volume。舊版的 `mongodb_data`（MongoDB 4.0，MongoDB 7 無法直接開啟）完全不會被動到，所以隨時可以退回舊版。在服務停止的狀態下，把資料複製過來一次即可：
 
 ```bash
+cd coco-annotator             # 你執行 docker compose 的資料夾
 docker compose down
-docker volume ls | grep mongodb_data      # 找到舊的資料卷名稱
-OLD_VOLUME=舊資料卷名稱 NEW_VOLUME=coco-annotator_mongodb7 ./scripts/migrate_mongo.sh
+git fetch && git checkout upgrade-2026
+./scripts/migrate_mongo.sh    # 自動找到舊 volume，備份後還原到 mongodb7_data
+docker compose up -d --build
 ```
 
-完成後把 `docker-compose.yml` 裡 `database` 服務的 volume 改成新的資料卷。舊資料卷只會被讀取，不會被修改。
+腳本只會備份應用程式的資料庫（`flask`），並在 `mongo-dump-*/` 留一份備份檔，完成後會列出各資料表的筆數。如果舊服務還在執行，腳本會拒絕執行。如果它無法判斷哪個是舊 volume（例如資料夾改過名，或當初是用舊版 `docker-compose` v1 啟動，名稱會是 `cocoannotator_mongodb_data`），就手動指定：`OLD_VOLUME=名稱 ./scripts/migrate_mongo.sh`。
+
+**退回舊版**：`docker compose down`，切回原本的程式碼（`git checkout master`），再 `docker compose up -d`，就會用回舊的 volume。`datasets/` 裡的圖片兩個版本共用，不會被修改。
 
 其他注意事項：
 

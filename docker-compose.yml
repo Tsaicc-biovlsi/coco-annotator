@@ -11,7 +11,7 @@ x-backend-env: &backend-env
   CELERY_RESULT_BACKEND: mongodb://database/flask
 
 volumes:
-  mongodb_data:
+  mongodb7_data:
 
 networks:
   cocoannotator:
@@ -71,12 +71,13 @@ services:
       - cocoannotator
 
   database:
-    # Upgrading from the original coco-annotator (mongo:4.0)? An old data
-    # volume cannot be opened by MongoDB 7 directly - see UPGRADE.md.
+    # Data lives in the "mongodb7_data" volume. The original coco-annotator
+    # used "mongodb_data" (MongoDB 4.0, which MongoDB 7 cannot open); it is
+    # left untouched. Copy it over with scripts/migrate_mongo.sh (UPGRADE.md).
     image: mongo:7.0
     container_name: annotator_mongodb
     restart: unless-stopped
     volumes:
-      - "mongodb_data:/data/db"
+      - "mongodb7_data:/data/db"
     networks:
       - cocoannotator
