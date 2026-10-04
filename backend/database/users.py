@@ -26,6 +26,17 @@ class UserModel(DynamicDocument, UserMixin):
 
     # meta = {'allow_inheritance': True}
 
+    @classmethod
+    def total(cls):
+        """Exact number of users.
+
+        ``objects.count()`` without a filter uses MongoDB's collection
+        metadata, which can be stale (e.g. 0 after an unclean shutdown). This
+        decides whether registration is open and who becomes admin, so count
+        the documents.
+        """
+        return cls._get_collection().count_documents({})
+
     @property
     def datasets(self):
         self._update_last_seen()

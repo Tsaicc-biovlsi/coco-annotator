@@ -62,7 +62,7 @@ class UserRegister(Resource):
     def post(self):
         """ Creates user """
 
-        users = UserModel.objects.count()
+        users = UserModel.total()
 
         if not Config.ALLOW_REGISTRATION and users != 0:
             return {'success': False, 'message': 'Registration of new accounts is disabled.'}, 400

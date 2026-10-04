@@ -22,7 +22,7 @@ class Info(Resource):
                 "tag": Config.VERSION
             },
             "login_enabled": not Config.LOGIN_DISABLED,
-            "total_users": UserModel.objects.count(),
+            "total_users": UserModel.total(),
             "allow_registration": Config.ALLOW_REGISTRATION
         }
 

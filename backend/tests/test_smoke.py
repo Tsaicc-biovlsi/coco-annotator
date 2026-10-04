@@ -209,3 +209,18 @@ def test_missing_image_file_returns_404(world):
         thumbnail_generate_single_image(image.id)  # must not raise
     finally:
         os.rename(moved, image.path)
+
+
+def test_registration_can_be_disabled(world, monkeypatch):
+    from config import Config
+    from webserver import app
+
+    client = app.test_client()  # not logged in
+    monkeypatch.setattr(Config, "ALLOW_REGISTRATION", False)
+    info = client.get("/api/info/").get_json()
+    assert info["allow_registration"] is False
+    assert info["total_users"] >= 1
+
+    r = client.post("/api/user/register", json={"username": "intruder", "password": "pw", "name": "X"})
+    assert r.status_code == 400
+    assert "disabled" in r.get_json()["message"]

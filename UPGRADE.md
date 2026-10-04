@@ -144,6 +144,7 @@ New ones:
 | `SAM_DEVICE` | `auto` | `auto`, `cpu` or `cuda` |
 | `CELERY_TASK_ALWAYS_EAGER` | `false` | run tasks in the web process (development) |
 | `VERSION` | git tag | version shown in the UI |
+| `ALLOW_REGISTRATION` | `true` | `false`: only the first account can self-register; admins create users in the Admin panel. Now passed through by `docker-compose.yml` (set it in `.env`) |
 
 `FILE_WATCHER=false` and `TESTING=false` are now honoured (previously any
 non-empty value enabled them).

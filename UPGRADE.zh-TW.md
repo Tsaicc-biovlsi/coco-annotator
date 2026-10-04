@@ -95,6 +95,7 @@ docker compose up -d --build
 - 已移除的環境變數：`MASK_RCNN_FILE`、`MASK_RCNN_CLASSES`、`DEXTR_FILE`
 - 已移除的功能：Google 圖片自動下載（該套件多年前就已失效）
 - 「Annotate Image」按鈕（串接外部模型伺服器）仍保留
+- 關閉公開註冊：在 `.env` 加上 `ALLOW_REGISTRATION=false`，再執行 `docker compose up -d`。之後只有管理員能在「Admin」頁面建立帳號（導覽列的 Admin 連結只在寬螢幕顯示，也可以直接開 `/#/admin/panel`）
 
 ## 順便修掉的原專案 bug
 
