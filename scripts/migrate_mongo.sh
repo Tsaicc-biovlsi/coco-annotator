@@ -87,7 +87,7 @@ until docker exec coco-migrate-old mongo --quiet --eval 'db.runCommand({ping:1})
 docker exec coco-migrate-old mongodump --db "$DB_NAME" --excludeCollection=celery_taskmeta \
   --archive=/tmp/dump.archive --gzip
 docker cp coco-migrate-old:/tmp/dump.archive "$DUMP_DIR/dump.archive"
-docker stop coco-migrate-old >/dev/null
+docker stop -t 60 coco-migrate-old >/dev/null
 
 echo "2/3 Restoring into $NEW_VOLUME (mongo:7.0) ..."
 docker volume create "$NEW_VOLUME" >/dev/null
@@ -101,6 +101,9 @@ docker exec coco-migrate-new mongosh --quiet "$DB_NAME" --eval '
   for (const c of ["user_model", "dataset_model", "image_model", "annotation_model", "category_model"]) {
     print(c.padEnd(18), db.getCollection(c).countDocuments());
   }'
+# Shut mongod down cleanly. If it is killed (docker rm -f), MongoDB keeps
+# stale collection counts and the app reports e.g. 0 users.
+docker stop -t 60 coco-migrate-new >/dev/null
 
 echo
 echo "Done. Old data in $OLD_SOURCE was not modified; dump saved in $DUMP_DIR"
