@@ -347,6 +347,7 @@
     "strokeColor": "線條顏色"
   },
   "process": {
+    "autosaving": "自動儲存中",
     "copyingFrom": "複製標註（來源：{from}）",
     "generatingCoco": "產生 {name} 的 COCO",
     "initializingCanvas": "初始化畫布",

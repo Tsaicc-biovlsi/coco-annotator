@@ -234,6 +234,14 @@ breadcrumb, container width). If you customised templates, rename
 (`ml-/mr-` → `ms-/me-`, `text-left/right` → `text-start/end`, `badge-*` →
 `text-bg-*`, `btn-block` → `w-100`, …).
 
+## Autosave
+
+Annotation changes (shapes, keypoints, metadata) are saved automatically
+about 2 seconds after the last edit, and pending changes are sent when the
+tab is hidden, reloaded or closed. Previously they were only saved with
+Save, when switching images or when leaving the page. Empty, just-created
+annotations are left alone by autosave (a manual save still removes them).
+
 ## Languages
 
 The interface is available in English and Traditional Chinese (繁體中文).

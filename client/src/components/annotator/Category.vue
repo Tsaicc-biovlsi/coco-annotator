@@ -296,7 +296,7 @@ export default {
      * Exports data for send to backend
      * @returns {json} Annotation data, and settings
      */
-    export() {
+    export(options = {}) {
       let refs = this.$refs;
       let categoryData = {
         // Category Identification
@@ -317,11 +317,22 @@ export default {
 
       if (refs.hasOwnProperty("annotation")) {
         refs.annotation.forEach(annotation => {
-          categoryData.annotations.push(annotation.export());
+          let data = annotation.export(options);
+          if (data) categoryData.annotations.push(data);
         });
       }
 
       return categoryData;
+    },
+    signature() {
+      let annotations = this.annotationRefs().map(a => a.signature()).filter(Boolean);
+      return [
+        this.category.id,
+        this.color,
+        JSON.stringify(this.category.keypoint_labels || []),
+        JSON.stringify(this.category.keypoint_edges || []),
+        ...annotations
+      ].join("\n");
     },
 
     addKeypointEdge(edge) {

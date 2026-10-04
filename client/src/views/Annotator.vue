@@ -239,6 +239,9 @@
 import paper from "paper";
 import axios from "axios";
 import { hideModal } from "@/libs/modal";
+
+// save automatically this long after the last change (ms)
+const AUTOSAVE_DELAY = 2000;
 import Hammer from "hammerjs";
 
 import toastrs from "@/mixins/toastrs";
@@ -388,6 +391,13 @@ export default {
       search: "",
       refsReady: false,
       modelRunning: false,
+      autosave: {
+        saved: null, // signature of the last saved state (null: not loaded yet)
+        pending: null,
+        since: 0,
+        saving: false,
+        timer: null
+      },
       hammer: null,
       annotating: [],
       pinching: {
@@ -401,9 +411,74 @@ export default {
     categoryRefs() {
       return [...(this.$refs.category || [])].sort((a, b) => a.index - b.index);
     },
-    save(callback) {
-      let process = "Saving";
+    /** Everything that a save would write, without side effects */
+    changeSignature() {
+      let parts = this.categoryRefs().map(c => c.signature());
+      if (this.$refs.settings) parts.push(JSON.stringify(this.$refs.settings.exportMetadata()));
+      return parts.join("\n#\n");
+    },
+    isDirty() {
+      return this.autosave.saved !== null && this.changeSignature() !== this.autosave.saved;
+    },
+    /**
+     * Runs every second: saves once the annotations changed and then stayed
+     * the same for a moment (so not in the middle of a drag).
+     */
+    autosaveTick() {
+      const a = this.autosave;
+      if (!this.doneLoading || a.saving || this.image.id == null) return;
+      const signature = this.changeSignature();
+      if (a.saved === null) {
+        a.saved = signature; // baseline right after loading
+        return;
+      }
+      if (signature === a.saved) {
+        a.pending = null;
+        return;
+      }
+      if (signature !== a.pending) {
+        a.pending = signature;
+        a.since = Date.now();
+        return;
+      }
+      if (Date.now() - a.since >= AUTOSAVE_DELAY) {
+        a.pending = null;
+        this.save(null, { auto: true });
+      }
+    },
+    onPageHide(event) {
+      // leaving or hiding the tab: save what has not been saved yet
+      if (this.autosave.saving || !this.isDirty()) return;
+      if (document.visibilityState === "hidden" || event.type === "beforeunload") {
+        const data = this.buildSaveData({ auto: true });
+        this.autosave.saved = this.changeSignature();
+        const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+        if (!(navigator.sendBeacon && navigator.sendBeacon("/api/annotator/data", blob))) {
+          axios.post("/api/annotator/data", JSON.stringify(data));
+        }
+      }
+    },
+    save(callback, options = {}) {
+      let process = options.auto ? "Autosaving" : "Saving";
       this.addProcess(process);
+      this.autosave.saving = true;
+      let data = this.buildSaveData(options);
+      // what is being saved now (export may have simplified the shapes)
+      let signature = this.changeSignature();
+
+      axios
+        .post("/api/annotator/data", JSON.stringify(data))
+        .then(() => {
+          this.autosave.saved = signature;
+          //TODO: updateUser
+          if (callback != null) callback();
+        })
+        .finally(() => {
+          this.autosave.saving = false;
+          this.removeProcess(process);
+        });
+    },
+    buildSaveData(options = {}) {
       let refs = this.$refs;
 
       let data = {
@@ -440,7 +515,7 @@ export default {
         refs = { category: this.categoryRefs() };
         this.image.categoryIds = [];
         refs.category.forEach(category => {
-          let categoryData = category.export();
+          let categoryData = category.export(options);
           data.categories.push(categoryData);
 
           if (categoryData.annotations.length > 0) {
@@ -453,14 +528,7 @@ export default {
       }
 
       data.image.category_ids = this.image.categoryIds;
-
-      axios
-        .post("/api/annotator/data", JSON.stringify(data))
-        .then(() => {
-          //TODO: updateUser
-          if (callback != null) callback();
-        })
-        .finally(() => this.removeProcess(process));
+      return data;
     },
     onpinchstart(e) {
       e.preventDefault();
@@ -619,6 +687,8 @@ export default {
           let data = response.data;
 
           this.loading.data = false;
+          this.autosave.saved = null;
+          this.autosave.pending = null;
           // Set image data
           this.image.metadata = data.image.metadata || {};
           this.image.filename = data.image.file_name;
@@ -1185,9 +1255,16 @@ export default {
     this.getData();
 
     this.$socket.emit("annotating", { image_id: this.image.id, active: true });
+
+    this.autosave.timer = setInterval(this.autosaveTick, 1000);
+    window.addEventListener("beforeunload", this.onPageHide);
+    document.addEventListener("visibilitychange", this.onPageHide);
   },
   beforeUnmount() {
     if (this.hammer) this.hammer.destroy();
+    clearInterval(this.autosave.timer);
+    window.removeEventListener("beforeunload", this.onPageHide);
+    document.removeEventListener("visibilitychange", this.onPageHide);
   },
   created() {
     this.paper = new paper.PaperScope();

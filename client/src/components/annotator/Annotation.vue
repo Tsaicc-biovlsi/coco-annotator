@@ -764,7 +764,32 @@ export default {
       );
       hideModal(`#annotationSettings${annotation.id}`);
     },
-    export() {
+    isBlank() {
+      let noShape = this.compoundPath == null || this.compoundPath.isEmpty();
+      return noShape && (this.keypoints == null || this.keypoints.isEmpty());
+    },
+    /** Geometry, keypoints and settings, without side effects (for autosave) */
+    signature() {
+      if (this.isBlank()) return "";
+      let keypoints = this.keypoints && !this.keypoints.isEmpty()
+        ? JSON.stringify(this.keypoints.exportJSON(this.keypointLabels, this.annotation.width, this.annotation.height))
+        : "";
+      let metadata = this.$refs.metadata ? JSON.stringify(this.$refs.metadata.export()) : "";
+      return [
+        this.annotation.id,
+        this.compoundPath ? this.compoundPath.pathData : "",
+        keypoints,
+        metadata,
+        this.name,
+        this.color,
+        this.annotation.isbbox,
+        this.annotation.isrbbox
+      ].join("|");
+    },
+    export(options = {}) {
+      // an autosave must not delete an annotation that was just created and
+      // is still empty (a normal save removes empty annotations)
+      if (options.auto && this.isBlank()) return null;
       if (this.compoundPath == null) this.createCompoundPath();
       let metadata = this.$refs.metadata.export();
       if (this.name.length > 0) metadata.name = this.name;

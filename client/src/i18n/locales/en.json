@@ -339,6 +339,7 @@
     "strokeColor": "Stroke Color"
   },
   "process": {
+    "autosaving": "Autosaving",
     "copyingFrom": "Copying annotations from {from}",
     "generatingCoco": "Generating COCO for {name}",
     "loadingUndo": "Loading undo for {type} instance type"
