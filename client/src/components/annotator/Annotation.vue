@@ -227,7 +227,7 @@ import simplifyjs from "simplify-js";
 
 import { Keypoint, Keypoints, VisibilityOptions } from "@/libs/keypoints";
 import { mapMutations } from "vuex";
-import UndoAction from "@/undo";
+import UndoAction, { restoreAnnotations } from "@/undo";
 
 import Metadata from "@/components/Metadata.vue";
 
@@ -433,7 +433,27 @@ export default {
         this.$emit("click", this.index);
       };
     },
-    deleteAnnotation() {
+    /** Everything needed to bring this annotation back after a delete */
+    snapshot() {
+      let data = { ...this.annotation, metadata: { ...(this.annotation.metadata || {}) } };
+      if (this.$refs.metadata) data.metadata = this.$refs.metadata.export();
+      if (this.name) data.metadata.name = this.name;
+      if (this.compoundPath != null) {
+        data.paper_object = this.compoundPath.exportJSON({ asString: false, precision: 1 });
+      }
+      if (this.keypoints != null && !this.keypoints.isEmpty()) {
+        data.keypoints = this.keypoints.exportJSON(
+          this.keypointLabels,
+          this.annotation.width,
+          this.annotation.height
+        );
+      }
+      return { category: this.$parent.category, data };
+    },
+    deleteAnnotation(options) {
+      // (templates call this with the click event as argument)
+      let undoable = !(options && options.undoable === false) && !this.isBlank();
+      let snapshot = undoable ? this.snapshot() : null;
       axios.delete("/api/annotation/" + this.annotation.id).then(() => {
         this.$socket.emit("annotation", {
           action: "delete",
@@ -442,6 +462,16 @@ export default {
         this.delete();
 
         this.$emit("deleted", this.index);
+        if (snapshot) {
+          this.addUndo(
+            new UndoAction({
+              name: "Annotation " + snapshot.data.id,
+              action: "Delete",
+              func: restoreAnnotations,
+              args: [snapshot]
+            })
+          );
+        }
       });
     },
     delete() {
@@ -521,7 +551,7 @@ export default {
     },
     simplifyPath() {
       if (this.compoundPath != null && this.compoundPath.isEmpty() && this.keypoints.isEmpty()) {
-          this.deleteAnnotation();
+          this.deleteAnnotation({ undoable: false });
           return;
       }
       let simplify = this.simplify;

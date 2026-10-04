@@ -1,5 +1,6 @@
 from flask_restx import Namespace, Resource, reqparse
-from flask_login import login_required
+from flask_login import login_required, current_user
+from mongoengine import Q
 
 import os
 import shutil
@@ -77,7 +78,7 @@ class Undo(Resource):
         if model_instance is None:
             return {"message": "Instance not found"}, 400
 
-        model_object = model_instance.objects(id=model_id).first()
+        model_object = _visible(model_instance, current_user).filter(id=model_id).first()
 
         if model_object is None:
             return {"message": "Invalid id"}, 400
@@ -102,7 +103,7 @@ class Undo(Resource):
         if model_instance is None:
             return {"message": "Instance not found"}, 400
 
-        model_object = model_instance.objects(id=model_id).first()
+        model_object = _visible(model_instance, current_user).filter(id=model_id).first()
 
         if model_object is None:
             return {"message": "Invalid id"}, 400
@@ -120,8 +121,21 @@ class Undo(Resource):
         return {"success": True}
 
 
+def _visible(model_instance, user):
+    """Deleted objects of this type that the user may see, restore or purge."""
+    query = model_instance.objects(deleted=True)
+    if user.is_admin:
+        return query
+    dataset_ids = [d.id for d in DatasetModel.objects(Q(owner=user.username) | Q(users__contains=user.username)).only('id')]
+    if model_instance is DatasetModel:
+        return query.filter(owner=user.username)
+    if model_instance is CategoryModel:
+        return query.filter(creator=user.username)
+    return query.filter(dataset_id__in=dataset_ids)
+
+
 def model_undo(model_instance, instance_name, limit=50):
-    models = model_instance.objects(deleted=True).order_by('-deleted_date').limit(limit)
+    models = _visible(model_instance, current_user).order_by('-deleted_date').limit(limit)
     new_models = []
 
     for model in models:

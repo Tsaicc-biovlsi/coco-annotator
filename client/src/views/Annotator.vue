@@ -239,6 +239,7 @@
 import paper from "paper";
 import axios from "axios";
 import { hideModal } from "@/libs/modal";
+import UndoAction, { restoreAnnotations } from "@/undo";
 
 // save automatically this long after the last change (ms)
 const AUTOSAVE_DELAY = 2000;
@@ -406,7 +407,7 @@ export default {
     };
   },
   methods: {
-    ...mapMutations(["addProcess", "removeProcess", "resetUndo", "setDataset"]),
+    ...mapMutations(["addProcess", "removeProcess", "resetUndo", "addUndo", "setDataset"]),
     // Vue 3 does not keep v-for ref arrays in source order: sort by index
     categoryRefs() {
       return [...(this.$refs.category || [])].sort((a, b) => a.index - b.index);
@@ -1027,11 +1028,31 @@ export default {
       }
       if (!confirm(this.$t("annotator.confirmClear", { n: total }))) return;
 
+      const snapshots = [];
+      categories.forEach(c =>
+        c.annotationRefs().forEach(a => {
+          if (!a.isBlank()) snapshots.push(a.snapshot());
+        })
+      );
+
       axios
         .delete(`/api/image/${this.image.id}/annotations`)
         .then(() => {
           this.current.annotation = -1;
           this.current.keypoint = -1;
+          if (snapshots.length) {
+            this.addUndo(
+              new UndoAction({
+                name: this.$t("toolbar.clearAnnotations"),
+                action: "Clear",
+                func: args =>
+                  restoreAnnotations(args).then(() => {
+                    this.$nextTick(() => this.showAll());
+                  }),
+                args: snapshots
+              })
+            );
+          }
           // removing them from the lists also removes their shapes
           categories.forEach(c => {
             c.category.annotations.splice(0);
@@ -1267,6 +1288,8 @@ export default {
     document.removeEventListener("visibilitychange", this.onPageHide);
   },
   created() {
+    // undo actions belong to the image they were made on
+    this.resetUndo();
     this.paper = new paper.PaperScope();
 
     this.image.id = parseInt(this.identifier);

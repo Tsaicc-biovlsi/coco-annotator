@@ -589,7 +589,9 @@
   },
   "undoAction": {
     "addedPoints": "新增點",
+    "clear": "清除",
     "closedPolygon": "封閉多邊形",
+    "delete": "刪除",
     "deletePolygon": "刪除多邊形",
     "move": "移動",
     "resize": "調整大小",
