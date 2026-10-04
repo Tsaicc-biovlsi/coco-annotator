@@ -163,12 +163,12 @@
     "inviteMembers": "邀請成員",
     "lastSeen": "最後上線：{time} UTC",
     "members": "成員",
-    "metadata": "中繼資料",
+    "metadata": "附加資訊",
     "noImagesFoundInDirectory": "資料夾中找不到圖片。",
     "noSubdirectoryFound": "沒有子資料夾。",
     "onlyShowsImagesAnnotatedWith": "「顯示已標註」只會顯示含有所選類別標註的圖片。留空則顯示所有已標註圖片。",
     "order": "排序",
-    "restAllMetadata": "重設所有中繼資料",
+    "restAllMetadata": "重設所有附加資訊",
     "scan": "掃描",
     "scanning": "掃描中",
     "settings": "設定",
@@ -187,7 +187,7 @@
     "addUsernames": "新增使用者名稱",
     "annotated": "已標註 {done} / {total} 張圖片。",
     "close": "關閉",
-    "defaultAnnotationMetadata": "預設標註中繼資料",
+    "defaultAnnotationMetadata": "預設標註附加資訊",
     "defaultCategories": "預設類別",
     "delete": "刪除",
     "downloadCoco": "下載 COCO",
@@ -231,8 +231,8 @@
   "hover": {
     "category": "類別",
     "keypoint": "關鍵點",
-    "metadata": "中繼資料",
-    "noMetadata": "沒有中繼資料",
+    "metadata": "附加資訊",
+    "noMetadata": "沒有附加資訊",
     "visibility": "可見性"
   },
   "imageCard": {
@@ -264,8 +264,8 @@
   },
   "metadata": {
     "keys": "鍵",
-    "noItemsInMetadata": "沒有中繼資料。",
-    "title": "中繼資料",
+    "noItemsInMetadata": "沒有附加資訊。",
+    "title": "附加資訊",
     "values": "值"
   },
   "modelRun": {
