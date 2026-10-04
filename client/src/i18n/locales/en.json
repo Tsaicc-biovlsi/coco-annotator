@@ -345,6 +345,7 @@
     "loadingUndo": "Loading undo for {type} instance type"
   },
   "rbbox": {
+    "noAnnotation": "Select or create an annotation first",
     "step1": "1/3 · Click the first corner (click a box to select it; Ctrl+click to start a new box inside one)",
     "step2": "2/3 · Click the second corner",
     "step3": "3/3 · Set the width, click · Esc cancels"

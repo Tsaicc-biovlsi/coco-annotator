@@ -56,7 +56,8 @@ export default {
       overlay: null,
       drag: null, // editing an existing box
       drawing: null, // { points: [p1, p2?], cursor } while placing a new box
-      busy: false,
+      pendingCommits: 0,
+      commitQueue: Promise.resolve(),
       lastNudge: 0,
       settings: {
         snap: 15,
@@ -318,26 +319,46 @@ export default {
       let path = annotation.compoundPath;
       return path != null && !path.isEmpty();
     },
-    async commit(box, isNew) {
+    /**
+     * Apply a box to the selected annotation. A new box drawn over an
+     * annotation that already has a shape gets a new annotation, which
+     * needs a server round trip: the box is shown immediately and commits
+     * are queued, so the next box can be drawn while it is being created.
+     */
+    commit(box, isNew) {
+      this.box = box;
+      this.drawOverlay();
+      this.pendingCommits += 1;
+      this.commitQueue = this.commitQueue
+        .then(() => this.applyBox(box, isNew))
+        .catch(error => console.error("rotated box", error))
+        .finally(() => {
+          this.pendingCommits -= 1;
+        });
+      return this.commitQueue;
+    },
+    async applyBox(box, isNew) {
       let parent = this.$parent;
       let annotation = parent.currentAnnotation;
 
-      // drawing a new box over an annotation that already has a shape
-      // starts a new annotation (same behaviour as the BBox tool)
       if (isNew && this.annotationHasShape(annotation) && parent.currentCategory) {
-        this.busy = true;
-        try {
-          await parent.currentCategory.createAnnotation();
-        } finally {
-          this.busy = false;
+        await parent.currentCategory.createAnnotation();
+        // wait until the new annotation is mounted and selected
+        for (let i = 0; i < 5 && parent.currentAnnotation === annotation; i++) {
+          await this.$nextTick();
         }
         annotation = parent.currentAnnotation;
       }
-      if (!annotation) return;
+      if (!annotation) {
+        this.$toastr.warning(this.$t("rbbox.noAnnotation"));
+        return;
+      }
 
       annotation.setRotatedBox(this.corners(box));
-      this.box = box;
-      this.drawOverlay();
+      if (!this.drawing && !this.drag) {
+        this.box = box;
+        this.drawOverlay();
+      }
     },
     cancelDrawing() {
       if (!this.drawing) return;
@@ -366,7 +387,6 @@ export default {
       return null;
     },
     onMouseDown(event) {
-      if (this.busy) return;
       // points 2 and 3 of a new box are taken on mouse up
       if (this.drawing) return;
 
@@ -388,7 +408,7 @@ export default {
 
       // clicking inside another rotated box selects it (Ctrl/⌘ + click
       // starts a new box there instead, e.g. for overlapping objects)
-      if (!event.modifiers.control && !event.modifiers.command) {
+      if (!this.mod(event, "ctrl")) {
         let target = this.boxAt(point);
         if (target) {
           this.$parent.onCategoryClick({ ...target, keypoint: -1 });
@@ -400,6 +420,19 @@ export default {
       this.box = null;
       this.drawing = { points: [point], cursor: point };
       this.drawPreview();
+    },
+    /**
+     * Modifier state from the browser event that caused this mouse event.
+     * paper.js tracks modifiers from key events, which can stay "pressed"
+     * when the key is released outside the page (e.g. after Shift+Win+S).
+     */
+    mod(event, key) {
+      let e = event.event;
+      if (e && typeof e.shiftKey === "boolean") {
+        return key === "shift" ? e.shiftKey : e.ctrlKey || e.metaKey;
+      }
+      let m = event.modifiers || {};
+      return key === "shift" ? !!m.shift : !!(m.control || m.command);
     },
     /** The visible rotated box (other than the selected one) under a point */
     boxAt(point) {
@@ -433,7 +466,7 @@ export default {
     onMouseMove(event) {
       if (!this.drawing) return;
       let [p1, p2] = this.drawing.points;
-      this.drawing.cursor = p2 ? event.point : this.snapPoint(p1, event.point, event.modifiers.shift);
+      this.drawing.cursor = p2 ? event.point : this.snapPoint(p1, event.point, this.mod(event, "shift"));
       this.drawPreview();
     },
     onMouseDrag(event) {
@@ -459,7 +492,7 @@ export default {
         let c = new paper.Point(d.startBox.cx, d.startBox.cy);
         let dir = point.subtract(c);
         let angle = toDeg(Math.atan2(dir.y, dir.x)) + 90;
-        if (event.modifiers.shift && this.settings.snap > 0) {
+        if (this.mod(event, "shift") && this.settings.snap > 0) {
           angle = Math.round(angle / this.settings.snap) * this.settings.snap;
         }
         this.box = { ...d.startBox, angle: normaliseAngle(angle) };
@@ -473,7 +506,7 @@ export default {
         let points = this.drawing.points;
         let p1 = points[0];
         if (points.length === 1) {
-          let p2 = this.snapPoint(p1, event.point, event.modifiers.shift);
+          let p2 = this.snapPoint(p1, event.point, this.mod(event, "shift"));
           // the mouse up of the first click: wait for the second click
           if (p2.getDistance(p1) < min) return;
           points.push(p2);
@@ -502,7 +535,7 @@ export default {
      * shortcuts (next/previous annotation) do not also fire.
      */
     onNudgeKey(e) {
-      if (!this.isActive || this.drawing || this.drag || this.busy) return;
+      if (!this.isActive || this.drawing || this.drag || this.pendingCommits) return;
       let step = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
       if (!step) return;
       let tag = (e.target && e.target.tagName) || "";
@@ -567,7 +600,9 @@ export default {
       if (this.isActive) this.syncFromAnnotation();
     },
     "$parent.current.annotation"() {
-      this.drawing = null;
+      // selecting another annotation cancels a box being drawn, but not when
+      // the change is our own (a queued box selecting its new annotation)
+      if (!this.pendingCommits) this.drawing = null;
       if (this.isActive) this.$nextTick(() => this.syncFromAnnotation());
     },
     scale() {
