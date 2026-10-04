@@ -23,20 +23,32 @@
             {{ $t('modelRun.notInstalled') }}
           </div>
 
-          <div v-else-if="models.length === 0" class="alert alert-info mb-0">
-            <i18n-t keypath="modelRun.noModels" tag="span">
+          <div v-else-if="models.length === 0" class="alert alert-info">
+            <span v-if="isAdmin">{{ $t('modelRun.noModelsAdmin') }}</span>
+            <i18n-t v-else keypath="modelRun.noModels" tag="span">
               <template #folder><code>models/</code></template>
             </i18n-t>
           </div>
 
-          <form v-else @submit.prevent="run">
+          <form v-if="!loading && installed && models.length" @submit.prevent="run">
             <div class="mb-3">
               <label class="form-label" :for="modalId + 'Model'">{{ $t('modelRun.model') }}</label>
-              <select :id="modalId + 'Model'" v-model="options.model" class="form-select">
-                <option v-for="m in models" :key="m.name" :value="m.name" :disabled="!!m.error">
-                  {{ m.name }}{{ m.task ? ` (${taskLabel(m.task)})` : '' }}{{ m.error ? ` — ${$t('modelRun.cannotLoad')}` : '' }}
-                </option>
-              </select>
+              <div class="input-group">
+                <select :id="modalId + 'Model'" v-model="options.model" class="form-select">
+                  <option v-for="m in models" :key="m.name" :value="m.name" :disabled="!!m.error">
+                    {{ m.name }}{{ m.task ? ` (${taskLabel(m.task)})` : '' }}{{ m.error ? ` — ${$t('modelRun.cannotLoad')}` : '' }}
+                  </option>
+                </select>
+                <button
+                  v-if="isAdmin && options.model"
+                  type="button"
+                  class="btn btn-outline-danger"
+                  :title="$t('modelRun.deleteModel')"
+                  @click="deleteModel"
+                >
+                  <i class="fa fa-trash-o" />
+                </button>
+              </div>
               <div v-if="selected && selected.classes" class="form-text">
                 {{ $t('modelRun.classes', { n: selected.classes.length }) }}
                 <span
@@ -79,6 +91,31 @@
             <div v-if="!dataset" class="form-text mt-2">{{ $t('modelRun.imageHint') }}</div>
             <div v-else class="form-text mt-2">{{ $t('modelRun.datasetHint') }}</div>
           </form>
+
+          <div v-if="isAdmin && !loading && installed" class="upload-section">
+            <label class="form-label mb-1" :for="modalId + 'Upload'">{{ $t('modelRun.uploadModel') }}</label>
+            <div class="input-group input-group-sm">
+              <input
+                :id="modalId + 'Upload'"
+                ref="file"
+                type="file"
+                accept=".pt"
+                class="form-control"
+                :disabled="uploading"
+                @change="onFileChosen"
+              />
+              <button
+                type="button"
+                class="btn btn-outline-primary"
+                :disabled="!file || uploading"
+                @click="upload"
+              >
+                <i v-if="uploading" class="fa fa-spinner fa-spin" />
+                {{ uploading ? `${uploadProgress}%` : $t('modelRun.upload') }}
+              </button>
+            </div>
+            <div class="form-text">{{ $t('modelRun.uploadHint') }}</div>
+          </div>
         </div>
 
         <div class="modal-footer">
@@ -131,6 +168,9 @@ export default {
     return {
       loading: false,
       installed: true,
+      file: null,
+      uploading: false,
+      uploadProgress: 0,
       models: [],
       options: {
         model: saved.model || "",
@@ -141,6 +181,9 @@ export default {
     };
   },
   computed: {
+    isAdmin() {
+      return this.$store.getters["user/isAdmin"];
+    },
     selected() {
       return this.models.find(m => m.name === this.options.model);
     },
@@ -170,6 +213,61 @@ export default {
         })
         .finally(() => (this.loading = false));
     },
+    onFileChosen(event) {
+      this.file = event.target.files[0] || null;
+    },
+    async upload() {
+      if (!this.file || this.uploading) return;
+      this.uploading = true;
+      try {
+        let response = await this.sendFile(false).catch(async error => {
+          if (!(error.response && error.response.status === 409)) throw error;
+          if (!confirm(this.$t("modelRun.confirmOverwrite", { name: this.file.name }))) {
+            return null;
+          }
+          return this.sendFile(true);
+        });
+        if (!response) return;
+        const model = response.data.model;
+        this.$toastr.success(this.$t("modelRun.uploaded", { name: model.name }));
+        this.file = null;
+        if (this.$refs.file) this.$refs.file.value = "";
+        this.options.model = model.name;
+        this.loadModels();
+      } catch (error) {
+        const data = (error.response && error.response.data) || {};
+        this.$toastr.error(data.message || String(error), this.$t("modelRun.uploadModel"));
+      } finally {
+        this.uploading = false;
+      }
+    },
+    sendFile(overwrite) {
+      const data = new FormData();
+      data.append("file", this.file);
+      data.append("overwrite", overwrite ? "true" : "false");
+      this.uploadProgress = 0;
+      return axios.post("/api/model/yolo/upload", data, {
+        headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: e => {
+          if (e.total) this.uploadProgress = Math.round((100 * e.loaded) / e.total);
+        }
+      });
+    },
+    deleteModel() {
+      const name = this.options.model;
+      if (!confirm(this.$t("modelRun.confirmDelete", { name }))) return;
+      axios
+        .delete(`/api/model/yolo/model/${encodeURIComponent(name)}`)
+        .then(() => {
+          this.$toastr.success(this.$t("modelRun.deleted", { name }));
+          this.options.model = "";
+          this.loadModels();
+        })
+        .catch(error => {
+          const data = (error.response && error.response.data) || {};
+          this.$toastr.error(data.message || String(error));
+        });
+    },
     hasCategory(name) {
       return this.lowerCategoryNames.includes(name.toLowerCase());
     },
@@ -194,3 +292,11 @@ export default {
   }
 };
 </script>
+
+<style scoped>
+.upload-section {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #dee2e6;
+}
+</style>

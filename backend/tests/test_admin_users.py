@@ -64,3 +64,24 @@ def test_share_dataset_with_member(admin_client):
     names = [d["name"] for d in m.get("/api/dataset/data").get_json()["datasets"]]
     assert "shared_ds" in names
     assert m.get(f"/api/dataset/{ds}/data").status_code == 200
+
+
+def test_clear_image_annotations(world):
+    from database import AnnotationModel, ImageModel
+    c = world["client"]
+    image_id = world["images"][1]["id"]
+    category = world["categories"]["ship"]
+    for _ in range(2):
+        r = c.post("/api/annotation/", json={"image_id": image_id, "category_id": category,
+                                             "segmentation": [[1, 1, 20, 1, 20, 20]]})
+        assert r.status_code == 200, r.data
+    assert AnnotationModel.objects(image_id=image_id, deleted=False).count() >= 2
+
+    r = c.delete(f"/api/image/{image_id}/annotations")
+    assert r.status_code == 200, r.data
+    assert r.get_json()["deleted"] >= 2
+    assert AnnotationModel.objects(image_id=image_id, deleted=False).count() == 0
+    # soft-deleted, so they can be restored from Undo
+    assert AnnotationModel.objects(image_id=image_id, deleted=True).count() >= 2
+    image = ImageModel.objects(id=image_id).first()
+    assert image.num_annotations == 0 and not image.annotated

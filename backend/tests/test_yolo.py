@@ -210,3 +210,60 @@ def test_real_models_end_to_end(world, tmp_path, monkeypatch):
         background=False)
     t = TaskModel.objects(id=task["id"]).first()
     assert t.completed and t.errors == 0, t.logs
+
+
+def _make_admin(username="smoke"):
+    from database import UserModel
+    UserModel.objects(username=username).update(set__is_admin=True)
+
+
+def test_upload_rejects_bad_files(world):
+    import io
+    _make_admin()
+    c = world["client"]
+    r = c.post("/api/model/yolo/upload", data={"file": (io.BytesIO(b"not a model"), "evil.txt")},
+               content_type="multipart/form-data")
+    assert r.status_code == 400
+    r = c.post("/api/model/yolo/upload", data={"file": (io.BytesIO(b"not a model"), "fake.pt")},
+               content_type="multipart/form-data")
+    assert r.status_code == 400
+    from webserver.util.yolo import yolo
+    assert "fake.pt" not in yolo.model_names()
+
+
+def test_upload_needs_admin(world):
+    import io
+    from webserver import app
+    from webserver.util.passwords import hash_password
+    from database import UserModel
+    if UserModel.objects(username="plain").first() is None:
+        UserModel(username="plain", password=hash_password("pw"), name="P", is_admin=False).save()
+    m = app.test_client()
+    assert m.post("/api/user/login", json={"username": "plain", "password": "pw"}).status_code == 200
+    r = m.post("/api/model/yolo/upload", data={"file": (io.BytesIO(b"x"), "a.pt")},
+               content_type="multipart/form-data")
+    assert r.status_code == 403
+    assert m.delete("/api/model/yolo/model/a.pt").status_code == 403
+
+
+@pytest.mark.skipif(not WEIGHTS, reason="set YOLO_TEST_WEIGHTS to run real models")
+def test_upload_and_delete_real_model(world, tmp_path, monkeypatch):
+    pytest.importorskip("ultralytics")
+    from webserver.util.yolo import yolo
+    monkeypatch.setattr(yolo, "directory", str(tmp_path))
+    _make_admin()
+    c = world["client"]
+
+    def upload(overwrite="false"):
+        with open(os.path.join(WEIGHTS, "yolo11n-obb.pt"), "rb") as f:
+            return c.post("/api/model/yolo/upload",
+                          data={"file": (f, "my obb.pt"), "overwrite": overwrite},
+                          content_type="multipart/form-data")
+
+    r = upload()
+    assert r.status_code == 200, r.data
+    assert r.get_json()["model"] == {**r.get_json()["model"], "name": "my_obb.pt", "task": "obb"}
+    assert upload().status_code == 409
+    assert upload("true").status_code == 200
+    assert c.delete("/api/model/yolo/model/my_obb.pt").status_code == 200
+    assert yolo.model_names() == []

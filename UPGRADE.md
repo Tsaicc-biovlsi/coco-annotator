@@ -101,6 +101,9 @@ same PyTorch install is used).
   the background (progress under Tasks); optionally skips images that already
   have annotations.
 
+Admins can also add or remove models in that dialog (upload a `.pt`; it is
+checked by loading it before it is offered).
+
 Classes are matched to the dataset's categories by name (case-insensitive);
 missing ones can be created automatically. For pose models, a category
 without keypoint labels gets them from the model (COCO names and skeleton for
@@ -186,6 +189,11 @@ re-hashed with scrypt on the user's next login. No action needed.
   works with any external model server that returns COCO.
 * `POST /api/dataset/<id>/generate` (Google Images download) — the library it
   used stopped working years ago.
+
+### Clear an image
+
+The ⊗ button in the annotator toolbar deletes every annotation of the current
+image (after a confirmation). They can be restored from the Undo page.
 
 ## Bugs fixed along the way
 

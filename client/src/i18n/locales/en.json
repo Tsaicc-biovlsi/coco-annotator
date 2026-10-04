@@ -37,7 +37,10 @@
   "annotator": {
     "beingAnnotated": "This image is being annotated by {users}.",
     "categorySearch": "Category Search",
-    "noCategoriesHaveBeenEnabled": "No categories have been enabled for this image."
+    "cleared": "Deleted {n} annotations",
+    "confirmClear": "Delete all {n} annotations of this image? They can be restored from the Undo page.",
+    "noCategoriesHaveBeenEnabled": "No categories have been enabled for this image.",
+    "nothingToClear": "This image has no annotations."
   },
   "auth": {
     "confirmPassword": "Confirm Password",
@@ -266,36 +269,45 @@
     "values": "Values"
   },
   "modelRun": {
-    "titleImage": "Annotate this image with a model",
-    "titleDataset": "Pre-annotate {name} with a model",
-    "datasetButton": "Pre-annotate with Model",
-    "loadingModels": "Loading models…",
-    "notInstalled": "Model support is not installed on this server. Build the image with SAM=cuda (or cpu) to enable it.",
-    "noModels": "No models found. Copy your trained YOLO .pt files into the {folder} folder on the server, then open this dialog again.",
-    "model": "Model",
     "cannotLoad": "cannot be loaded",
     "classes": "{n} classes:",
     "classesHint": "Green: the dataset has a category with this name. Predictions are matched to categories by name.",
+    "close": "Close",
     "confidence": "Minimum confidence",
     "confidenceHint": "Predictions below this score are ignored. Lower finds more objects but also more mistakes.",
+    "confirmDelete": "Remove the model {name} from the server?",
+    "confirmOverwrite": "A model named {name} already exists. Replace it?",
     "createCategories": "Create missing categories (and add them to the dataset)",
-    "skipAnnotated": "Skip images that already have annotations",
-    "imageHint": "Your current work is saved first. The predictions are added as normal annotations you can edit or delete.",
+    "datasetButton": "Pre-annotate with Model",
     "datasetHint": "Runs in the background; progress is shown in Tasks. Predictions are added as normal annotations.",
-    "run": "Run",
-    "close": "Close",
-    "running": "Pre-annotating",
-    "imageDone": "Added {n} annotations",
     "datasetStarted": "Pre-annotation started. Progress is shown in Tasks.",
-    "skippedClasses": "No category for: {classes} (skipped)",
+    "deleteModel": "Remove this model from the server",
+    "deleted": "Model {name} removed",
+    "imageDone": "Added {n} annotations",
+    "imageHint": "Your current work is saved first. The predictions are added as normal annotations you can edit or delete.",
     "keypointsMismatch": "The keypoint count of the model differs from these categories, keypoints were not added: {categories}",
+    "loadingModels": "Loading models…",
+    "model": "Model",
+    "noModels": "No models found. Copy your trained YOLO .pt files into the {folder} folder on the server, then open this dialog again.",
+    "noModelsAdmin": "No models yet. Upload a trained YOLO .pt file below.",
+    "notInstalled": "Model support is not installed on this server. Build the image with SAM=cuda (or cpu) to enable it.",
+    "run": "Run",
+    "running": "Pre-annotating",
+    "skipAnnotated": "Skip images that already have annotations",
+    "skippedClasses": "No category for: {classes} (skipped)",
     "task": {
       "detect": "boxes",
       "obb": "rotated boxes",
       "segment": "polygons",
       "pose": "keypoints",
       "classify": "classification"
-    }
+    },
+    "titleDataset": "Pre-annotate {name} with a model",
+    "titleImage": "Annotate this image with a model",
+    "upload": "Upload",
+    "uploadHint": "Ultralytics YOLO weights (detect, OBB, segment or pose), e.g. runs/.../weights/best.pt. Rename the file first: the file name is shown in the list. Only upload models from people you trust.",
+    "uploadModel": "Add a model (.pt)",
+    "uploaded": "Model {name} added"
   },
   "nav": {
     "language": "Language"

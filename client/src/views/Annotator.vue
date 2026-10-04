@@ -82,6 +82,7 @@
         />
         <ShowAllButton />
         <HideAllButton />
+        <ClearAnnotationsButton />
       </div>
       <hr>
       <CenterButton />
@@ -267,6 +268,7 @@ import ModeButton from "@/components/annotator/tools/ModeButton.vue";
 import DeleteButton from "@/components/annotator/tools/DeleteButton.vue";
 import UndoButton from "@/components/annotator/tools/UndoButton.vue";
 import ShowAllButton from "@/components/annotator/tools/ShowAllButton.vue";
+import ClearAnnotationsButton from "@/components/annotator/tools/ClearAnnotationsButton.vue";
 import HideAllButton from "@/components/annotator/tools/HideAllButton.vue";
 import AnnotateButton from "@/components/annotator/tools/AnnotateButton.vue";
 import ModelButton from "@/components/annotator/tools/ModelButton.vue";
@@ -313,6 +315,7 @@ export default {
     UndoButton,
     HideAllButton,
     ShowAllButton,
+    ClearAnnotationsButton,
     KeypointPanel,
     AnnotateButton,
     ModelButton,
@@ -942,6 +945,33 @@ export default {
       );
     },
 
+    clearAnnotations() {
+      const categories = this.categoryRefs();
+      const total = categories.reduce(
+        (n, c) => n + c.category.annotations.length,
+        0
+      );
+      if (total === 0) {
+        this.$toastr.info(this.$t("annotator.nothingToClear"));
+        return;
+      }
+      if (!confirm(this.$t("annotator.confirmClear", { n: total }))) return;
+
+      axios
+        .delete(`/api/image/${this.image.id}/annotations`)
+        .then(() => {
+          this.current.annotation = -1;
+          this.current.keypoint = -1;
+          // removing them from the lists also removes their shapes
+          categories.forEach(c => c.category.annotations.splice(0));
+          this.image.categoryIds = [];
+          this.$toastr.success(this.$t("annotator.cleared", { n: total }));
+        })
+        .catch(error => {
+          const data = (error.response && error.response.data) || {};
+          this.axiosReqestError(this.$t("toolbar.clearAnnotations"), data.message);
+        });
+    },
     runModelOnImage(options) {
       this.modelRunning = true;
       const done = () => (this.modelRunning = false);

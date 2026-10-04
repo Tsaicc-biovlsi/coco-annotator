@@ -1045,6 +1045,12 @@ export default {
     onModalHidden(`#keypointSettings${this.annotation.id}`, () => {
       this.currentKeypoint = null;
     });
+  },
+  beforeUnmount() {
+    // The shapes live on the paper.js canvas, outside Vue: remove them when
+    // the annotation leaves the list (cleared, reloaded, moved category).
+    if (this.compoundPath != null) this.compoundPath.remove();
+    if (this.keypoints != null) this.keypoints.remove();
   }
 };
 </script>

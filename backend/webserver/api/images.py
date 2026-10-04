@@ -191,6 +191,26 @@ class ImageCopyAnnotations(Resource):
         return {'annotations_created': image_to.copy_annotations(query)}
 
 
+@api.route('/<int:image_id>/annotations')
+class ImageAnnotations(Resource):
+
+    @login_required
+    def delete(self, image_id):
+        """ Delete all annotations of an image (they can be restored from Undo) """
+        image = current_user.images.filter(id=image_id, deleted=False).first()
+        if image is None:
+            return {'success': False, 'message': 'Invalid image id'}, 400
+        if not current_user.can_edit(image.dataset):
+            return {'success': False, 'message': 'You do not have permission to edit this dataset'}, 403
+
+        deleted = AnnotationModel.objects(image_id=image.id, deleted=False).update(
+            set__deleted=True, set__deleted_date=datetime.datetime.now())
+        image.update(set__annotated=False, set__num_annotations=0, set__category_ids=[])
+        image.flag_thumbnail()
+
+        return {'success': True, 'deleted': deleted}
+
+
 @api.route('/<int:image_id>/coco')
 class ImageCoco(Resource):
 

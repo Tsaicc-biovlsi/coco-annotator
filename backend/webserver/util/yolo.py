@@ -257,6 +257,51 @@ class YoloService:
             "count": len(self.model_names()) if self.installed else 0,
         }
 
+    # ------------------------------------------------------------ manage
+    def save_upload(self, file_storage, overwrite=False):
+        """Store an uploaded .pt file and check that it loads.
+
+        Returns the model info. Raises ValueError (bad name/file) or
+        FileExistsError (name taken and not ``overwrite``).
+        """
+        from werkzeug.utils import secure_filename
+
+        name = secure_filename(file_storage.filename or "")
+        if not name.lower().endswith('.pt') or name.lower() == '.pt':
+            raise ValueError("Only .pt files can be uploaded")
+
+        os.makedirs(self.directory, exist_ok=True)
+        path = os.path.join(self.directory, name)
+        if os.path.exists(path) and not overwrite:
+            raise FileExistsError(name)
+
+        # hidden (not listed) but still a .pt file, so ultralytics loads it now
+        tmp = os.path.join(self.directory, f".uploading-{os.getpid()}-{threading.get_ident()}-{name}")
+        file_storage.save(tmp)
+        try:
+            from ultralytics import YOLO
+            model = YOLO(tmp)
+            dict(model.names)  # make sure the weights really loaded
+            if model.task not in ("detect", "obb", "segment", "pose"):
+                raise ValueError(f"Unsupported model type: {model.task}")
+        except ValueError:
+            os.remove(tmp)
+            raise
+        except Exception as e:
+            os.remove(tmp)
+            raise ValueError(f"Not a YOLO model that can be loaded: {e}")
+
+        os.replace(tmp, path)
+        with self._load_lock:
+            self._models.pop(name, None)
+        return self.info(name)
+
+    def delete(self, name):
+        path = self.path_for(name)
+        os.remove(path)
+        with self._load_lock:
+            self._models.pop(name, None)
+
     # ------------------------------------------------------------ predict
     def predict(self, name, image_path, conf=0.25, iou=0.7, imgsz=None):
         model = self.load(name)

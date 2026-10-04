@@ -1,4 +1,5 @@
 from flask_restx import Namespace, Resource, reqparse
+from werkzeug.datastructures import FileStorage
 from flask_login import login_required, current_user
 
 from database import ImageModel
@@ -119,6 +120,52 @@ class YoloModels(Resource):
         if not yolo.installed:
             return {"installed": False, "models": []}
         return {"installed": True, "models": yolo.list()}
+
+
+yolo_upload = reqparse.RequestParser()
+yolo_upload.add_argument('file', location='files', type=FileStorage, required=True,
+                         help='Ultralytics YOLO .pt file')
+yolo_upload.add_argument('overwrite', location='form', type=str, default='false')
+
+
+@api.route('/yolo/upload')
+class YoloUpload(Resource):
+
+    @login_required
+    @api.expect(yolo_upload)
+    def post(self):
+        """ Add a model (admins only: loading a .pt file runs code from it) """
+        if not current_user.is_admin:
+            return {"message": "Only admins can add models"}, 403
+        if not yolo.installed:
+            return {"disabled": True, "message": "Model support is not installed on this server"}, 400
+
+        args = yolo_upload.parse_args()
+        overwrite = str(args.get('overwrite')).lower() in ('1', 'true', 'yes')
+        try:
+            info = yolo.save_upload(args['file'], overwrite=overwrite)
+        except FileExistsError as e:
+            return {"exists": True, "message": f"A model named {e} already exists"}, 409
+        except ValueError as e:
+            return {"message": str(e)}, 400
+        logger.info(f"User {current_user.username} added model {info['name']}")
+        return {"success": True, "model": info}
+
+
+@api.route('/yolo/model/<path:name>')
+class YoloModel(Resource):
+
+    @login_required
+    def delete(self, name):
+        """ Remove a model file (admins only) """
+        if not current_user.is_admin:
+            return {"message": "Only admins can remove models"}, 403
+        try:
+            yolo.delete(name)
+        except (ValueError, OSError):
+            return {"message": "Unknown model"}, 400
+        logger.info(f"User {current_user.username} removed model {name}")
+        return {"success": True}
 
 
 @api.route('/yolo/image/<int:image_id>')
