@@ -120,6 +120,9 @@ class ImageId(Resource):
 
         if image is None:
             return {'success': False}, 400
+        if not os.path.isfile(image.path):
+            # e.g. the file was deleted or moved on disk
+            return {'success': False, 'message': 'Image file not found on the server'}, 404
         if original:
             return send_file(image.path, download_name=image.file_name, as_attachment=as_attachment)
 

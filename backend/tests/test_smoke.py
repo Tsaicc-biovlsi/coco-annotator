@@ -193,3 +193,19 @@ def test_missing_thumbnail_is_generated_on_request(world):
 def test_thumbnail_task_ignores_missing_image(world):
     from workers.tasks import thumbnail_generate_single_image
     thumbnail_generate_single_image(999999)  # must not raise
+
+
+def test_missing_image_file_returns_404(world):
+    from database import ImageModel
+    c = world["client"]
+    image = ImageModel.objects(id=world["images"][0]["id"]).first()
+    moved = image.path + ".moved"
+    os.rename(image.path, moved)
+    try:
+        for query in ["", "?thumbnail=true&width=100", "?original=true"]:
+            r = c.get(f"/api/image/{image.id}{query}")
+            assert r.status_code == 404, (query, r.status_code)
+        from workers.tasks import thumbnail_generate_single_image
+        thumbnail_generate_single_image(image.id)  # must not raise
+    finally:
+        os.rename(moved, image.path)

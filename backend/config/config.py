@@ -52,7 +52,7 @@ class Config:
     MONGODB_HOST = os.getenv("MONGODB_HOST", "mongodb://database/flask")
     SECRET_KEY = os.getenv("SECRET_KEY", "<--- CHANGE THIS KEY --->")
 
-    LOG_LEVEL = 'debug'
+    LOG_LEVEL = os.getenv("LOG_LEVEL", "info")
     WORKER_CONNECTIONS = 1000
 
     TESTING = _get_bool("TESTING", False)

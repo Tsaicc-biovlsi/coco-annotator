@@ -11,6 +11,7 @@
           :src="imageUrl"
           :src-placeholder="loaderUrl"
           class="card-img-top"
+          @error="imageError = true"
           style="width: 100%; display: block"
           :style="{'opacity': annotated ? 0.3 : 1}"
         />
@@ -87,6 +88,7 @@
 
 <script>
 import loaderImg from "@/assets/loader.gif";
+import notFoundImageImg from "@/assets/404-image.png";
 import axios from "axios";
 
 export default {
@@ -101,7 +103,8 @@ export default {
     return {
       hover: false,
       showAnnotations: true,
-      loaderUrl: loaderImg
+      loaderUrl: loaderImg,
+      imageError: false
     };
   },
   methods: {
@@ -143,6 +146,8 @@ export default {
   },
   computed: {
     imageUrl() {
+      // the file is missing on the server (deleted or moved on disk)
+      if (this.imageError) return notFoundImageImg;
       let d = new Date();
       if (this.showAnnotations) {
         return `/api/image/${
