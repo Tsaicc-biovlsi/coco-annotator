@@ -25,7 +25,7 @@ box tool.
 
 ### Rotated bounding boxes (`O`)
 
-Select an annotation, pick the **Rotated BBox** tool (↻ icon or `O`), then
+Select an annotation, pick the **Rotated BBox** tool (tilted square icon or `O`), then
 draw a box with three clicks:
 
 1. click the first corner,

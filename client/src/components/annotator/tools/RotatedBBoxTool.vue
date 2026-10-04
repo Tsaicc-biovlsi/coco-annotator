@@ -49,7 +49,8 @@ export default {
   },
   data() {
     return {
-      icon: "fa-rotate-right",
+      icon: "fa-square-o",
+      iconRotate: -30,
       name: "Rotated BBox",
       cursor: "crosshair",
       box: null, // { cx, cy, w, h, angle } in paper coordinates, angle in degrees
