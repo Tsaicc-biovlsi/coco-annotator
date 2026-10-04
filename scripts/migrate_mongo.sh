@@ -82,7 +82,10 @@ trap cleanup EXIT
 echo "1/3 Dumping database '$DB_NAME' from $OLD_SOURCE (mongo:4.0) ..."
 docker run -d --name coco-migrate-old -v "$OLD_SOURCE":/data/db mongo:4.0 >/dev/null
 until docker exec coco-migrate-old mongo --quiet --eval 'db.runCommand({ping:1}).ok' >/dev/null 2>&1; do sleep 1; done
-docker exec coco-migrate-old mongodump --db "$DB_NAME" --archive=/tmp/dump.archive --gzip
+# celery_taskmeta only holds old Celery task results (unused, and its
+# MongoDB 4.0 index definition is rejected by MongoDB 7), so it is skipped.
+docker exec coco-migrate-old mongodump --db "$DB_NAME" --excludeCollection=celery_taskmeta \
+  --archive=/tmp/dump.archive --gzip
 docker cp coco-migrate-old:/tmp/dump.archive "$DUMP_DIR/dump.archive"
 docker stop coco-migrate-old >/dev/null
 
