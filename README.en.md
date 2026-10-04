@@ -6,44 +6,20 @@
 
 <p align="center">
   <a href="#features">Features</a> •
-  <a href="https://github.com/jsbroks/coco-annotator/wiki">Wiki</a> •
-  <a href="https://github.com/jsbroks/coco-annotator/wiki/Getting-Started">Getting Started</a> •
-  <a href="https://github.com/jsbroks/coco-annotator/issues">Issues</a> •
+  <a href="#quick-start">Quick start</a> •
+  <a href="UPGRADE.md">Upgrading</a> •
+  <a href="https://github.com/Tsaicc-biovlsi/coco-annotator/issues">Issues</a> •
   <a href="#license">License</a>
 </p>
 
 ---
-
-<p align="center">
-  <a href="/jsbroks/coco-annotator/stargazers">
-    <img src="https://img.shields.io/github/stars/jsbroks/coco-annotator.svg">
-  </a>
-  <a href="/jsbroks/coco-annotator/issues">
-    <img src="https://img.shields.io/github/issues/jsbroks/coco-annotator.svg">
-  </a>
-  <a href="https://tldrlegal.com/license/mit-license">
-    <img src="https://img.shields.io/github/license/mashape/apistatus.svg">
-  </a>
-  <a href="https://lgtm.com/projects/g/jsbroks/coco-annotator/context:javascript">
-    <img src="https://img.shields.io/lgtm/grade/javascript/g/jsbroks/coco-annotator.svg?label=code%20quality">
-  </a>
-  <a href="https://annotator.justinbrooks.ca/">
-    <img src="https://img.shields.io/badge/demo-online-green.svg">
-  </a>
-  <a href="https://travis-ci.org/jsbroks/coco-annotator">
-    <img src="https://travis-ci.org/jsbroks/coco-annotator.svg?branch=master">
-  </a>
-  <a href="https://hub.docker.com/r/jsbroks/coco-annotator">
-    <img src="https://img.shields.io/docker/pulls/jsbroks/coco-annotator.svg">
-  </a>
-</p>
 
 COCO Annotator is a web-based image annotation tool designed for versatility and efficiently label images to create training data for image localization and object detection. It provides many distinct features including the ability to label an image segment (or part of a segment), track object instances, labeling objects with disconnected visible parts, efficiently storing and export annotations in the well-known [COCO format](http://cocodataset.org/#format-data). The annotation process is delivered through an intuitive and customizable interface and provides many tools for creating accurate datasets.
 
 
 <br />
 
-<p align="center">Join our growing <a href="https://discord.gg/4zP5Qkj">discord community</a> of ML practitioner</p>
+<p align="center">The original project's <a href="https://discord.gg/4zP5Qkj">discord community</a></p>
 <p align="center">
   <a href="https://discord.gg/4zP5Qkj">
     <img src="https://discord.com/assets/e4923594e694a21542a489471ecffa50.svg" width="120">
@@ -54,7 +30,7 @@ COCO Annotator is a web-based image annotation tool designed for versatility and
 
 <p align="center"><a href="http://www.youtube.com/watch?feature=player_embedded&v=OMJRcjnMMok" target="_blank"><img src="https://img.youtube.com/vi/OMJRcjnMMok/maxresdefault.jpg" 
 alt="Image annotations using COCO Annotator" width="600" /></a></p>
-<p align="center"><i>Checkout the video for a basic guide on installing and using COCO Annotator.</i></p>
+<p align="center"><i>Video guide for the original version (installation steps differ, see Quick start below).</i></p>
 
 <br />
 
@@ -64,7 +40,7 @@ alt="Image annotations using COCO Annotator" width="600" /></a></p>
 
 <br>
 
-<p align="center">If you enjoy my work please consider supporting me</p>
+<p align="center">Support the original author, Justin Brooks</p>
 <p align="center">
   <a href="https://www.patreon.com/jsbroks">
     <img src="https://c5.patreon.com/external/logo/become_a_patron_button@2x.png" width="120">
@@ -91,7 +67,7 @@ Several annotation tools are currently available, with most applications as a de
 - User authentication system
 - Interface in English and Traditional Chinese (繁體中文)
 
-For examples and more information check out the [wiki](https://github.com/jsbroks/coco-annotator/wiki).
+Usage is described in the [Chinese README](README.md) and [UPGRADE.md](UPGRADE.md). The [original project's wiki](https://github.com/jsbroks/coco-annotator/wiki) still covers the basics.
 
 # Quick start
 
@@ -103,15 +79,6 @@ Put images in `./datasets/<dataset name>/`. For Segment Anything run
 `./models/download_sam.sh` and build with `SAM=cpu` (or use
 `docker-compose.gpu.yml`). Upgrading an existing installation? Read
 [UPGRADE.md](UPGRADE.md) first — the MongoDB data needs a one-time migration.
-
-# Demo
-
-| Login Information      |
-| ---------------------- |
-| **Username:** admin    |
-| **Password:** password |
-
-https://annotator.justinbrooks.ca/
 
 # Backers
 

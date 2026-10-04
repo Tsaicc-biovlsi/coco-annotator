@@ -16,8 +16,8 @@ class Info(Resource):
         return {
             "name": "COCO Annotator",
             "author": "Justin Brooks",
-            "demo": "https://annotator.justinbrooks.ca/",
-            "repo": "https://github.com/jsbroks/coco-annotator",
+            "repo": "https://github.com/Tsaicc-biovlsi/coco-annotator",
+            "original_repo": "https://github.com/jsbroks/coco-annotator",
             "git": {
                 "tag": Config.VERSION
             },

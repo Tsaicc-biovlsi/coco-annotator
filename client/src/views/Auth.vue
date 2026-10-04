@@ -15,8 +15,8 @@
             <p>{{ $t('auth.useTheRegisterationFormTo') }}</p>
             <p>
               <i18n-t keypath="auth.questions" tag="span">
-                <template #wiki><a href="https://github.com/jsbroks/coco-annotator/wiki">{{ $t('auth.wiki') }}</a></template>
-                <template #issues><a href="https://github.com/jsbroks/coco-annotator/issues">{{ $t('auth.issues') }}</a></template>
+                <template #wiki><a :href="docsUrl" target="_blank" rel="noopener">{{ $t('auth.wiki') }}</a></template>
+                <template #issues><a :href="issuesUrl" target="_blank" rel="noopener">{{ $t('auth.issues') }}</a></template>
               </i18n-t>
             </p>
           </div>
@@ -27,7 +27,7 @@
               {{ $t('auth.loginToCreate') }}
               <br /><br />
               {{ $t('auth.findOutMore') }}
-              <a href="https://github.com/jsbroks/coco-annotator">Github</a>
+              <a :href="repoUrl" target="_blank" rel="noopener">GitHub</a>
             </p>
           </div>
           <!-- End of section -->
@@ -183,6 +183,7 @@
 
 <script>
 import toastrs from "@/mixins/toastrs";
+import { DOCS_URL, ISSUES_URL, REPO_URL } from "@/links";
 import { mapActions, mapMutations } from "vuex";
 export default {
   name: "Authentication",
@@ -197,6 +198,9 @@ export default {
   },
   data() {
     return {
+      docsUrl: DOCS_URL,
+      issuesUrl: ISSUES_URL,
+      repoUrl: REPO_URL,
       tab: "login",
       registerForm: {
         loading: false,

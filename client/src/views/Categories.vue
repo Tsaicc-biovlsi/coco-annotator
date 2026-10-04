@@ -145,7 +145,7 @@
           </div>
           <div class="modal-body">
             {{ $t('categories.moreInformationCanBeFound') }}
-            <a href="https://github.com/jsbroks/coco-annotator/wiki/Usage#creating-categories">
+            <a :href="docsUrl" target="_blank" rel="noopener">
               {{ $t('categories.gettingStartedSection') }}
             </a>.
             <hr />
@@ -172,6 +172,7 @@
 
 <script>
 import toastrs from "@/mixins/toastrs";
+import { docsSection } from "@/links";
 
 import Category from "@/models/categories";
 import CategoryCard from "@/components/cards/CategoryCard.vue";
@@ -186,6 +187,7 @@ export default {
   mixins: [toastrs],
   data() {
     return {
+      docsUrl: docsSection("第一次使用"),
       categoryCount: 0,
       pages: 1,
       page: 1,

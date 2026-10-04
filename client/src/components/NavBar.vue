@@ -59,7 +59,7 @@
         <li class="nav-item d-none d-xl-block">
           <a
             class="nav-link"
-            href="https://github.com/jsbroks/coco-annotator/wiki"
+            :href="docsUrl" target="_blank" rel="noopener"
             >{{ $t('navBar.help') }}</a
           >
         </li>
@@ -75,12 +75,14 @@
 import User from "@/components/User.vue";
 import Status from "@/components/Status.vue";
 import LanguageSwitcher from "@/components/LanguageSwitcher.vue";
+import { DOCS_URL } from "@/links";
 
 export default {
   name: "NavBar",
   components: { Status, User, LanguageSwitcher },
   data() {
     return {
+      docsUrl: DOCS_URL,
       color: "white",
       backendStatus: "Connection unknown"
     };
