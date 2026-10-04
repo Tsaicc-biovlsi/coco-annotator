@@ -29,7 +29,7 @@ image_upload = reqparse.RequestParser()
 image_upload.add_argument('image', location='files',
                           type=FileStorage, required=True,
                           help='PNG or JPG file')
-image_upload.add_argument('dataset_id', required=True, type=int,
+image_upload.add_argument('dataset_id', required=True, type=int, location='form',
                           help='Id of dataset to insert image into')
 
 image_download = reqparse.RequestParser()
@@ -76,32 +76,50 @@ class Images(Resource):
     @api.expect(image_upload)
     @login_required
     def post(self):
-        """ Creates an image """
+        """ Uploads an image into a dataset's folder """
         args = image_upload.parse_args()
-        image = args['image']
+        upload = args['image']
 
-        dataset_id = args['dataset_id']
-        try:
-            dataset = DatasetModel.objects.get(id=dataset_id)
-        except:
-            return {'message': 'dataset does not exist'}, 400
+        dataset = current_user.datasets.filter(id=args['dataset_id'], deleted=False).first()
+        if dataset is None:
+            return {'message': 'Invalid dataset id'}, 400
+        if not current_user.can_edit(dataset):
+            return {'message': 'You do not have permission to add images to this dataset'}, 403
+
+        # keep only the file name (browsers may send "folder/a.jpg"); unicode is fine
+        file_name = os.path.basename((upload.filename or '').replace('\\', '/')).strip()
+        if not file_name or file_name.startswith('.') or not file_name.endswith(ImageModel.PATTERN):
+            return {'message': f'Not a supported image file: {upload.filename}'}, 400
+
         directory = dataset.directory
-        path = os.path.join(directory, image.filename)
+        os.makedirs(directory, exist_ok=True)
+        path = os.path.join(directory, file_name)
 
+        existing = ImageModel.objects(path=path).first()
         if os.path.exists(path):
-            return {'message': 'file already exists'}, 400
+            if existing is None:
+                existing = ImageModel.create_from_path(path, dataset.id).save()
+            elif existing.deleted:
+                existing.update(deleted=False)
+            return {'id': existing.id, 'file_name': file_name, 'existed': True}
 
-        pil_image = Image.open(io.BytesIO(image.read()))
-
-        pil_image.save(path)
-
-        image.close()
-        pil_image.close()
+        data = upload.read()
+        upload.close()
         try:
-            db_image = ImageModel.create_from_path(path, dataset_id).save()
+            with Image.open(io.BytesIO(data)) as check:
+                check.verify()
+        except Exception:
+            return {'message': f'Not a valid image: {file_name}'}, 400
+
+        # store the original bytes (no re-encoding, EXIF kept)
+        with open(path, 'wb') as f:
+            f.write(data)
+
+        try:
+            db_image = ImageModel.create_from_path(path, dataset.id).save()
         except NotUniqueError:
             db_image = ImageModel.objects.get(path=path)
-        return db_image.id
+        return {'id': db_image.id, 'file_name': file_name, 'existed': False}
 
 
 @api.route('/<int:image_id>')

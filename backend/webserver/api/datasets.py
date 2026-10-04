@@ -67,8 +67,13 @@ class Dataset(Resource):
     def post(self):
         """ Creates a dataset """
         args = dataset_create.parse_args()
-        name = args['name']
+        name = (args['name'] or '').strip()
         categories = args.get('categories', [])
+
+        # the name is also the dataset's folder under the datasets directory
+        if not name or name in ('.', '..') or name.startswith('.') \
+                or any(c in name for c in '/\\\0'):
+            return {'message': 'Invalid dataset name (it cannot contain / or \\ or start with a dot)'}, 400
 
         category_ids = CategoryModel.bulk_create(categories)
 

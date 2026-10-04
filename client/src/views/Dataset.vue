@@ -489,6 +489,7 @@ export default {
         errors: 0,
         id: null
       },
+      importPoll: null,
       preannotating: {
         progress: 0,
         id: null
@@ -512,7 +513,8 @@ export default {
       },
       query: {
         file_name__icontains: "",
-        ...this.$route.query
+        // query string filters (but not the import task id, see created)
+        ...Object.fromEntries(Object.entries(this.$route.query).filter(([k]) => k !== "importTask"))
       },
       panel: {
         showAnnotated: true,
@@ -652,12 +654,30 @@ export default {
 
       showModal("#cocoUpload");
     },
+    /** Fallback for a progress update sent before this page was listening */
+    pollImportTask() {
+      clearTimeout(this.importPoll);
+      const id = this.importing.id;
+      if (id == null || this.importing.progress >= 100) return;
+      axios.get("/api/tasks/").then(response => {
+        const task = (response.data || []).find(t => t.id === id);
+        if (this.importing.id !== id) return;
+        if (task && task.completed) {
+          this.importing.warnings = task.warnings || 0;
+          this.importing.errors = task.errors || 0;
+          this.importing.progress = 100;
+        } else {
+          this.importPoll = setTimeout(this.pollImportTask, 2000);
+        }
+      });
+    },
     importCOCO() {
       let uploaded = document.getElementById("coco");
       Dataset.uploadCoco(this.dataset.id, uploaded.files[0])
         .then(response => {
           let id = response.data.id;
           this.importing.id = id;
+          this.pollImportTask();
         })
         .catch(error => {
           this.axiosReqestError("Importing COCO", error.response.data.message);
@@ -834,6 +854,11 @@ export default {
     if (order !== null) this.order = order;
 
     this.dataset.id = parseInt(this.identifier);
+    // coming from the import dialog on the datasets page: follow its task
+    if (this.$route.query.importTask) {
+      this.importing.id = parseInt(this.$route.query.importTask);
+      this.pollImportTask();
+    }
     this.updatePage();
   },
   mounted() {
@@ -841,6 +866,7 @@ export default {
     window.addEventListener("mousedown", this.startDrag);
   },
   unmounted() {
+    clearTimeout(this.importPoll);
     window.removeEventListener("mouseup", this.stopDrag);
     window.removeEventListener("mousedown", this.startDrag);
   }

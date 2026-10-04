@@ -247,6 +247,25 @@
     "downloadImageCoco": "Download Image & COCO",
     "noAnnotations": "No annotations"
   },
+  "importDataset": {
+    "title": "Import images / COCO",
+    "dataset": "Dataset",
+    "newDataset": "+ New dataset",
+    "newName": "Name of the new dataset",
+    "images": "Images",
+    "chooseImages": "Choose images",
+    "chooseFolder": "Choose a folder",
+    "clear": "Clear",
+    "selected": "{n} images selected ({size})",
+    "imagesHint": "Optional. Uploaded into the dataset's folder on the server; files with the same name are skipped.",
+    "coco": "COCO annotations (.json, optional)",
+    "cocoHint": "Imported after the images. Images are matched by file name.",
+    "progress": "{skipped} already on the server, {failed} failed",
+    "import": "Import",
+    "close": "Close",
+    "done": "Import done: {uploaded} images uploaded, {skipped} already there",
+    "failed": "{n} files could not be uploaded: {names}"
+  },
   "keypointPanel": {
     "label": "Label",
     "settingsForNextKeypoint": "Settings for next Keypoint",

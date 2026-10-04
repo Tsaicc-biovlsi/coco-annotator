@@ -247,6 +247,25 @@
     "downloadImageCoco": "下載圖片與 COCO",
     "noAnnotations": "沒有標註"
   },
+  "importDataset": {
+    "title": "匯入圖片 / COCO",
+    "dataset": "資料集",
+    "newDataset": "＋ 建立新資料集",
+    "newName": "新資料集名稱",
+    "images": "圖片",
+    "chooseImages": "選擇圖片",
+    "chooseFolder": "選擇資料夾",
+    "clear": "清除",
+    "selected": "已選 {n} 張圖片（{size}）",
+    "imagesHint": "選填。會上傳到伺服器上這個資料集的資料夾，同名的檔案會略過。",
+    "coco": "COCO 標註檔（.json，選填）",
+    "cocoHint": "圖片上傳完才匯入，依檔名對應圖片。",
+    "progress": "{skipped} 張已在伺服器上，{failed} 張失敗",
+    "import": "匯入",
+    "close": "關閉",
+    "done": "匯入完成：上傳 {uploaded} 張圖片，{skipped} 張原本就有",
+    "failed": "{n} 個檔案上傳失敗：{names}"
+  },
   "keypointPanel": {
     "label": "標籤",
     "settingsForNextKeypoint": "下一個關鍵點的設定",

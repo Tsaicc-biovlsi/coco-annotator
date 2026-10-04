@@ -35,7 +35,9 @@
             >
               {{ $t('datasets.create') }}
             </button>
-            <button type="button" class="btn btn-primary">{{ $t('datasets.import') }}</button>
+            <button type="button" class="btn btn-primary" @click="$refs.importModal.open()">
+              {{ $t('datasets.import') }}
+            </button>
             <button
               type=" button"
               class="btn btn-secondary"
@@ -170,6 +172,7 @@
         </div>
       </div>
     </div>
+    <ImportDatasetModal ref="importModal" @done="onImported" />
   </div>
 </template>
 
@@ -180,12 +183,13 @@ import AdminPanel from "@/models/admin";
 import DatasetCard from "@/components/cards/DatasetCard.vue";
 import Pagination from "@/components/Pagination.vue";
 import TagsInput from "@/components/TagsInput.vue";
+import ImportDatasetModal from "@/components/ImportDatasetModal.vue";
 
 import { mapMutations } from "vuex";
 
 export default {
   name: "Datasets",
-  components: { DatasetCard, Pagination, TagsInput },
+  components: { DatasetCard, Pagination, TagsInput, ImportDatasetModal },
   mixins: [toastrs],
   data() {
     return {
@@ -226,6 +230,10 @@ export default {
           });
       })
       .finally(() => this.removeProcess(process));
+    },
+    onImported({ datasetId, importTask }) {
+      const query = importTask ? { importTask } : {};
+      this.$router.push({ name: "dataset", params: { identifier: datasetId }, query });
     },
     createDataset() {
       if (this.create.name.length < 1) return;
