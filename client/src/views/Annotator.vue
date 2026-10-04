@@ -963,7 +963,12 @@ export default {
           this.current.annotation = -1;
           this.current.keypoint = -1;
           // removing them from the lists also removes their shapes
-          categories.forEach(c => c.category.annotations.splice(0));
+          categories.forEach(c => {
+            c.category.annotations.splice(0);
+            // empty categories are hidden, as after deleting one by one
+            c.showAnnotations = false;
+            c.isVisible = false;
+          });
           this.image.categoryIds = [];
           this.$toastr.success(this.$t("annotator.cleared", { n: total }));
         })
