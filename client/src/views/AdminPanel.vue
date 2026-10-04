@@ -25,6 +25,9 @@
             >
               {{ $t('adminPanel.createUser') }}
             </button>
+            <button type="button" class="btn btn-primary" @click="$refs.bulk.open()">
+              {{ $t('bulkUsers.title') }}
+            </button>
             <button type="button" class="btn btn-secondary" @click="updatePage">
               {{ $t('adminPanel.refresh') }}
             </button>
@@ -233,6 +236,7 @@
         </div>
       </div>
     </div>
+    <BulkUsersModal ref="bulk" @created="updatePage" />
   </div>
 </template>
 
@@ -241,9 +245,11 @@ import AdminPanel from "@/models/admin";
 import toastrs from "@/mixins/toastrs";
 import { mapMutations } from "vuex";
 import { showModal, hideModal } from "@/libs/modal";
+import BulkUsersModal from "@/components/BulkUsersModal.vue";
 
 export default {
   name: "AdminPanel",
+  components: { BulkUsersModal },
   mixins: [toastrs],
   data() {
     return {

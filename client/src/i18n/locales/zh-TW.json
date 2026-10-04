@@ -72,6 +72,22 @@
     "radius": "半徑",
     "strokeColor": "線條顏色"
   },
+  "bulkUsers": {
+    "alreadyExists": "已存在，未變更",
+    "create": "建立 {n} 個帳號",
+    "dataset": "把資料集分享給這些帳號（選填）",
+    "done": "已建立 {created} 個帳號，{existing} 個原本就存在",
+    "download": "下載帳號密碼（CSV）",
+    "duplicate": "重複",
+    "invalidRows": "格式不符或重複：{rows}",
+    "list": "每行一位學生：學號,姓名,密碼（密碼可省略）",
+    "listHint": "學號格式為 1 個英文字母加 8 位數字（例如 B11223344）。可用逗號或 Tab 分隔，所以直接從 Excel 複製兩欄貼上也可以。沒填密碼會自動產生。",
+    "loadCsv": "讀取 CSV 檔",
+    "noDataset": "（不分享）",
+    "preview": "將建立 {valid} 個帳號，{invalid} 行格式不符",
+    "saveNow": "請現在下載或抄下密碼，關閉後就無法再顯示（之後管理員可以重設密碼）。",
+    "title": "批次建立帳號"
+  },
   "categories": {
     "addAKeypoint": "新增關鍵點",
     "categories": "類別",

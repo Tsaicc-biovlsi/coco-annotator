@@ -163,4 +163,5 @@ sam = SamService(
     checkpoint=Config.SAM_CHECKPOINT,
     model_type=Config.SAM_MODEL_TYPE,
     device=Config.SAM_DEVICE,
+    cache_size=Config.SAM_CACHE_SIZE,
 )

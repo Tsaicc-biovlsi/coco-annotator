@@ -2,7 +2,10 @@ from flask_login import login_required, current_user
 from flask_restx import Namespace, Resource, reqparse
 from ..util.passwords import hash_password, check_password, check_and_upgrade
 
-from database import UserModel
+import re
+import secrets
+
+from database import UserModel, DatasetModel
 from ..util.query_util import fix_ids
 
 api = Namespace('admin', description='Admin related operations')
@@ -22,6 +25,21 @@ register.add_argument('password', required=True, location='json')
 register.add_argument('email', location='json')
 register.add_argument('name', location='json')
 register.add_argument('isAdmin', type=bool, default=False, location='json')
+
+
+bulk_users = reqparse.RequestParser()
+bulk_users.add_argument('users', location='json', type=list, required=True,
+                        help='[{"username": "B12345678", "name": "...", "password": "(optional)"}]')
+bulk_users.add_argument('datasetId', location='json', type=int, default=None,
+                        help='Optional dataset to share with the new (and existing) accounts')
+
+STUDENT_ID = re.compile(r'^[A-Z][0-9]{8}$')
+# no 0/O, 1/l/I: passwords are read from a printed list
+PASSWORD_CHARS = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+
+
+def _new_password(length=8):
+    return ''.join(secrets.choice(PASSWORD_CHARS) for _ in range(length))
 
 
 def _is_last_admin(user):
@@ -56,6 +74,57 @@ class Users(Resource):
             "per_page": per_page,
             "users": fix_ids(user_model.all())
         }
+
+
+@api.route('/users/bulk')
+class UsersBulk(Resource):
+
+    @login_required
+    @api.expect(bulk_users)
+    def post(self):
+        """ Create many accounts at once (student IDs like B12345678) """
+        if not current_user.is_admin:
+            return {"success": False, "message": "Access denied"}, 401
+
+        args = bulk_users.parse_args()
+        dataset = None
+        if args.get('datasetId') is not None:
+            dataset = DatasetModel.objects(id=args['datasetId'], deleted=False).first()
+            if dataset is None:
+                return {"success": False, "message": "Invalid dataset id"}, 400
+
+        created, existing, invalid, seen = [], [], [], set()
+        for row in args['users'] or []:
+            row = row if isinstance(row, dict) else {}
+            username = str(row.get('username') or '').strip().upper()
+            name = str(row.get('name') or '').strip()
+            password = str(row.get('password') or '').strip()
+
+            if not STUDENT_ID.match(username):
+                invalid.append({"username": username, "reason": "format"})
+                continue
+            if username in seen:
+                invalid.append({"username": username, "reason": "duplicate"})
+                continue
+            seen.add(username)
+            if UserModel.objects(username__iexact=username).first():
+                existing.append(username)
+                continue
+
+            password = password or _new_password()
+            user = UserModel(username=username, name=name or username,
+                             password=hash_password(password), is_admin=False)
+            user.save()
+            created.append({"username": username, "name": user.name, "password": password})
+
+        if dataset is not None:
+            members = list(dataset.users or [])
+            for username in [u["username"] for u in created] + existing:
+                if username not in members:
+                    members.append(username)
+            dataset.update(users=members)
+
+        return {"success": True, "created": created, "existing": existing, "invalid": invalid}
 
 
 @api.route('/user/')

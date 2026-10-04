@@ -53,6 +53,8 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "<--- CHANGE THIS KEY --->")
 
     LOG_LEVEL = os.getenv("LOG_LEVEL", "info")
+    # gunicorn threads; each open page holds one for its websocket
+    WEB_THREADS = int(os.getenv("WEB_THREADS", 300))
     WORKER_CONNECTIONS = 1000
 
     TESTING = _get_bool("TESTING", False)
@@ -76,6 +78,8 @@ class Config:
     SAM_MODEL_TYPE = os.getenv("SAM_MODEL_TYPE", "vit_b")
     SAM_CHECKPOINT = os.getenv("SAM_CHECKPOINT", "/models/sam_vit_b_01ec64.pth")
     SAM_DEVICE = os.getenv("SAM_DEVICE", "auto")
+    # image embeddings kept in memory (~4 MB each): one per image in use
+    SAM_CACHE_SIZE = int(os.getenv("SAM_CACHE_SIZE", 64))
 
     ### Your own models (Ultralytics YOLO .pt files) for pre-annotation
     MODELS_DIRECTORY = os.getenv("MODELS_DIRECTORY", "/models")

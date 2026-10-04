@@ -72,6 +72,22 @@
     "radius": "Radius",
     "strokeColor": "Stroke Color"
   },
+  "bulkUsers": {
+    "alreadyExists": "already exists, not changed",
+    "create": "Create {n} accounts",
+    "dataset": "Share a dataset with these accounts (optional)",
+    "done": "{created} accounts created, {existing} already existed",
+    "download": "Download accounts (CSV)",
+    "duplicate": "duplicate",
+    "invalidRows": "Invalid or duplicate: {rows}",
+    "list": "One student per line: student ID, name, password (optional)",
+    "listHint": "Student IDs are a letter followed by 8 digits (e.g. B11223344). Separate with commas or tabs, so a column copied from Excel works. Without a password one is generated.",
+    "loadCsv": "Load a CSV file",
+    "noDataset": "(none)",
+    "preview": "{valid} accounts to create, {invalid} invalid lines",
+    "saveNow": "Download or copy the passwords now: they cannot be shown again (an admin can reset a password later).",
+    "title": "Create accounts in bulk"
+  },
   "categories": {
     "addAKeypoint": "Add a keypoint",
     "categories": "Categories",
