@@ -331,8 +331,9 @@
           <div class="modal-body">
             <form>
               <div class="mb-3">
-                <label for="coco">{{ $t('dataset.cocoAnnotationFileJson') }}</label>
-                <input type="file" class="form-control-file" id="coco" />
+                <label for="coco" class="form-label">{{ $t('dataset.cocoAnnotationFileJson') }}</label>
+                <input type="file" class="form-control" id="coco" accept=".json,application/json" />
+                <div class="form-text">{{ $t('dataset.importHint') }}</div>
               </div>
             </form>
           </div>
@@ -484,6 +485,8 @@ export default {
       },
       importing: {
         progress: 0,
+        warnings: 0,
+        errors: 0,
         id: null
       },
       preannotating: {
@@ -712,6 +715,8 @@ export default {
 
       if (data.id === this.importing.id) {
         this.importing.progress = data.progress;
+        this.importing.warnings = data.warnings || 0;
+        this.importing.errors = data.errors || 0;
       }
 
       if (data.id === this.exporting.id) {
@@ -782,6 +787,13 @@ export default {
     },
     "importing.progress"(progress) {
       if (progress >= 100) {
+        const problems = (this.importing.warnings || 0) + (this.importing.errors || 0);
+        if (problems) {
+          this.$toastr.warning(this.$t("dataset.importDoneWithProblems", { n: problems }));
+        } else {
+          this.$toastr.success(this.$t("dataset.importDone"));
+        }
+        this.updatePage();
         setTimeout(() => {
           this.importing.progress = 0;
           this.importing.id = null;

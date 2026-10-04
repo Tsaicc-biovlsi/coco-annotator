@@ -110,7 +110,7 @@ def apply_predictions(image, predictions, resolver, username=None):
     if created:
         num_annotations = AnnotationModel.objects(
             Q(image_id=image.id) & Q(deleted=False) &
-            (Q(area__gt=0) | Q(keypoints__size__gt=0))
+            (Q(area__gt=0) | Q(keypoints__0__exists=True))
         ).count()
         image.update(
             set__annotated=True,

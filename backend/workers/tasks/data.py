@@ -137,6 +137,28 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False)
     task.set_progress(100, socket=socket)
 
 
+def _polygon_area(flat):
+    pts = np.asarray(flat, dtype=float).reshape(-1, 2)
+    x, y = pts[:, 0], pts[:, 1]
+    return float(abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1))) / 2)
+
+
+def _rle_to_polygons(rle):
+    """COCO RLE (compressed or not) -> polygon list ([] if it cannot be read)."""
+    try:
+        from pycocotools import mask as mask_util
+        import cv2
+        if isinstance(rle.get('counts'), list):
+            h, w = rle['size']
+            rle = mask_util.frPyObjects(rle, h, w)
+        mask = mask_util.decode(rle).astype(np.uint8)
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        return [c.reshape(-1).astype(float).tolist() for c in contours
+                if len(c) >= 3 and cv2.contourArea(c) > 0]
+    except Exception:
+        return []
+
+
 @shared_task
 def import_annotations(task_id, dataset_id, coco_json):
 
@@ -148,7 +170,7 @@ def import_annotations(task_id, dataset_id, coco_json):
 
     task.info("Beginning Import")
 
-    images = ImageModel.objects(dataset_id=dataset.id)
+    images = ImageModel.objects(dataset_id=dataset.id, deleted=False)
     categories = CategoryModel.objects
 
     coco_images = coco_json.get('images', [])
@@ -191,6 +213,10 @@ def import_annotations(task_id, dataset_id, coco_json):
             category_model = new_category
             dataset.categories.append(new_category.id)
 
+        elif category_model.id not in dataset.categories:
+            # the category exists (e.g. used by another dataset): add it here
+            dataset.categories.append(category_model.id)
+
         task.info(f"{category_name} category found")
         # map category ids
         categories_id[category_id] = category_model.id
@@ -216,6 +242,11 @@ def import_annotations(task_id, dataset_id, coco_json):
         task.set_progress((progress / total_items) * 100, socket=socket)
 
         image_model = images.filter(file_name__exact=image_filename).all()
+        if len(image_model) == 0 and image_filename:
+            # exports often keep a folder in file_name ("images/train/a.jpg")
+            base = os.path.basename(str(image_filename).replace("\\", "/"))
+            if base != image_filename:
+                image_model = images.filter(file_name__exact=base).all()
 
         if len(image_model) == 0:
             task.warning(f"Could not find image {image_filename}")
@@ -254,6 +285,19 @@ def import_annotations(task_id, dataset_id, coco_json):
 
         progress += 1
         task.set_progress((progress / total_items) * 100, socket=socket)
+
+        # RLE masks (crowd annotations) become polygons
+        if isinstance(segmentation, dict):
+            segmentation = _rle_to_polygons(segmentation)
+            if segmentation:
+                area = sum(_polygon_area(p) for p in segmentation)
+
+        # box-only annotations (many detectors and converters export these)
+        if not segmentation and not keypoints and len(bbox) == 4 and bbox[2] > 0 and bbox[3] > 0:
+            x, y, w, h = [float(v) for v in bbox]
+            segmentation = [[x, y, x + w, y, x + w, y + h, x, y + h]]
+            area = area or w * h
+            isbbox = True
 
         has_segmentation = len(segmentation) > 0
         has_keypoints = len(keypoints) > 0
@@ -301,9 +345,10 @@ def import_annotations(task_id, dataset_id, coco_json):
                 annotation_model.rbbox = rbbox
             annotation_model.save()
 
-            image_categories.append(category_id)
+            image_categories.append(category_model_id)
         else:
             annotation_model.update(deleted=False, isbbox=isbbox)
+            image_categories.append(category_model_id)
             task.info(
                 f"Annotation already exists (i:{image_id}, c:{category_id})")
 
@@ -313,15 +358,17 @@ def import_annotations(task_id, dataset_id, coco_json):
         all_category_ids = list(image_model.category_ids)
         all_category_ids += category_ids
 
+        # image_id is the id in the COCO file; count by the database id
         num_annotations = AnnotationModel.objects(
-            Q(image_id=image_id) & Q(deleted=False) &
-            (Q(area__gt=0) | Q(keypoints__size__gt=0))
+            Q(image_id=image_model.id) & Q(deleted=False) &
+            (Q(area__gt=0) | Q(keypoints__0__exists=True))
         ).count()
 
         image_model.update(
             set__annotated=True,
             set__category_ids=list(set(all_category_ids)),
-            set__num_annotations=num_annotations
+            set__num_annotations=num_annotations,
+            set__regenerate_thumbnail=True
         )
 
     task.set_progress(100, socket=socket)
