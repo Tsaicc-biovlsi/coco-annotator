@@ -39,8 +39,8 @@ class DatasetModel(DynamicDocument):
     def get_users(self):
         from .users import UserModel
     
-        members = self.users
-        members.append(self.owner)
+        # (a copy: appending to self.users would change the dataset in memory)
+        members = list(self.users or []) + [self.owner]
 
         return UserModel.objects(username__in=members)\
             .exclude('password', 'id', 'preferences')

@@ -109,7 +109,7 @@
                   </div>
                   <a href="#">{{ user.group }}</a>
                 </div>
-                <span class="d-block">{{ $t('dataset.lastSeen', { time: new Date(user.last_seen['$date']).toISOString().slice(0, 19).replace('T', ' ') }) }}</span>
+                <span class="d-block">{{ lastSeen(user) }}</span>
               </div>
             </div>
           </div>
@@ -655,6 +655,16 @@ export default {
       showModal("#cocoUpload");
     },
     /** Fallback for a progress update sent before this page was listening */
+    /** "last seen" text; accounts that never logged in have no date */
+    lastSeen(user) {
+      const raw = user.last_seen && (user.last_seen["$date"] ?? user.last_seen);
+      const date = raw != null ? new Date(raw) : null;
+      if (!date || isNaN(date)) return this.$t("dataset.neverSeen");
+      const pad = n => String(n).padStart(2, "0");
+      const time = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+        `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+      return this.$t("dataset.lastSeen", { time });
+    },
     pollImportTask() {
       clearTimeout(this.importPoll);
       const id = this.importing.id;
