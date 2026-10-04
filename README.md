@@ -1,5 +1,7 @@
 <p align="center"><img src="https://i.imgur.com/AA7IdbQ.png"></p>
 
+<p align="center">English ｜ <a href="README.zh-TW.md">繁體中文</a></p>
+
 <p align="center">
   <a href="#features">Features</a> •
   <a href="https://github.com/jsbroks/coco-annotator/wiki">Wiki</a> •
@@ -82,7 +84,8 @@ Several annotation tools are currently available, with most applications as a de
 - Allow custom metadata for each instance or object
 - **Rotated (oriented) bounding boxes** with rotate / resize / move handles, exported as `rbbox = [cx, cy, w, h, angle]` and convertible to DOTA / YOLO-OBB
 - AI-assisted segmentation with [Segment Anything](https://github.com/facebookresearch/segment-anything) (click / box prompts) and Magic Wand
-- Annotate images with semi-trained models
+- Pre-annotate an image or a whole dataset with your own Ultralytics YOLO models (detect, OBB, segment, pose)
+- Annotate images with semi-trained models (external model server)
 - User authentication system
 - Interface in English and Traditional Chinese (繁體中文)
 
