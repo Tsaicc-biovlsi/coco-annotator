@@ -14,6 +14,7 @@ users.add_argument('page', type=int, default=1)
 create_user = reqparse.RequestParser()
 create_user.add_argument('name', default="", location='json')
 create_user.add_argument('password', default="", location='json')
+create_user.add_argument('isAdmin', type=bool, default=None, location='json')
 
 register = reqparse.RequestParser()
 register.add_argument('username', required=True, location='json')
@@ -21,6 +22,10 @@ register.add_argument('password', required=True, location='json')
 register.add_argument('email', location='json')
 register.add_argument('name', location='json')
 register.add_argument('isAdmin', type=bool, default=False, location='json')
+
+
+def _is_last_admin(user):
+    return user.is_admin and UserModel.objects(is_admin=True).count() <= 1
 
 
 @api.route('/users')
@@ -98,7 +103,9 @@ class Username(Resource):
         if user is None:
             return {"success": False, "message": "User not found"}, 400
 
-        return fix_ids(user)
+        user_json = fix_ids(user)
+        user_json.pop('password', None)
+        return user_json
 
     @api.expect(create_user)
     @login_required
@@ -121,9 +128,20 @@ class Username(Resource):
         if len(password) > 0:
             user.password = hash_password(password)
 
+        is_admin = args.get('isAdmin')
+        if is_admin is not None and bool(is_admin) != bool(user.is_admin):
+            if not is_admin:
+                if user.username.lower() == current_user.username.lower():
+                    return {"success": False, "message": "You cannot remove your own admin rights."}, 400
+                if _is_last_admin(user):
+                    return {"success": False, "message": "At least one admin is required."}, 400
+            user.is_admin = bool(is_admin)
+
         user.save()
 
-        return fix_ids(user)
+        user_json = fix_ids(user)
+        user_json.pop('password', None)
+        return user_json
 
     @login_required
     def delete(self, username):
@@ -135,6 +153,11 @@ class Username(Resource):
         user = UserModel.objects(username__iexact=username).first()
         if user is None:
             return {"success": False, "message": "User not found"}, 400
+
+        if user.username.lower() == current_user.username.lower():
+            return {"success": False, "message": "You cannot delete your own account."}, 400
+        if _is_last_admin(user):
+            return {"success": False, "message": "At least one admin is required."}, 400
 
         user.delete()
         return {"success": True}

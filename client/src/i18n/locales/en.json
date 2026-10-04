@@ -7,17 +7,23 @@
   },
   "adminPanel": {
     "admin": "Admin",
+    "cannotChangeOwnAdmin": "You cannot remove your own admin rights.",
     "close": "Close",
     "createAUser": "Create a User",
     "createUser": "Create User",
     "delete": "Delete",
     "edit": "Edit",
+    "editUser": "Edit {username}",
+    "leaveBlankToKeep": "Leave blank to keep the current password",
     "limit": "Limit",
     "name": "Name",
+    "newPassword": "New Password",
     "password": "Password",
     "refresh": "Refresh",
+    "save": "Save",
     "username": "Username",
-    "users": "Users"
+    "users": "Users",
+    "you": "(you)"
   },
   "annotation": {
     "category": "Category",
