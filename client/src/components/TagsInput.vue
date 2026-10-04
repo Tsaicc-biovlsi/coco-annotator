@@ -41,8 +41,9 @@
       />
     </div>
 
-    <!-- Typeahead/Autocomplete -->
-    <div v-show="searchResults.length">
+    <!-- Typeahead/Autocomplete: overlays the content below so that hiding it
+         (on blur) does not move buttons under the mouse mid-click -->
+    <div v-show="searchResults.length" class="tags-input-typeahead">
       <p
         v-if="typeaheadStyle === 'badges'"
         :class="`typeahead-${typeaheadStyle}`"
@@ -453,6 +454,20 @@ export default {
 </script>
 
 <style>
+.tags-input-typeahead {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1060;
+  margin-top: 2px;
+  padding: 4px 6px 0;
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
 .tags-input-root {
   position: relative;
 }

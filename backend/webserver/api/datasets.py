@@ -318,7 +318,7 @@ class DatasetDataId(Resource):
         # Check if dataset exists
         dataset = current_user.datasets.filter(id=dataset_id, deleted=False).first()
         if dataset is None:
-            return {'message', 'Invalid dataset id'}, 400
+            return {'message': 'Invalid dataset id'}, 400
                 
         # Make sure folder starts with is in proper format
         if len(folder) > 0:

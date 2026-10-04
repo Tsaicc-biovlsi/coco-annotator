@@ -45,3 +45,22 @@ def test_cannot_demote_or_delete_self(admin_client):
     assert r.status_code == 400
     r = admin_client.delete("/api/admin/user/boss")
     assert r.status_code == 400
+
+
+def test_share_dataset_with_member(admin_client):
+    from webserver import app
+    c = admin_client
+    r = c.post("/api/dataset/", json={"name": "shared_ds"})
+    assert r.status_code == 200, r.data
+    ds = r.get_json()["id"]
+    c.post("/api/admin/user/", json={"username": "member", "password": "pw", "name": "M", "isAdmin": False})
+
+    m = app.test_client()
+    assert m.post("/api/user/login", json={"username": "member", "password": "pw"}).status_code == 200
+    # not shared yet: a clean 400, not a server error
+    assert m.get(f"/api/dataset/{ds}/data").status_code == 400
+
+    assert c.post(f"/api/dataset/{ds}/share", json={"users": ["member"]}).status_code == 200
+    names = [d["name"] for d in m.get("/api/dataset/data").get_json()["datasets"]]
+    assert "shared_ds" in names
+    assert m.get(f"/api/dataset/{ds}/data").status_code == 200
