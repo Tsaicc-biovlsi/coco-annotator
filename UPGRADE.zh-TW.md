@@ -83,6 +83,10 @@ docker compose up -d --build
 
 腳本只會備份應用程式的資料庫（`flask`），並在 `mongo-dump-*/` 留一份備份檔，完成後會列出各資料表的筆數。如果舊服務還在執行，腳本會拒絕執行。如果它無法判斷哪個是舊 volume（例如資料夾改過名，或當初是用舊版 `docker-compose` v1 啟動，名稱會是 `cocoannotator_mongodb_data`），就手動指定：`OLD_VOLUME=名稱 ./scripts/migrate_mongo.sh`。
 
+如果舊版是用原本的 `docker-compose.gpu.yml` 啟動，資料庫不在 volume，而是在專案旁的 `db/` 資料夾，改用：`OLD_DIR=舊專案路徑/db ./scripts/migrate_mongo.sh`。
+
+也可以把新版裝在另一個資料夾、舊資料夾完全不動：在 `.env`（參考 `.env.example`）設定 `DATASETS_DIR` 指向舊的 `datasets` 資料夾，兩個版本就會共用同一批圖片。
+
 **退回舊版**：`docker compose down`，切回原本的程式碼（`git checkout master`），再 `docker compose up -d`，就會用回舊的 volume。`datasets/` 裡的圖片兩個版本共用，不會被修改。
 
 其他注意事項：

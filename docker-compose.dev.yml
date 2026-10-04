@@ -52,8 +52,8 @@ services:
       SAM_CHECKPOINT: /models/sam_vit_b_01ec64.pth
     volumes:
       - "./backend:/workspace/backend"
-      - "./datasets:/datasets"
-      - "./models:/models"
+      - "${DATASETS_DIR:-./datasets}:/datasets"
+      - "${MODELS_DIR:-./models}:/models"
     networks:
       - cocoannotator
     depends_on:
@@ -71,7 +71,7 @@ services:
       <<: *backend-env
     volumes:
       - "./backend:/workspace/backend"
-      - "./datasets:/datasets"
+      - "${DATASETS_DIR:-./datasets}:/datasets"
     depends_on:
       - messageq
       - database

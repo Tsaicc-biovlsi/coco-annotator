@@ -112,6 +112,14 @@ started with the old `docker-compose` v1, which names it
 `cocoannotator_mongodb_data`), pass it explicitly:
 `OLD_VOLUME=<name> ./scripts/migrate_mongo.sh`.
 
+If the old installation used the original `docker-compose.gpu.yml`, its
+database is not in a volume but in the `db/` folder next to it; pass that
+folder instead: `OLD_DIR=/path/to/old/coco-annotator/db ./scripts/migrate_mongo.sh`.
+
+The new version can also be installed in a separate folder while the old one
+stays untouched: set `DATASETS_DIR` in `.env` (see `.env.example`) to the old
+`datasets` folder so both use the same images.
+
 Rolling back: `docker compose down`, check out the original code
 (`git checkout master`) and `docker compose up -d`; it still uses the old
 volume. Images in `datasets/` are shared by both versions and not modified.
