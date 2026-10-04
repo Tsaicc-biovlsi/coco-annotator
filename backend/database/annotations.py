@@ -105,9 +105,12 @@ class AnnotationModel(DynamicDocument):
         return mask
 
     def clone(self):
-        """ Creates a clone """
-        create = json.loads(self.to_json())
-        del create['_id']
+        """ Creates an unsaved copy (new id, not deleted, no history) """
+        # to_mongo keeps dates as datetimes (to_json turned them into
+        # {"$date": ...} dicts that cannot be read back)
+        create = self.to_mongo().to_dict()
+        for key in ('_id', 'id', 'events', 'milliseconds', 'deleted', 'deleted_date'):
+            create.pop(key, None)
 
         return AnnotationModel(**create)
 

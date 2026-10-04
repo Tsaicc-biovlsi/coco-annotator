@@ -31,3 +31,31 @@ def test_undo_only_own_items(world):
     UserModel.objects(username="smoke").update(set__is_admin=True)
     assert c.post(f"/api/undo/?id={ann}&instance=annotation").status_code == 200
     assert not AnnotationModel.objects(id=ann).first().deleted
+
+
+def test_copy_restored_annotations(world):
+    """Annotations that were deleted and restored (they have a deleted_date)
+    used to make "copy annotations" fail with a date ValidationError."""
+    from database import AnnotationModel, UserModel
+    UserModel.objects(username="smoke").update(set__is_admin=True)
+    c = world["client"]
+    src, dst = world["images"][0]["id"], world["images"][1]["id"]
+    category = world["categories"]["boat"]
+    r = c.post("/api/annotation/", json={"image_id": src, "category_id": category,
+                                         "segmentation": [[5, 5, 60, 5, 60, 40, 5, 40]]})
+    ann = r.get_json()["id"]
+    # (the annotator computes the area when saving)
+    AnnotationModel.objects(id=ann).update(set__area=1925, set__width=320, set__height=200)
+    c.delete(f"/api/annotation/{ann}")
+    c.post(f"/api/undo/?id={ann}&instance=annotation")
+    assert AnnotationModel.objects(id=ann).first().deleted_date is not None
+
+    before = AnnotationModel.objects(image_id=dst, deleted=False).count()
+    r = c.post(f"/api/image/copy/{src}/{dst}/annotations", json={"category_ids": [category]})
+    assert r.status_code == 200, r.data
+    assert r.get_json()["annotations_created"] >= 1
+    copies = AnnotationModel.objects(image_id=dst, deleted=False)
+    assert copies.count() == before + r.get_json()["annotations_created"]
+    copy = copies.order_by('-id').first()
+    assert copy.id != ann and not copy.deleted and copy.deleted_date is None
+    assert copy.segmentation == [[5, 5, 60, 5, 60, 40, 5, 40]]

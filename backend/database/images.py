@@ -197,6 +197,7 @@ class ImageModel(DynamicDocument):
         annotations = annotations.filter(
             width=self.width, height=self.height).exclude('events')
 
+        created = 0
         for annotation in annotations:
             if annotation.area > 0 or len(annotation.keypoints) > 0:
                 clone = annotation.clone()
@@ -205,8 +206,12 @@ class ImageModel(DynamicDocument):
                 clone.image_id = self.id
 
                 clone.save(copy=True)
+                created += 1
 
-        return annotations.count()
+        if created:
+            self.update(set__annotated=True, set__regenerate_thumbnail=True,
+                        inc__num_annotations=created)
+        return created
 
     @property
     def dataset(self):
