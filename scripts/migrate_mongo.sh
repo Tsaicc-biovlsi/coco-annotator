@@ -90,7 +90,12 @@ docker cp coco-migrate-old:/tmp/dump.archive "$DUMP_DIR/dump.archive"
 docker stop -t 60 coco-migrate-old >/dev/null
 
 echo "2/3 Restoring into $NEW_VOLUME (mongo:7.0) ..."
-docker volume create "$NEW_VOLUME" >/dev/null
+# Label it like docker compose would, so compose does not warn that the
+# volume "was not created by Docker Compose".
+docker volume create \
+  --label com.docker.compose.project="$PROJECT" \
+  --label com.docker.compose.volume=mongodb7_data \
+  "$NEW_VOLUME" >/dev/null
 docker run -d --name coco-migrate-new -v "$NEW_VOLUME":/data/db mongo:7.0 >/dev/null
 until docker exec coco-migrate-new mongosh --quiet --eval 'db.runCommand({ping:1}).ok' >/dev/null 2>&1; do sleep 1; done
 docker cp "$DUMP_DIR/dump.archive" coco-migrate-new:/tmp/dump.archive
