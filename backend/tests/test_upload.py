@@ -61,3 +61,19 @@ def test_dataset_name_cannot_escape_folder(world):
     c = world["client"]
     for bad in ["../x", "a/b", ".hidden", "", "  "]:
         assert c.post("/api/dataset/", json={"name": bad}).status_code == 400, bad
+
+
+def test_small_thumbnails_are_cached(world):
+    import io as _io
+    import os
+    from PIL import Image as PILImage
+    from database import ImageModel
+    c = world["client"]
+    image = ImageModel.objects(id=world["images"][0]["id"]).first()
+    r = c.get(f"/api/image/{image.id}?width=250&thumbnail=true")
+    assert r.status_code == 200 and r.mimetype == "image/jpeg"
+    with PILImage.open(_io.BytesIO(r.data)) as im:
+        assert im.width <= 250
+    cached = [f for f in os.listdir(os.path.dirname(image.thumbnail_path())) if ".250x" in f]
+    assert cached, "small thumbnail not cached"
+    assert c.get(f"/api/image/{image.id}?width=250&thumbnail=true").data == r.data

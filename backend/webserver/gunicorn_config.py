@@ -13,7 +13,9 @@ workers = 1
 worker_class = 'gthread'
 threads = Config.WEB_THREADS
 timeout = 180
-keepalive = 2
+# idle keep-alive connections wait in the poller (no thread); a longer
+# timeout avoids "connection reset" when a browser reuses one just as it closes
+keepalive = 10
 
 reload = Config.DEBUG
 preload = Config.PRELOAD

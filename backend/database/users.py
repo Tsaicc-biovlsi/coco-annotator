@@ -100,7 +100,14 @@ class UserModel(DynamicDocument, UserMixin):
         return model.can_edit(self)
 
     def _update_last_seen(self):
-        self.update(last_seen=datetime.datetime.utcnow())
+        # called on most requests (several times each): write at most once a
+        # minute instead of on every image / thumbnail request
+        now = datetime.datetime.utcnow()
+        last = getattr(self, 'last_seen', None)
+        if isinstance(last, datetime.datetime) and (now - last).total_seconds() < 60:
+            return
+        self.last_seen = now
+        self.update(last_seen=now)
     
 
 

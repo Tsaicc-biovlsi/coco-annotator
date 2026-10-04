@@ -146,12 +146,17 @@ class ImageId(Resource):
 
         width = args.get('width')
         height = args.get('height')
-        
+
+        # small thumbnails (dataset pages) come from a file cache
+        if thumbnail and width and width <= 512 and not as_attachment:
+            path = image.small_thumbnail(width, height or image.height)
+            return send_file(path, mimetype='image/jpeg', max_age=0)
+
         if not width:
             width = image.width
         if not height:
             height = image.height
-        
+
         pil_image = image.open_thumbnail() if thumbnail else Image.open(image.path)
 
         pil_image.thumbnail((width, height), Image.LANCZOS)

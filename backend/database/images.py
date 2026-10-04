@@ -1,4 +1,5 @@
 import os
+import threading
 
 import cv2
 import numpy as np
@@ -14,6 +15,17 @@ from .categories import CategoryModel
 
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
+
+
+_locks = {}
+_locks_guard = threading.Lock()
+
+
+def _thumbnail_lock(path):
+    with _locks_guard:
+        if len(_locks) > 10000:
+            _locks.clear()
+        return _locks.setdefault(path, threading.Lock())
 
 
 class ImageModel(DynamicDocument):
@@ -123,7 +135,11 @@ class ImageModel(DynamicDocument):
 
             # Save as a jpeg to improve loading time
             # (note file extension will not match but allows for backwards compatibility)
-            pil_image.save(thumbnail_path, "JPEG", quality=80, optimize=True, progressive=True)
+            # Written to a temporary file first: another request may be reading
+            # the thumbnail at the same time and must never see half a file.
+            tmp = f"{thumbnail_path}.{os.getpid()}.{threading.get_ident()}.tmp"
+            pil_image.save(tmp, "JPEG", quality=80, optimize=True, progressive=True)
+            os.replace(tmp, thumbnail_path)
 
             self.update(is_modified=False)
             return pil_image
@@ -138,6 +154,35 @@ class ImageModel(DynamicDocument):
             # there yet (worker busy or down) instead of failing the request.
             return self.thumbnail(force=True)
         return Image.open(thumbnail_path)
+
+    def small_thumbnail(self, width, height):
+        """Path of the thumbnail scaled to fit width x height (cached on disk).
+
+        Dataset pages request many 250 px thumbnails; serving a stored file
+        avoids decoding and resizing the 1024 px thumbnail on every request.
+        """
+        source = self.thumbnail_path()
+        base, _ = os.path.splitext(source)
+        path = f"{base}.{int(width)}x{int(height)}.jpg"
+
+        def fresh():
+            return os.path.isfile(path) and os.path.isfile(source) \
+                and os.path.getmtime(path) >= os.path.getmtime(source)
+
+        if fresh():
+            return path
+        # many people open the same dataset page at once: build each file once
+        with _thumbnail_lock(path):
+            if fresh():
+                return path
+            if not os.path.isfile(source):
+                self.thumbnail(force=True)
+            with Image.open(source) as pil_image:
+                pil_image.thumbnail((width, height), Image.LANCZOS)
+                tmp = f"{path}.{os.getpid()}.{threading.get_ident()}.tmp"
+                pil_image.convert("RGB").save(tmp, "JPEG", quality=85)
+            os.replace(tmp, path)
+        return path
 
     def thumbnail_path(self):
         folders = self.path.split('/')
