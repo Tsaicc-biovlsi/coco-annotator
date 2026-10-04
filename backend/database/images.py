@@ -18,6 +18,16 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 class ImageModel(DynamicDocument):
 
+    # Path lookups happen once per file during scans and in the file watcher;
+    # dataset pages filter by dataset and sort by file name.
+    meta = {
+        'indexes': [
+            'path',
+            ('dataset_id', 'deleted', 'file_name'),
+            'regenerate_thumbnail',
+        ]
+    }
+
     COCO_PROPERTIES = ["id", "width", "height", "file_name", "path", "license",\
                        "flickr_url", "coco_url", "date_captured", "dataset_id"]
 

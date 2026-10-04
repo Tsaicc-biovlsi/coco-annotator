@@ -3,6 +3,7 @@ import workers
 from config import Config
 from database import (
     connect_mongo,
+    ensure_indexes,
     ImageModel,
     create_from_json
 )
@@ -22,6 +23,7 @@ import logging
 
 
 connect_mongo('webserver')
+ensure_indexes()
 
 
 def create_app():

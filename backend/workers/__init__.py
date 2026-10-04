@@ -24,6 +24,9 @@ celery.conf.update(
     # Run tasks in-process (no worker/broker needed) for local development
     task_always_eager=Config.CELERY_TASK_ALWAYS_EAGER,
     task_eager_propagates=Config.CELERY_TASK_ALWAYS_EAGER,
+    # Progress is tracked in TaskModel; nothing reads Celery's own results,
+    # which otherwise pile up in the celery_taskmeta collection forever.
+    task_ignore_result=True,
 )
 # shared_task resolves the "current" app, which is thread-local: make this
 # app the process-wide default so request threads (gthread) use it too.

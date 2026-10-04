@@ -14,6 +14,15 @@ from flask_login import current_user
 
 class AnnotationModel(DynamicDocument):
 
+    # Annotations are always loaded per image, per dataset or per category.
+    meta = {
+        'indexes': [
+            ('image_id', 'deleted'),
+            ('dataset_id', 'deleted'),
+            'category_id',
+        ]
+    }
+
     COCO_PROPERTIES = ["id", "image_id", "category_id", "segmentation",
                        "iscrowd", "color", "area", "bbox", "metadata",
                        "keypoints", "isbbox", "isrbbox", "rbbox"]

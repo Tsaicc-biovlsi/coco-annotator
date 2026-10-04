@@ -47,6 +47,17 @@ def upsert(model, query=None, update=None):
     return new_model
 
 
+def ensure_indexes():
+    """Create the indexes declared in each model's meta (idempotent).
+
+    MongoDB builds them once; on an existing database with many images and
+    annotations this can take a few seconds on the first start.
+    """
+    for model in (ImageModel, AnnotationModel, DatasetModel, CategoryModel,
+                  UserModel, TaskModel, ExportModel):
+        model.ensure_indexes()
+
+
 def fix_ids(q):
     json_obj = json.loads(q.to_json().replace('\"_id\"', '\"id\"'))
     return json_obj
