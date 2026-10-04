@@ -386,10 +386,49 @@ export default {
         return;
       }
 
+      // clicking inside another rotated box selects it (Ctrl/⌘ + click
+      // starts a new box there instead, e.g. for overlapping objects)
+      if (!event.modifiers.control && !event.modifiers.command) {
+        let target = this.boxAt(point);
+        if (target) {
+          this.$parent.onCategoryClick({ ...target, keypoint: -1 });
+          return;
+        }
+      }
+
       // first point of a new box
       this.box = null;
       this.drawing = { points: [point], cursor: point };
       this.drawPreview();
+    },
+    /** The visible rotated box (other than the selected one) under a point */
+    boxAt(point) {
+      let parent = this.$parent;
+      let best = null;
+      parent.categoryRefs().forEach(category => {
+        if (!category.isVisible) return;
+        category.annotationRefs().forEach(annotation => {
+          if (!annotation.isVisible) return;
+          if (
+            category.index === parent.current.category &&
+            annotation.index === parent.current.annotation
+          ) {
+            return;
+          }
+          let corners = annotation.getRotatedBoxCorners();
+          if (!corners) return;
+          let path = new paper.Path({ segments: corners, closed: true, insert: false });
+          if (path.contains(point)) {
+            let area = Math.abs(path.area);
+            // the smallest box wins when boxes overlap
+            if (!best || area < best.area) {
+              best = { area, category: category.index, annotation: annotation.index };
+            }
+          }
+          path.remove();
+        });
+      });
+      return best && { category: best.category, annotation: best.annotation };
     },
     onMouseMove(event) {
       if (!this.drawing) return;

@@ -39,9 +39,10 @@ a corner (resize, the opposite corner stays fixed) or the inside (move).
 Arrow keys move it by 1 px (**Shift**: 10 px). Like a BBox, it can also be
 moved or resized with the **Select** tool (`S`); it stays a rectangle.
 The thicker edge shows the box's *heading* (first edge); *Swap Heading*
-rotates the corner order by 90° without moving the box. While this tool or
-SAM is active, clicking an existing shape does not select it (so you can
-draw over other objects); pick annotations from the sidebar or with `S`.
+rotates the corner order by 90° without moving the box. With this tool,
+clicking another rotated box selects it; Ctrl+click starts a new box inside
+an existing one. With SAM, clicking an existing shape does not select it;
+pick annotations from the sidebar or with `S`.
 
 Stored and exported per annotation:
 
