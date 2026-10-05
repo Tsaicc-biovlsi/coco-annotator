@@ -249,6 +249,21 @@
         </div>
         <div class="container" v-show="tab == 'settings'">
           <div class="card my-3 p-3 shadow-sm me-2">
+            <h6 class="border-bottom border-gray pb-2"><b>{{ $t('datasetTask.label') }}</b></h6>
+            <TaskPicker v-model="taskDraft" name="settingsTask" />
+            <div class="d-flex align-items-center gap-2 mt-2">
+              <button
+                type="button"
+                class="btn btn-sm btn-primary"
+                :disabled="taskDraft === (dataset.task || '')"
+                @click="saveTask"
+              >
+                {{ $t('datasetTask.save') }}
+              </button>
+              <span class="small text-muted">{{ $t('datasetTask.settingsHint') }}</span>
+            </div>
+          </div>
+          <div class="card my-3 p-3 shadow-sm me-2">
             <h6 class="border-bottom border-gray pb-2"><b>{{ $t('dataset.metadata') }}</b></h6>
             
             <button 
@@ -710,6 +725,7 @@ import TagsInput from "@/components/TagsInput.vue";
 import ModelRunModal from "@/components/ModelRunModal.vue";
 import ExportCategories from "@/components/ExportCategories.vue";
 import ReviewPanel from "@/components/ReviewPanel.vue";
+import TaskPicker from "@/components/TaskPicker.vue";
 import DatasetHealth from "@/components/DatasetHealth.vue";
 import ExportSplit, { splitSizes, splitValid } from "@/components/ExportSplit.vue";
 import axios from "axios";
@@ -722,6 +738,7 @@ export default {
   components: {
     ImageCard,
     ReviewPanel,
+    TaskPicker,
     DatasetHealth,
     ExportCategories,
     ExportSplit,
@@ -819,6 +836,8 @@ export default {
         ...Object.fromEntries(Object.entries(this.$route.query).filter(([k]) => k !== "importTask"))
       },
       reviewFilter: { status: "", assignee: "", image_class: "" },
+      taskDraft: "",
+      exportDefaultsApplied: false,
       memberNames: [],
       panel: {
         showAnnotated: true,
@@ -856,6 +875,7 @@ export default {
           this.pages = data.pages;
 
           this.subdirectories = data.subdirectories;
+          this.taskDraft = data.dataset.task || "";
           if (!this.memberNames.length) this.getUsers();
           // this.scan.id = data.scanId;
           // this.generate.id = data.generateId;
@@ -866,6 +886,19 @@ export default {
           this.axiosReqestError("Loading Dataset", error.response.data.message);
         })
         .finally(() => this.removeProcess(process));
+    },
+    saveTask() {
+      axios
+        .post(`/api/dataset/${this.dataset.id}`, { task: this.taskDraft })
+        .then(() => {
+          this.dataset.task = this.taskDraft;
+          this.exportDefaultsApplied = false;
+          this.$toastr.success(this.$t("datasetTask.saved"));
+        })
+        .catch(error => {
+          const data = (error.response && error.response.data) || {};
+          this.$toastr.error(data.message || String(error));
+        });
     },
     getUsers() {
       Dataset.getUsers(this.dataset.id).then(response => {
@@ -970,6 +1003,14 @@ export default {
       }
       this.prepareExportCategories();
       this.exporting.step = 1;
+      // the first time: start from the dataset's planned task
+      const task = this.dataset.task;
+      if (!this.exportDefaultsApplied && task) {
+        this.exporting.format = "yolo";
+        this.exporting.yolo_task = task;
+        if (task === "classify") this.exporting.with_images = true;
+      }
+      this.exportDefaultsApplied = true;
       if (!this.exporting.folder.trim()) this.exporting.folder = this.defaultExportFolder;
       showModal("#exportDataset");
     },

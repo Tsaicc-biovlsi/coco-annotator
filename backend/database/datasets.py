@@ -18,6 +18,8 @@ class DatasetModel(DynamicDocument):
 
     owner = StringField(required=True)
     users = ListField(default=[])
+    # what the dataset is for: detect, segment, obb, pose, classify, semantic ('' = not set)
+    task = StringField(default="")
     # members who may approve / reject images (the owner always can)
     reviewers = ListField(default=[])
 

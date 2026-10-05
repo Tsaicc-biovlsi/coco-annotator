@@ -24,7 +24,11 @@ api = Namespace('dataset', description='Dataset related operations')
 
 
 dataset_create = reqparse.RequestParser()
+DATASET_TASKS = ('', 'detect', 'segment', 'obb', 'pose', 'classify', 'semantic')
+
 dataset_create.add_argument('name', required=True)
+dataset_create.add_argument('task', location='json', default='', choices=DATASET_TASKS,
+                            help='Planned task: detect, segment, obb, pose, classify, semantic')
 dataset_create.add_argument('categories', type=list, required=False, location='json',
                             help="List of default categories for sub images")
 
@@ -68,6 +72,8 @@ yolo_upload.add_argument('task', location='form', default='auto',
 
 update_dataset = reqparse.RequestParser()
 update_dataset.add_argument('categories', location='json', type=list, help="New list of categories")
+update_dataset.add_argument('task', location='json', default=None, choices=DATASET_TASKS + (None,),
+                            help='Planned task (owner only)')
 update_dataset.add_argument('default_annotation_metadata', location='json', type=dict,
                             help="Default annotation metadata")                            
 
@@ -99,7 +105,7 @@ class Dataset(Resource):
         category_ids = CategoryModel.bulk_create(categories)
 
         try:
-            dataset = DatasetModel(name=name, categories=category_ids)
+            dataset = DatasetModel(name=name, categories=category_ids, task=args.get('task') or '')
             dataset.save()
         except NotUniqueError:
             return {'message': 'Dataset already exists. Check the undo tab to fully delete the dataset.'}, 400
@@ -313,6 +319,10 @@ class DatasetId(Resource):
 
         args = update_dataset.parse_args()
         categories = args.get('categories')
+        if args.get('task') is not None:
+            if not dataset.is_owner(current_user):
+                return {"message": "Only the owner can change the planned task"}, 403
+            dataset.update(set__task=args['task'])
         default_annotation_metadata = args.get('default_annotation_metadata')
         set_default_annotation_metadata = args.get('set_default_annotation_metadata')
 

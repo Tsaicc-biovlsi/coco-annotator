@@ -21,9 +21,10 @@ export default {
       }
     });
   },
-  create(name, categories) {
-    return axios.post(`${baseURL}/?name=${name}`, {
-      categories: categories
+  create(name, categories, task = "") {
+    return axios.post(`${baseURL}/?name=${encodeURIComponent(name)}`, {
+      categories: categories,
+      task
     });
   },
   scan(id) {

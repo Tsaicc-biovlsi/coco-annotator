@@ -67,7 +67,7 @@
     </div>
 
     <div class="modal fade" tabindex="-1" role="dialog" id="createDataset">
-      <div class="modal-dialog" role="document">
+      <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">{{ $t('datasets.creatingADataset') }}</h5>
@@ -94,6 +94,12 @@
                 <div class="invalid-feedback">
                   {{ validDatasetName }}
                 </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">{{ $t('datasetTask.label') }}</label>
+                <TaskPicker v-model="create.task" name="createTask" />
+                <div class="form-text">{{ $t('datasetTask.hint') }}</div>
               </div>
 
               <div class="mb-3">
@@ -184,12 +190,13 @@ import DatasetCard from "@/components/cards/DatasetCard.vue";
 import Pagination from "@/components/Pagination.vue";
 import TagsInput from "@/components/TagsInput.vue";
 import ImportDatasetModal from "@/components/ImportDatasetModal.vue";
+import TaskPicker from "@/components/TaskPicker.vue";
 
 import { mapMutations } from "vuex";
 
 export default {
   name: "Datasets",
-  components: { DatasetCard, Pagination, TagsInput, ImportDatasetModal },
+  components: { DatasetCard, Pagination, TagsInput, ImportDatasetModal, TaskPicker },
   mixins: [toastrs],
   data() {
     return {
@@ -198,7 +205,8 @@ export default {
       page: 1,
       create: {
         name: "",
-        categories: []
+        categories: [],
+        task: ""
       },
       datasets: [],
       subdirectories: [],
@@ -242,10 +250,11 @@ export default {
       for (let key in this.create.categories) {
         categories.push(this.create.categories[key]);
       }
-      Datasets.create(this.create.name, categories)
+      Datasets.create(this.create.name, categories, this.create.task)
         .then(() => {
           this.create.name = "";
           this.create.categories = [];
+          this.create.task = "";
           this.updatePage();
         })
         .catch(error => {

@@ -55,11 +55,14 @@ def dataset_health(dataset):
     aspect = Counter()
     heat = np.zeros((HEATMAP_SIZE, HEATMAP_SIZE), dtype=np.int64)
     issues_tiny, issues_outside, issues_degenerate = [], [], []
+    # annotations that do not fit the dataset's planned task
+    not_rotated, no_keypoints, box_only = [], [], []
     boxes_by_image = {}
     total = 0
 
     rows = AnnotationModel.objects(image_id__in=list(images), deleted=False) \
-        .only('id', 'image_id', 'category_id', 'bbox', 'area', 'segmentation', 'keypoints').as_pymongo()
+        .only('id', 'image_id', 'category_id', 'bbox', 'area', 'segmentation', 'keypoints',
+              'isbbox', 'isrbbox').as_pymongo()
     for a in rows:
         has_shape = bool(a.get('segmentation'))
         has_keypoints = any(v > 0 for v in (a.get('keypoints') or [])[2::3])
@@ -70,6 +73,12 @@ def dataset_health(dataset):
             continue
         total += 1
         per_image[a['image_id']] += 1
+        if not a.get('isrbbox'):
+            not_rotated.append(a)
+        if not has_keypoints:
+            no_keypoints.append(a)
+        if a.get('isbbox') and not a.get('isrbbox'):
+            box_only.append(a)
         cid = a.get('category_id')
         if cid in per_category:
             per_category[cid]['annotations'] += 1
@@ -171,12 +180,28 @@ def dataset_health(dataset):
     if issues_tiny:
         issues.append({'level': 'info', 'code': 'tiny', 'n': len(issues_tiny),
                        'examples': example(issues_tiny)})
+    task = getattr(dataset, 'task', '') or ''
+    if task == 'obb' and not_rotated:
+        issues.append({'level': 'info', 'code': 'taskNotRotated', 'n': len(not_rotated),
+                       'examples': example(not_rotated)})
+    if task == 'pose' and no_keypoints:
+        issues.append({'level': 'warning', 'code': 'taskNoKeypoints', 'n': len(no_keypoints),
+                       'examples': example(no_keypoints)})
+    if task in ('segment', 'semantic') and box_only:
+        issues.append({'level': 'info', 'code': 'taskBoxOnly', 'n': len(box_only),
+                       'examples': example(box_only)})
+    if task == 'classify':
+        unclassified = [i for i, row in images.items() if row.get('image_class') is None]
+        if unclassified:
+            issues.append({'level': 'warning', 'code': 'taskNoImageClass', 'n': len(unclassified),
+                           'examples': example(unclassified, None)})
     if statuses.get('rejected'):
         issues.append({'level': 'info', 'code': 'rejected', 'n': statuses['rejected']})
     if statuses.get('labeled'):
         issues.append({'level': 'info', 'code': 'toReview', 'n': statuses['labeled']})
 
     return {
+        'task': task,
         'totals': {
             'images': len(images),
             'annotated_images': len(images) - len(unannotated),

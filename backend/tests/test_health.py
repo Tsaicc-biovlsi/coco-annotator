@@ -44,3 +44,38 @@ def test_dataset_health(world, dataset_directory):
     assert sum(map(sum, health["heatmap"])) == 14
     assert health["box_sizes"]["small"] == 14
     assert health["resolutions"][0] == {"width": 200, "height": 100, "n": 3}
+
+
+def test_dataset_task(world):
+    c = world["client"]
+    assert c.post("/api/dataset/", json={"name": "bad_task", "task": "fly"}).status_code == 400
+    r = c.post("/api/dataset/", json={"name": "obb_ds", "task": "obb"})
+    assert r.status_code == 200, r.data
+    ds = r.get_json()["id"]
+    data = c.get(f"/api/dataset/{ds}/data").get_json()
+    assert data["dataset"]["task"] == "obb"
+    assert c.post(f"/api/dataset/{ds}", json={"task": "pose"}).status_code == 200
+    assert c.get(f"/api/dataset/{ds}/health").get_json()["task"] == "pose"
+    assert c.post(f"/api/dataset/{ds}", json={"task": ""}).status_code == 200
+    assert c.get(f"/api/dataset/{ds}/data").get_json()["dataset"]["task"] == ""
+
+
+def test_task_specific_health(world, dataset_directory):
+    import os
+    from PIL import Image
+    from database import AnnotationModel, CategoryModel
+    c = world["client"]
+    ds = c.post("/api/dataset/", json={"name": "pose_ds", "categories": ["person"], "task": "pose"}).get_json()["id"]
+    folder = os.path.join(dataset_directory, "pose_ds")
+    os.makedirs(folder, exist_ok=True)
+    Image.new("RGB", (100, 100)).save(os.path.join(folder, "p.jpg"))
+    c.get(f"/api/dataset/{ds}/scan")
+    image = c.get(f"/api/dataset/{ds}/data").get_json()["images"][0]["id"]
+    person = CategoryModel.objects(name="person").first().id
+    AnnotationModel(image_id=image, category_id=person, segmentation=[[1, 1, 30, 1, 30, 30, 1, 30]],
+                    bbox=[1, 1, 29, 29], area=841, isbbox=True).save()
+    codes = {i["code"]: i for i in c.get(f"/api/dataset/{ds}/health").get_json()["issues"]}
+    assert codes["taskNoKeypoints"]["n"] == 1
+    c.post(f"/api/dataset/{ds}", json={"task": "classify"})
+    codes = {i["code"]: i for i in c.get(f"/api/dataset/{ds}/health").get_json()["issues"]}
+    assert codes["taskNoImageClass"]["n"] == 1 and "taskNoKeypoints" not in codes

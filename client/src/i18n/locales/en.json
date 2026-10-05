@@ -723,7 +723,11 @@
       "degenerate": "{n} annotations are narrower or shorter than 2 px, probably misclicks",
       "tiny": "{n} annotations cover less than 0.01% of the image; check they are not misclicks",
       "rejected": "{n} images were rejected and wait for fixes",
-      "toReview": "{n} images wait for review"
+      "toReview": "{n} images wait for review",
+      "taskNotRotated": "{n} annotations are not rotated boxes; OBB export uses their minimum-area rectangle",
+      "taskNoKeypoints": "{n} annotations have no keypoints and are left out of pose exports",
+      "taskBoxOnly": "{n} annotations are boxes only; segmentation exports turn them into 4-point polygons (draw polygons or use SAM instead)",
+      "taskNoImageClass": "{n} images have no image class yet"
     },
     "classBalance": "Class balance",
     "classBalanceHint": "Annotations per category (bar) and in how many images it appears.",
@@ -776,5 +780,40 @@
     },
     "failed": "Extracting frames from {name} failed; see the Tasks page",
     "done": "Extracted {n} frames from {videos} videos"
+  },
+  "datasetTask": {
+    "label": "Planned task",
+    "hint": "Sets the annotator's default tool, the default export format and extra health checks. You can change it later in the dataset's Settings; existing annotations are not affected.",
+    "settingsHint": "Existing annotations are not affected.",
+    "save": "Save",
+    "saved": "Planned task updated",
+    "none": {
+      "name": "Not set",
+      "desc": "Anything, all tools available"
+    },
+    "detect": {
+      "name": "Object detection",
+      "desc": "Axis-aligned boxes (BBox)"
+    },
+    "segment": {
+      "name": "Instance segmentation",
+      "desc": "Polygons, SAM clicks"
+    },
+    "obb": {
+      "name": "Rotated boxes",
+      "desc": "Boxes at any angle (OBB)"
+    },
+    "pose": {
+      "name": "Pose / keypoints",
+      "desc": "Box + keypoint skeleton"
+    },
+    "classify": {
+      "name": "Image classification",
+      "desc": "One class per image"
+    },
+    "semantic": {
+      "name": "Semantic segmentation",
+      "desc": "Polygons covering every region"
+    }
   }
 }

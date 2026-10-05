@@ -126,7 +126,7 @@
       />
 
       <ImageClassPicker
-        v-if="image.id != null"
+        v-if="image.id != null && (!dataset.task || dataset.task === 'classify' || image.imageClass != null)"
         v-model:value="image.imageClass"
         :image-id="image.id"
         :categories="categories"
@@ -274,6 +274,7 @@ import shortcuts from "@/mixins/shortcuts";
 import FileTitle from "@/components/annotator/FileTitle.vue";
 import ReviewBar from "@/components/annotator/ReviewBar.vue";
 import ImageClassPicker from "@/components/annotator/ImageClassPicker.vue";
+import { TASK_TOOLS } from "@/components/TaskPicker.vue";
 import Category from "@/components/annotator/Category.vue";
 import Label from "@/components/annotator/Label.vue";
 import Annotations from "@/models/annotations";
@@ -731,6 +732,7 @@ export default {
           this.annotating = data.image.annotating || [];
 
           this.review = data.review || {};
+          this.applyTaskTool(data.dataset);
           this.permissions = data.permissions || {};
 
           // Set other data
@@ -816,6 +818,19 @@ export default {
       this.currentAnnotation.subtract(compound, simplify, undoable);
     },
 
+    /** First visit to a dataset in this browser session: the tool for its task */
+    applyTaskTool(dataset) {
+      const tool = dataset && TASK_TOOLS[dataset.task];
+      if (!tool) return;
+      const key = `annotator/taskTool/${dataset.id}`;
+      try {
+        if (sessionStorage.getItem(key)) return;
+        sessionStorage.setItem(key, "1");
+        localStorage.setItem("editorTool", tool);
+      } catch {
+        // storage unavailable: keep the current tool
+      }
+    },
     selectLastEditorTool() {
       this.activeTool = localStorage.getItem("editorTool") || "Select";
     },

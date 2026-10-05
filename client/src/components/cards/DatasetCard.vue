@@ -44,6 +44,9 @@
           </div>
 
           <p v-else>{{ $t('datasetCard.noImagesInDataset') }}</p>
+          <span v-if="dataset.task" class="badge text-bg-dark me-1" :title="$t('datasetTask.label')">
+            {{ $t('datasetTask.' + dataset.task + '.name') }}
+          </span>
           <span
             v-for="(category, index) in listCategories"
             :key="index"

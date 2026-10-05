@@ -21,13 +21,16 @@
                 <option value="new">{{ $t('importDataset.newDataset') }}</option>
                 <option v-for="d in datasets" :key="d.id" :value="d.id">{{ d.name }}</option>
               </select>
-              <input
-                v-if="target === 'new'"
-                v-model="newName"
-                class="form-control mt-2"
-                :placeholder="$t('importDataset.newName')"
-                :disabled="running"
-              />
+              <template v-if="target === 'new'">
+                <input
+                  v-model="newName"
+                  class="form-control mt-2"
+                  :placeholder="$t('importDataset.newName')"
+                  :disabled="running"
+                />
+                <label class="form-label small mt-2 mb-1">{{ $t('datasetTask.label') }}</label>
+                <TaskPicker v-model="newTask" compact :disabled="running" />
+              </template>
             </div>
 
             <div class="mb-3">
@@ -157,6 +160,7 @@ import axios from "axios";
 import { showModal, hideModal } from "@/libs/modal";
 import Dataset, { isYoloFile } from "@/models/datasets";
 import { zipSync, strToU8 } from "fflate";
+import TaskPicker from "@/components/TaskPicker.vue";
 
 const IMAGE_EXT = [".gif", ".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"];
 const PARALLEL_UPLOADS = 4;
@@ -184,6 +188,7 @@ function isImage(file) {
 
 export default {
   name: "ImportDatasetModal",
+  components: { TaskPicker },
   emits: ["done"],
   data() {
     return {
@@ -192,6 +197,7 @@ export default {
       newName: "",
       images: [],
       coco: null,
+      newTask: "",
       videos: [],
       videoEvery: 1,
       videoMax: 1000,
@@ -232,6 +238,7 @@ export default {
     open(datasetId) {
       this.target = datasetId || "new";
       this.newName = "";
+      this.newTask = "";
       this.images = [];
       this.coco = null;
       this.videos = [];
@@ -269,7 +276,7 @@ export default {
       event.target.value = "";
     },
     async createDataset() {
-      const response = await axios.post("/api/dataset/", { name: this.newName.trim() });
+      const response = await axios.post("/api/dataset/", { name: this.newName.trim(), task: this.newTask });
       return response.data.id;
     },
     async uploadAll(datasetId) {

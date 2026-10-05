@@ -851,7 +851,11 @@
       "degenerate": "{n} 個標註寬或高小於 2 像素，可能是誤點",
       "tiny": "{n} 個標註面積不到整張圖的 0.01%，請確認是不是誤點",
       "rejected": "{n} 張圖被退回，等待修正",
-      "toReview": "{n} 張圖待審核"
+      "toReview": "{n} 張圖待審核",
+      "taskNotRotated": "{n} 個標註不是旋轉框；匯出 OBB 時會改用最小外接旋轉矩形",
+      "taskNoKeypoints": "{n} 個標註沒有關鍵點，匯出 pose 時不會輸出",
+      "taskBoxOnly": "{n} 個標註只有框；匯出分割時會變成四邊形，建議改畫多邊形或用 SAM",
+      "taskNoImageClass": "{n} 張圖還沒設「整張圖類別」"
     },
     "classBalance": "類別分布",
     "classBalanceHint": "每個類別的標註數（長條）和出現在幾張圖。",
@@ -904,5 +908,40 @@
     },
     "failed": "{name} 擷取影格失敗，詳情請看「任務」頁面",
     "done": "已從 {videos} 支影片擷取 {n} 張影格"
+  },
+  "datasetTask": {
+    "label": "預計任務",
+    "hint": "決定標註畫面預設的工具、匯出預設的格式，以及健康度要多檢查什麼。之後可以在資料集「設定」修改，不會影響已有的標註。",
+    "settingsHint": "改了不會影響已有的標註。",
+    "save": "儲存",
+    "saved": "已更新預計任務",
+    "none": {
+      "name": "未指定",
+      "desc": "什麼都能標，所有工具都可用"
+    },
+    "detect": {
+      "name": "物件偵測",
+      "desc": "畫水平框（BBox）"
+    },
+    "segment": {
+      "name": "實例分割",
+      "desc": "畫多邊形，可用 SAM 點選"
+    },
+    "obb": {
+      "name": "旋轉框",
+      "desc": "畫任意角度的框（OBB）"
+    },
+    "pose": {
+      "name": "姿態 / 關鍵點",
+      "desc": "框 + 關鍵點骨架"
+    },
+    "classify": {
+      "name": "圖片分類",
+      "desc": "整張圖選一個類別"
+    },
+    "semantic": {
+      "name": "語意分割",
+      "desc": "多邊形塗滿每個區域"
+    }
   }
 }
