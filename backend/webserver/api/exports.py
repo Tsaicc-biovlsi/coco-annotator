@@ -3,6 +3,7 @@ from flask_restx import Namespace, Resource, reqparse
 from flask_login import login_required, current_user
 
 import datetime
+import os
 from ..util import query_util
 
 from database import (
@@ -67,5 +68,8 @@ class DatasetExports(Resource):
         if not current_user.can_download(dataset):
             return {"message": "You do not have permission to download the dataset's annotations"}, 403
 
-        return send_file(export.path, download_name=f"{dataset.name}-{'-'.join(export.tags)}.json", as_attachment=True)
+        ext = os.path.splitext(export.path)[1] or ".json"
+        kind = "-".join(export.tags[:2]) if export.tags and export.tags[0] == "YOLO" else "COCO"
+        return send_file(export.path, download_name=f"{dataset.name}-{kind.lower()}-{export.id}{ext}",
+                         as_attachment=True)
 

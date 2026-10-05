@@ -25,11 +25,11 @@ COCO Annotator 是一套網頁版的影像標註工具，用來製作物件偵�
 ## 主要功能
 
 - **多種標註方式：** 邊界框（BBox）、旋轉框、多邊形、筆刷、橡皮擦、魔術棒、關鍵點
-- **旋轉物件框：** 三下點擊畫出任意角度的框，可旋轉、縮放、移動；可轉成 DOTA 或 YOLO-OBB 格式訓練
+- **旋轉物件框：** 三下點擊畫出任意角度的框，可旋轉、縮放、移動；可直接匯出 YOLO-OBB，或轉成 DOTA 格式訓練
 - **Segment Anything（SAM）：** 點一下物體就自動切出輪廓
 - **用自己訓練的 YOLO 模型預標註：** 支援 detect、OBB、segment、pose，可以標單張圖或整個資料集
 - **多人共同標註：** 把資料集分享給成員，大家一起標；管理員管理帳號與權限
-- **COCO 格式匯入、匯出**
+- **COCO / YOLO 格式匯入、匯出：** 兩種格式互轉，YOLO 支援 detect、segment、OBB、pose
 - **介面語言：** English、繁體中文
 
 ## 安裝
@@ -193,9 +193,32 @@ sudo docker compose up -d --build
 
 ## 匯入與匯出
 
-- **匯出：** 資料集頁面的「匯出 COCO」，完成後在「匯出紀錄」分頁下載。
-- **從首頁匯入：** 首頁的「匯入」可以把圖片和 COCO 標註檔一起匯入到既有或新的資料集。
-- **匯入 COCO：** 資料集頁面的「匯入 COCO」上傳 COCO 格式的 json。圖片要先放好並掃描，會依檔名對應圖片（`file_name` 裡的資料夾會被忽略）。支援只有框的標註（例如 Roboflow、YOLO 轉出的 COCO）、多邊形、RLE 遮罩、關鍵點和旋轉框。匯入完成會跳出提示，有找不到的圖片等問題時，詳情在「任務」頁面。
+- **匯出：** 資料集頁面的「匯出 COCO / YOLO」，選格式後匯出，完成後在「匯出紀錄」分頁下載。
+  - **COCO：** 一個 json 檔。
+  - **YOLO：** 一個 zip，內含 `labels/*.txt`、`data.yaml`、`classes.txt`；可勾選連圖片一起打包（`images/`），解壓後就能用 `yolo train data=data.yaml` 訓練（train、val 都指向全部圖片，正式訓練前請自己切分）。標註類型：
+
+    | 類型 | 輸出 | 說明 |
+    |---|---|---|
+    | detect | `class xc yc w h` | 每個標註的外接水平框 |
+    | segment | `class x1 y1 … xn yn` | 多邊形；分成好幾塊的會接成一個多邊形 |
+    | obb | `class x1 y1 … x4 y4` | 旋轉框照原本的 4 個角；其他標註用最小外接旋轉矩形 |
+    | pose | `class xc yc w h px py v …` | 只輸出有關鍵點的標註，`data.yaml` 含 `kpt_shape`、`flip_idx` |
+
+- **從首頁匯入：** 首頁的「匯入」可以把圖片和標註檔（COCO json 或 YOLO zip）一起匯入到既有或新的資料集。直接選一個 YOLO 資料集資料夾（含 `images/`、`labels/`、`data.yaml`）也可以，圖片和標註會一起匯入。
+- **匯入 COCO：** 資料集頁面的「匯入 COCO / YOLO」上傳 COCO 格式的 json。圖片要先放好並掃描，會依檔名對應圖片（`file_name` 裡的資料夾會被忽略）。支援只有框的標註（例如 Roboflow、YOLO 轉出的 COCO）、多邊形、RLE 遮罩、關鍵點和旋轉框。匯入完成會跳出提示，有找不到的圖片等問題時，詳情在「任務」頁面。
+- **匯入 YOLO：** 同一個按鈕上傳 zip，裡面放 YOLO 標註 `.txt`（資料夾結構不拘，例如 `labels/train/*.txt`）和 `data.yaml` 或 `classes.txt`（沒有的話類別會叫 `class_0`、`class_1`…）。依檔名（不含副檔名）對應資料集裡的圖片，所以圖片要先在資料集裡。標註類型預設自動判斷，也可以手動指定；detect 會變成框、segment 變成多邊形、obb 變成旋轉框、pose 變成框 + 關鍵點。
+
+### 不經過網頁的轉檔
+
+```bash
+# COCO -> YOLO（--images 會順便把圖片複製到 out/images）
+python scripts/coco_yolo.py coco2yolo coco-export.json out/ --task segment --images /path/to/images
+
+# YOLO -> COCO（圖片尺寸從圖檔讀取）
+python scripts/coco_yolo.py yolo2coco path/to/labels path/to/images coco.json --names data.yaml
+```
+
+需要 numpy、Pillow、PyYAML（obb 從多邊形轉換時需要 opencv）。
 
 旋轉框在 COCO json 中的格式：
 
@@ -207,11 +230,10 @@ sudo docker compose up -d --build
 
 `angle` 的單位是度，在影像座標（y 軸向下）中順時針為正。`segmentation` 依序存 4 個角點，所以只認一般多邊形的工具也讀得懂。
 
-轉成旋轉框模型的訓練格式：
+YOLO-OBB 直接用上面的 YOLO 匯出（類型選 obb）。轉成 DOTA 格式：
 
 ```bash
-python scripts/export_obb.py coco-export.json labels/ --format yolo-obb   # Ultralytics YOLO-OBB
-python scripts/export_obb.py coco-export.json labels/ --format dota       # DOTA
+python scripts/export_obb.py coco-export.json labels/ --format dota
 ```
 
 ## 設定

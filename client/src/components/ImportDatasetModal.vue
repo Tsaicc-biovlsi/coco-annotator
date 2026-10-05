@@ -39,7 +39,13 @@
                 <button type="button" class="btn btn-outline-primary btn-sm" :disabled="running" @click="$refs.folder.click()">
                   <i class="fa fa-folder-open-o" /> {{ $t('importDataset.chooseFolder') }}
                 </button>
-                <button v-if="images.length" type="button" class="btn btn-link btn-sm" :disabled="running" @click="images = []">
+                <button
+                  v-if="images.length || yoloLabels.length"
+                  type="button"
+                  class="btn btn-link btn-sm"
+                  :disabled="running"
+                  @click="images = []; yoloLabels = []; yoloNames = null"
+                >
                   {{ $t('importDataset.clear') }}
                 </button>
               </div>
@@ -49,6 +55,11 @@
                 <span v-if="images.length">{{ $t('importDataset.selected', { n: images.length, size: totalSize }) }}</span>
                 <span v-else>{{ $t('importDataset.imagesHint') }}</span>
               </div>
+              <div v-if="yoloLabels.length" class="form-text text-success">
+                <i class="fa fa-check" />
+                {{ $t('yolo.folderFound', { n: yoloLabels.length }) }}
+                <span v-if="!yoloNames" class="text-warning">{{ $t('yolo.noNames') }}</span>
+              </div>
             </div>
 
             <div class="mb-3">
@@ -57,12 +68,20 @@
                 id="importCoco"
                 ref="coco"
                 type="file"
-                accept=".json,application/json"
+                accept=".json,application/json,.zip,application/zip"
                 class="form-control"
                 :disabled="running"
                 @change="coco = $event.target.files[0] || null"
               />
-              <div class="form-text">{{ $t('importDataset.cocoHint') }}</div>
+              <div class="form-text">{{ yoloLabels.length && !coco ? $t('yolo.folderUsed') : $t('importDataset.cocoHint') }}</div>
+              <div v-if="isYolo || (yoloLabels.length && !coco)" class="mt-2">
+                <label class="form-label" for="importDatasetYoloTask">{{ $t('yolo.task') }}</label>
+                <select id="importDatasetYoloTask" v-model="yoloTask" class="form-select" :disabled="running">
+                  <option value="auto">{{ $t('yolo.auto') }}</option>
+                  <option v-for="t in yoloTasks" :key="t" :value="t">{{ $t('yolo.' + t) }}</option>
+                </select>
+                <div class="form-text">{{ $t('yolo.importHint') }}</div>
+              </div>
             </div>
 
             <div v-if="running || progress.total" class="mb-2">
@@ -95,9 +114,27 @@
 <script>
 import axios from "axios";
 import { showModal, hideModal } from "@/libs/modal";
+import Dataset, { isYoloFile } from "@/models/datasets";
+import { zipSync, strToU8 } from "fflate";
 
 const IMAGE_EXT = [".gif", ".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"];
 const PARALLEL_UPLOADS = 4;
+
+/** YOLO label / class-name files that come along when a dataset folder is picked */
+function isYoloText(file) {
+  const name = file.name.toLowerCase();
+  if (name.startsWith(".")) return null;
+  if (/\.(ya?ml|names)$/.test(name) || name === "classes.txt") return "names";
+  if (name.endsWith(".txt") && !/^readme/.test(name)) return "label";
+  return null;
+}
+
+/** data.yaml beats other .yaml files, which beat classes.txt / obj.names */
+function namesRank(file) {
+  if (!file) return 0;
+  const name = file.name.toLowerCase();
+  return name === "data.yaml" || name === "data.yml" ? 3 : /\.ya?ml$/.test(name) ? 2 : 1;
+}
 
 function isImage(file) {
   const name = file.name.toLowerCase();
@@ -114,15 +151,22 @@ export default {
       newName: "",
       images: [],
       coco: null,
+      yoloLabels: [],
+      yoloNames: null,
+      yoloTask: "auto",
+      yoloTasks: ["detect", "segment", "obb", "pose"],
       running: false,
       progress: { done: 0, total: 0, skipped: 0, failed: [] },
       imageAccept: IMAGE_EXT.join(",")
     };
   },
   computed: {
+    isYolo() {
+      return isYoloFile(this.coco);
+    },
     canRun() {
       const hasTarget = this.target !== "new" || this.newName.trim().length > 0;
-      return hasTarget && (this.images.length > 0 || this.coco || this.target === "new");
+      return hasTarget && (this.images.length > 0 || this.coco || this.yoloLabels.length > 0 || this.target === "new");
     },
     percent() {
       return this.progress.total ? Math.round((100 * this.progress.done) / this.progress.total) : 0;
@@ -138,6 +182,9 @@ export default {
       this.newName = "";
       this.images = [];
       this.coco = null;
+      this.yoloLabels = [];
+      this.yoloNames = null;
+      this.yoloTask = "auto";
       this.progress = { done: 0, total: 0, skipped: 0, failed: [] };
       if (this.$refs.coco) this.$refs.coco.value = "";
       showModal("#importDataset");
@@ -147,11 +194,22 @@ export default {
     },
     addImages(event) {
       const seen = new Set(this.images.map(f => f.name));
+      const labels = new Set(this.yoloLabels.map(f => f.webkitRelativePath || f.name));
       for (const file of event.target.files) {
         // a folder pick includes everything: keep the images, once per name
         if (isImage(file) && !seen.has(file.name)) {
           seen.add(file.name);
           this.images.push(file);
+          continue;
+        }
+        // ... and the YOLO labels + data.yaml / classes.txt of a YOLO dataset folder
+        const kind = isYoloText(file);
+        const path = file.webkitRelativePath || file.name;
+        if (kind === "label" && !labels.has(path)) {
+          labels.add(path);
+          this.yoloLabels.push(file);
+        } else if (kind === "names" && namesRank(file) > namesRank(this.yoloNames)) {
+          this.yoloNames = file;
         }
       }
       event.target.value = "";
@@ -182,6 +240,16 @@ export default {
       };
       await Promise.all(Array.from({ length: PARALLEL_UPLOADS }, worker));
     },
+    /** The label files of a picked YOLO folder, zipped like a YOLO export */
+    async yoloZip() {
+      const entries = {};
+      const files = this.yoloNames ? [...this.yoloLabels, this.yoloNames] : this.yoloLabels;
+      for (const file of files) {
+        const path = (file.webkitRelativePath || file.name).replace(/^\/+/, "");
+        entries[path] = strToU8(await file.text());
+      }
+      return new File([zipSync(entries, { level: 6 })], "labels.zip", { type: "application/zip" });
+    },
     async run() {
       if (!this.canRun || this.running) return;
       this.running = true;
@@ -191,13 +259,15 @@ export default {
         if (this.images.length) await this.uploadAll(datasetId);
 
         let importTask = null;
-        if (this.coco) {
-          const form = new FormData();
-          form.append("coco", this.coco);
-          const r = await axios.post(`/api/dataset/${datasetId}/coco`, form, {
-            headers: { "Content-Type": "multipart/form-data" }
-          });
+        const annotations = this.coco || (this.yoloLabels.length ? await this.yoloZip() : null);
+        if (annotations) {
+          const r = await Dataset.uploadAnnotations(datasetId, annotations, this.yoloTask);
           importTask = r.data.id;
+          const s = r.data.stats;
+          if (s && s.unmatched) {
+            this.$toastr.warning(this.$t("yolo.unmatched", { n: s.unmatched, names: s.unmatched_examples.join(", ") }));
+          }
+          if (s && !r.data.names_found) this.$toastr.warning(this.$t("yolo.noNames"));
         }
 
         const p = this.progress;

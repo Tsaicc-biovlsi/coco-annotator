@@ -332,8 +332,21 @@
             <form>
               <div class="mb-3">
                 <label for="coco" class="form-label">{{ $t('dataset.cocoAnnotationFileJson') }}</label>
-                <input type="file" class="form-control" id="coco" accept=".json,application/json" />
-                <div class="form-text">{{ $t('dataset.importHint') }}</div>
+                <input
+                  type="file"
+                  class="form-control"
+                  id="coco"
+                  accept=".json,application/json,.zip,application/zip"
+                  @change="importFile = $event.target.files[0] || null"
+                />
+                <div class="form-text">{{ importIsYolo ? $t('yolo.importHint') : $t('dataset.importHint') }}</div>
+              </div>
+              <div v-if="importIsYolo" class="mb-3">
+                <label for="importYoloTask" class="form-label">{{ $t('yolo.task') }}</label>
+                <select id="importYoloTask" v-model="importYoloTask" class="form-select">
+                  <option value="auto">{{ $t('yolo.auto') }}</option>
+                  <option v-for="t in yoloTasks" :key="t" :value="t">{{ $t('yolo.' + t) }}</option>
+                </select>
               </div>
             </form>
           </div>
@@ -342,6 +355,7 @@
               type="button"
               class="btn btn-primary"
               @click="importCOCO"
+              :disabled="!importFile"
               data-bs-dismiss="modal"
             >
               {{ $t('dataset.upload') }}
@@ -372,6 +386,25 @@
           </div>
           <div class="modal-body">
             <form>
+              <div class="mb-3">
+                <label class="form-label" for="exportFormat">{{ $t('yolo.format') }}</label>
+                <select id="exportFormat" v-model="exporting.format" class="form-select">
+                  <option value="coco">{{ $t('yolo.formatCoco') }}</option>
+                  <option value="yolo">{{ $t('yolo.formatYolo') }}</option>
+                </select>
+              </div>
+              <div v-if="exporting.format === 'yolo'" class="mb-3">
+                <label class="form-label" for="exportYoloTask">{{ $t('yolo.task') }}</label>
+                <select id="exportYoloTask" v-model="exporting.yolo_task" class="form-select">
+                  <option v-for="t in yoloTasks" :key="t" :value="t">{{ $t('yolo.' + t) }}</option>
+                </select>
+                <div class="form-text">{{ $t('yolo.exportHint.' + exporting.yolo_task) }}</div>
+                <div class="form-check d-inline-flex align-items-center gap-2 ps-0 mt-2">
+                  <input type="checkbox" class="form-check-input m-0" id="exportWithImages"
+                    v-model="exporting.with_images">
+                  <label class="form-check-label mb-0" for="exportWithImages">{{ $t('yolo.withImages') }}</label>
+                </div>
+              </div>
               <div class="mb-3">
                 <label>{{ $t('dataset.categoriesEmptyExportAll') }}</label>
                 <TagsInput
@@ -424,7 +457,7 @@
 import userAvatar from "@/assets/user.png";
 import { hideModal, showModal } from "@/libs/modal";
 import toastrs from "@/mixins/toastrs";
-import Dataset from "@/models/datasets";
+import Dataset, { isYoloFile } from "@/models/datasets";
 import Export from "@/models/exports";
 import ImageCard from "@/components/cards/ImageCard.vue";
 import Pagination from "@/components/Pagination.vue";
@@ -498,8 +531,14 @@ export default {
         categories: [],
         progress: 0,
         with_empty_images: false,
+        format: "coco",
+        yolo_task: "detect",
+        with_images: false,
         id: null
       },
+      yoloTasks: ["detect", "segment", "obb", "pose"],
+      importFile: null,
+      importYoloTask: "auto",
       selected: {
         categories: []
       },
@@ -613,7 +652,12 @@ export default {
     },
     exportCOCO() {
       hideModal("#exportDataset");
-      Dataset.exportingCOCO(this.dataset.id, this.exporting.categories, this.exporting.with_empty_images)
+      const options = { format: this.exporting.format };
+      if (this.exporting.format === "yolo") {
+        options.yolo_task = this.exporting.yolo_task;
+        options.with_images = this.exporting.with_images;
+      }
+      Dataset.exportingCOCO(this.dataset.id, this.exporting.categories, this.exporting.with_empty_images, options)
         .then(response => {
           let id = response.data.id;
           this.exporting.id = id;
@@ -652,6 +696,9 @@ export default {
         return;
       }
 
+      this.importFile = null;
+      const input = document.getElementById("coco");
+      if (input) input.value = "";
       showModal("#cocoUpload");
     },
     /** Fallback for a progress update sent before this page was listening */
@@ -682,16 +729,28 @@ export default {
       });
     },
     importCOCO() {
-      let uploaded = document.getElementById("coco");
-      Dataset.uploadCoco(this.dataset.id, uploaded.files[0])
+      if (!this.importFile) return;
+      Dataset.uploadAnnotations(this.dataset.id, this.importFile, this.importYoloTask)
         .then(response => {
-          let id = response.data.id;
-          this.importing.id = id;
+          if (response.data.stats) this.showYoloStats(response.data);
+          this.importing.id = response.data.id;
           this.pollImportTask();
         })
         .catch(error => {
-          this.axiosReqestError("Importing COCO", error.response.data.message);
+          const data = (error.response && error.response.data) || {};
+          this.axiosReqestError(this.$t("dataset.importCoco"), data.message || String(error));
         });
+    },
+    /** What the server matched in a YOLO zip (the import itself runs as a task) */
+    showYoloStats(data) {
+      const s = data.stats;
+      this.$toastr.info(this.$t("yolo.importStarted", {
+        task: this.$t("yolo." + s.task), matched: s.matched, annotations: s.annotations
+      }));
+      if (s.unmatched) {
+        this.$toastr.warning(this.$t("yolo.unmatched", { n: s.unmatched, names: s.unmatched_examples.join(", ") }));
+      }
+      if (!data.names_found) this.$toastr.warning(this.$t("yolo.noNames"));
     },
     mouseMove(event) {
       let element = this.$refs.sidebar;
@@ -719,6 +778,9 @@ export default {
     }
   },
   computed: {
+    importIsYolo() {
+      return isYoloFile(this.importFile);
+    },
     queryAnnotated() {
       let showAnnotated = this.panel.showAnnotated;
       let showNotAnnotated = this.panel.showNotAnnotated;
@@ -744,7 +806,8 @@ export default {
       }
 
       if (data.id === this.importing.id) {
-        this.importing.progress = data.progress;
+        // socket updates can arrive after the poll already saw the task finish
+        this.importing.progress = Math.max(this.importing.progress, data.progress);
         this.importing.warnings = data.warnings || 0;
         this.importing.errors = data.errors || 0;
       }
@@ -815,8 +878,9 @@ export default {
         }, 1000);
       }
     },
-    "importing.progress"(progress) {
-      if (progress >= 100) {
+    "importing.progress"(progress, previous) {
+      // progress can step from e.g. 100.0000001 to 100: report once
+      if (progress >= 100 && !(previous >= 100)) {
         const problems = (this.importing.warnings || 0) + (this.importing.errors || 0);
         if (problems) {
           this.$toastr.warning(this.$t("dataset.importDoneWithProblems", { n: problems }));

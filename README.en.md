@@ -57,10 +57,11 @@ Several annotation tools are currently available, with most applications as a de
 - Ability to add key points
 - Useful API endpoints to analyze data
 - Import datasets already annotated in COCO format
+- **COCO ↔ YOLO conversion:** export a dataset as YOLO labels (detect, segment, OBB, pose; zip with `labels/`, `data.yaml`, optionally `images/`) and import YOLO label zips or whole YOLO dataset folders. Offline: `python scripts/coco_yolo.py coco2yolo|yolo2coco ...`
 - Annotate disconnect objects as a single instance
 - Labeling image segments with any number of labels simultaneously
 - Allow custom metadata for each instance or object
-- **Rotated (oriented) bounding boxes** with rotate / resize / move handles, exported as `rbbox = [cx, cy, w, h, angle]` and convertible to DOTA / YOLO-OBB
+- **Rotated (oriented) bounding boxes** with rotate / resize / move handles, exported as `rbbox = [cx, cy, w, h, angle]` and exported as YOLO-OBB or converted to DOTA
 - AI-assisted segmentation with [Segment Anything](https://github.com/facebookresearch/segment-anything) (click / box prompts) and Magic Wand
 - Pre-annotate an image or a whole dataset with your own Ultralytics YOLO models (detect, OBB, segment, pose)
 - Annotate images with semi-trained models (external model server)

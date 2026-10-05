@@ -160,13 +160,13 @@
     "average": "Average",
     "categoriesEmptyExportAll": "Categories (Empty export all)",
     "close": "Close",
-    "cocoAnnotationFileJson": "COCO Annotation file (.json)",
+    "cocoAnnotationFileJson": "Annotation file (COCO .json or YOLO .zip)",
     "contains": "Contains",
     "crunchingNumbers": "Crunching numbers...",
     "download": "Download",
     "existingMembers": "Existing Members",
     "export": "Export",
-    "exportCoco": "Export COCO",
+    "exportCoco": "Export COCO / YOLO",
     "exportTitle": "Export {name}",
     "exportWithNotAnnotatedImages": "export with not annotated images",
     "exportedAgo": "Exported {time} ago",
@@ -174,9 +174,9 @@
     "exports": "Exports",
     "filteringOptions": "Filtering Options",
     "images": "Images",
-    "importCoco": "Import COCO",
-    "importDone": "COCO import finished",
-    "importDoneWithProblems": "COCO import finished with {n} warnings/errors. See Tasks for details (e.g. images not found).",
+    "importCoco": "Import COCO / YOLO",
+    "importDone": "Annotation import finished",
+    "importDoneWithProblems": "Annotation import finished with {n} warnings or errors. See the Tasks page for details (e.g. images that were not found).",
     "importHint": "Images are matched by file name (folders in file_name are ignored), so put the images in the dataset folder and scan first. Box-only annotations, polygons, RLE masks, keypoints and rotated boxes are supported.",
     "importing": "Importing",
     "inviteMembers": "Invite Members",
@@ -200,7 +200,7 @@
     "total": "Total",
     "totalImages": "Total of {images} images displayed on {pages} pages.",
     "upload": "Upload",
-    "uploadCocoAnnotaitons": "Upload COCO Annotaitons",
+    "uploadCocoAnnotaitons": "Upload annotations (COCO / YOLO)",
     "username": "Username"
   },
   "datasetCard": {
@@ -265,7 +265,7 @@
     "noAnnotations": "No annotations"
   },
   "importDataset": {
-    "title": "Import images / COCO",
+    "title": "Import images / annotations",
     "dataset": "Dataset",
     "newDataset": "+ New dataset",
     "newName": "Name of the new dataset",
@@ -275,7 +275,7 @@
     "clear": "Clear",
     "selected": "{n} images selected ({size})",
     "imagesHint": "Optional. Uploaded into the dataset's folder on the server; files with the same name are skipped.",
-    "coco": "COCO annotations (.json, optional)",
+    "coco": "Annotations (COCO .json or YOLO .zip, optional)",
     "cocoHint": "Imported after the images. Images are matched by file name.",
     "progress": "{skipped} already on the server, {failed} failed",
     "import": "Import",
@@ -505,5 +505,29 @@
     "newPassword": "New Password",
     "submit": "Submit",
     "userSettings": "User Settings"
+  },
+  "yolo": {
+    "format": "Format",
+    "formatCoco": "COCO (.json)",
+    "formatYolo": "YOLO (.zip: labels/*.txt + data.yaml)",
+    "task": "YOLO label type",
+    "auto": "Detect automatically",
+    "detect": "Boxes (detect)",
+    "segment": "Polygons (segment)",
+    "obb": "Rotated boxes (obb)",
+    "pose": "Keypoints (pose)",
+    "exportHint": {
+      "detect": "Every annotation is written as its bounding box (polygons and rotated boxes too).",
+      "segment": "Polygons; box-only annotations become 4-point polygons and multi-part ones are joined into one polygon.",
+      "obb": "Rotated boxes keep their 4 corners; other boxes and polygons use the minimum-area rotated rectangle.",
+      "pose": "Only annotations with keypoints (box + keypoints); data.yaml gets kpt_shape and flip_idx."
+    },
+    "withImages": "Include the images in the zip (larger, ready to train after unzipping)",
+    "importHint": "A zip with YOLO label .txt files (any folder layout) and data.yaml or classes.txt. Labels are matched to the dataset's images by file name without the extension, so the images must be in the dataset first.",
+    "importStarted": "YOLO ({task}): {matched} label files matched images, {annotations} annotations. Importing…",
+    "unmatched": "{n} label files have no matching image (e.g. {names})",
+    "noNames": "No data.yaml / classes.txt: classes will be named class_0, class_1, …",
+    "folderFound": "Found {n} YOLO label files in the folder; they are imported after the images.",
+    "folderUsed": "The YOLO labels in the picked folder will be imported; or choose a COCO .json or YOLO .zip instead."
   }
 }

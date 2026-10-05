@@ -45,12 +45,12 @@ class DatasetModel(DynamicDocument):
         return UserModel.objects(username__in=members)\
             .exclude('password', 'id', 'preferences')
 
-    def import_coco(self, coco_json):
+    def import_coco(self, coco_json, style="COCO"):
 
         from workers.tasks import import_annotations
 
         task = TaskModel(
-            name="Import COCO format into {}".format(self.name),
+            name="Import {} format into {}".format(style, self.name),
             dataset_id=self.id,
             group="Annotation Import"
         )
@@ -64,13 +64,16 @@ class DatasetModel(DynamicDocument):
             "name": task.name
         }
 
-    def export_coco(self, categories=None, style="COCO", with_empty_images=False):
+    def export_coco(self, categories=None, style="COCO", with_empty_images=False,
+                    fmt="coco", yolo_task="detect", with_images=False):
 
         from workers.tasks import export_annotations
 
         if categories is None or len(categories) == 0:
             categories = self.categories
 
+        if fmt == "yolo":
+            style = f"YOLO {yolo_task}"
         task = TaskModel(
             name=f"Exporting {self.name} into {style} format",
             dataset_id=self.id,
@@ -78,7 +81,8 @@ class DatasetModel(DynamicDocument):
         )
         task.save()
 
-        cel_task = export_annotations.delay(task.id, self.id, categories, with_empty_images)
+        cel_task = export_annotations.delay(task.id, self.id, categories, with_empty_images,
+                                            fmt, yolo_task, with_images)
 
         return {
             "celery_id": cel_task.id,

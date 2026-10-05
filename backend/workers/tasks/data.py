@@ -22,7 +22,8 @@ from mongoengine import Q
 
 
 @shared_task
-def export_annotations(task_id, dataset_id, categories, with_empty_images=False):
+def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
+                       fmt="coco", yolo_task="detect", with_images=False):
 
     task = TaskModel.objects.get(id=task_id)
     dataset = DatasetModel.objects.get(id=dataset_id)
@@ -30,7 +31,7 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False)
     task.update(status="PROGRESS")
     socket = create_socket()
 
-    task.info("Beginning Export (COCO Format)")
+    task.info(f"Beginning Export ({'YOLO ' + yolo_task if fmt == 'yolo' else 'COCO'} Format)")
 
     db_categories = CategoryModel.objects(id__in=categories, deleted=False) \
         .only(*CategoryModel.COCO_PROPERTIES)
@@ -120,21 +121,58 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False)
 
     timestamp = time.time()
     directory = f"{dataset.directory}.exports/"
-    file_path = f"{directory}coco-{timestamp}.json"
-
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-    task.info(f"Writing export to file {file_path}")
-    with open(file_path, 'w') as fp:
-        json.dump(coco, fp)
+    if fmt == "yolo":
+        file_path = f"{directory}yolo-{yolo_task}-{timestamp}.zip"
+        task.info(f"Writing YOLO {yolo_task} labels to {file_path}")
+        result = _write_yolo_zip(coco, yolo_task, with_images, file_path, task)
+        tags = ["YOLO", yolo_task, *category_names]
+        task.info(f"Wrote {result['written']} labels ({result['skipped']} annotations "
+                  f"could not be converted to {yolo_task})")
+    else:
+        file_path = f"{directory}coco-{timestamp}.json"
+        task.info(f"Writing export to file {file_path}")
+        with open(file_path, 'w') as fp:
+            json.dump(coco, fp)
+        tags = ["COCO", *category_names]
 
     task.info("Creating export object")
-    export = ExportModel(dataset_id=dataset.id, path=file_path, tags=[
-                         "COCO", *category_names])
+    export = ExportModel(dataset_id=dataset.id, path=file_path, tags=tags)
     export.save()
 
     task.set_progress(100, socket=socket)
+
+
+def _write_yolo_zip(coco, yolo_task, with_images, file_path, task):
+    """COCO dict -> zip with labels/*.txt, data.yaml, classes.txt (+ images/)."""
+    import zipfile
+    from geometry.yolo_format import coco_to_yolo, data_yaml, stem
+
+    result = coco_to_yolo(coco, yolo_task)
+    tmp_path = file_path + ".tmp"
+    used = set()
+    with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for image in coco["images"]:
+            name = stem(image["file_name"])
+            if name in used:  # same name in two folders
+                name = f"{name}_{image['id']}"
+            used.add(name)
+            lines = result["labels"].get(image["id"], [])
+            zf.writestr(f"labels/{name}.txt", "\n".join(lines) + ("\n" if lines else ""))
+            if with_images:
+                path = image.get("path")
+                if path and os.path.isfile(path):
+                    ext = os.path.splitext(path)[1]
+                    # images are already compressed
+                    zf.write(path, f"images/{name}{ext}", compress_type=zipfile.ZIP_STORED)
+                else:
+                    task.warning(f"Image file missing: {image.get('file_name')}")
+        zf.writestr("data.yaml", data_yaml(result["names"], yolo_task, result["kpt_shape"], result["flip_idx"]))
+        zf.writestr("classes.txt", "\n".join(result["names"]) + "\n")
+    os.replace(tmp_path, file_path)
+    return result
 
 
 def _polygon_area(flat):
@@ -200,8 +238,8 @@ def import_annotations(task_id, dataset_id, coco_json):
         category_model = categories.filter(name__iexact=category_name).first()
 
         if category_model is None:
-            task.warning(
-                f"{category_name} category not found (creating a new one)")
+            # expected when importing new classes, not a problem
+            task.info(f"{category_name} category not found (creating a new one)")
 
             new_category = CategoryModel(
                 name=category_name,
@@ -216,6 +254,11 @@ def import_annotations(task_id, dataset_id, coco_json):
         elif category_model.id not in dataset.categories:
             # the category exists (e.g. used by another dataset): add it here
             dataset.categories.append(category_model.id)
+
+        if category.get('keypoints') and not category_model.keypoint_labels:
+            # e.g. a YOLO pose import into a category without keypoints yet
+            category_model.update(keypoint_labels=category.get('keypoints'),
+                                  keypoint_edges=category.get('skeleton', []))
 
         task.info(f"{category_name} category found")
         # map category ids

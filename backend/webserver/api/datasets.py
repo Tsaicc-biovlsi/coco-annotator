@@ -44,6 +44,15 @@ coco_upload.add_argument('coco', location='files', type=FileStorage, required=Tr
 export = reqparse.RequestParser()
 export.add_argument('categories', type=str, default=None, required=False, help='Ids of categories to export')
 export.add_argument('with_empty_images', type=inputs.boolean, default=False, required=False, help='Export with un-annotated images')
+export.add_argument('format', default='coco', choices=('coco', 'yolo'), help='coco (JSON) or yolo (zip of label files)')
+export.add_argument('yolo_task', default='detect', choices=('detect', 'segment', 'obb', 'pose'), help='YOLO label type')
+export.add_argument('with_images', type=inputs.boolean, default=False, help='YOLO: put the images in the zip too')
+
+yolo_upload = reqparse.RequestParser()
+yolo_upload.add_argument('yolo', location='files', type=FileStorage, required=True,
+                         help='Zip with YOLO label .txt files and data.yaml / classes.txt')
+yolo_upload.add_argument('task', location='form', default='auto',
+                         choices=('auto', 'detect', 'segment', 'obb', 'pose'), help='YOLO label type')
 
 update_dataset = reqparse.RequestParser()
 update_dataset.add_argument('categories', location='json', type=list, help="New list of categories")
@@ -475,7 +484,7 @@ class DatasetExport(Resource):
     def get(self, dataset_id):
 
         args = export.parse_args()
-        categories = args.get('categories')
+        categories = args.get('categories') or ''
         with_empty_images = args.get('with_empty_images', False)
         
         if len(categories) == 0:
@@ -484,12 +493,18 @@ class DatasetExport(Resource):
         if len(categories) > 0 or isinstance(categories, str):
             categories = [int(c) for c in categories.split(',')]
 
-        dataset = DatasetModel.objects(id=dataset_id).first()
-        
+        dataset = current_user.datasets.filter(id=dataset_id).first()
+
         if not dataset:
             return {'message': 'Invalid dataset ID'}, 400
-        
-        return dataset.export_coco(categories=categories, with_empty_images=with_empty_images)
+
+        if not current_user.can_download(dataset):
+            return {"message": "You do not have permission to download the dataset's annotations"}, 403
+
+        return dataset.export_coco(categories=categories, with_empty_images=with_empty_images,
+                                   fmt=args.get('format') or 'coco',
+                                   yolo_task=args.get('yolo_task') or 'detect',
+                                   with_images=bool(args.get('with_images')))
     
     @api.expect(coco_upload)
     @login_required
@@ -534,6 +549,62 @@ class DatasetCoco(Resource):
 
         return dataset.import_coco(json.load(coco))
 
+
+
+@api.route('/<int:dataset_id>/yolo')
+class DatasetYolo(Resource):
+
+    @api.expect(yolo_upload)
+    @login_required
+    def post(self, dataset_id):
+        """ Adds YOLO labels (zip) to the dataset, matching images by file name """
+        import zipfile
+        from geometry.yolo_format import read_zip, yolo_to_coco
+
+        args = yolo_upload.parse_args()
+        dataset = current_user.datasets.filter(id=dataset_id).first()
+        if dataset is None:
+            return {'message': 'Invalid dataset ID'}, 400
+        if not current_user.can_edit(dataset):
+            return {'message': 'You do not have permission to edit this dataset'}, 403
+
+        try:
+            label_texts, names, kpt_shape = read_zip(args['yolo'].stream)
+        except zipfile.BadZipFile:
+            return {'message': 'Not a zip file'}, 400
+        if not label_texts:
+            return {'message': 'No YOLO label (.txt) files found in the zip'}, 400
+
+        images = [{"id": i.id, "file_name": i.file_name, "width": i.width, "height": i.height}
+                  for i in ImageModel.objects(dataset_id=dataset.id, deleted=False)
+                  .only('id', 'file_name', 'width', 'height')]
+        try:
+            coco, stats = yolo_to_coco(label_texts, images, names=names,
+                                       task=args.get('task'), kpt_shape=kpt_shape)
+        except ValueError as e:
+            return {'message': str(e)}, 400
+
+        if stats['matched'] == 0:
+            return {'message': 'None of the label files match an image in this dataset '
+                               '(labels are matched to images by file name without the extension)',
+                    'stats': _yolo_stats(stats)}, 400
+
+        result = dataset.import_coco(coco, style=f"YOLO {stats['task']}")
+        result['stats'] = _yolo_stats(stats)
+        result['names_found'] = names is not None
+        return result
+
+
+def _yolo_stats(stats):
+    return {
+        'task': stats['task'],
+        'matched': stats['matched'],
+        'annotations': stats['annotations'],
+        'invalid': stats['invalid'],
+        'unmatched': len(stats['unmatched']),
+        'unmatched_examples': stats['unmatched'][:5],
+        'ambiguous': stats['ambiguous'][:5],
+    }
 
 
 @api.route('/<int:dataset_id>/scan')
