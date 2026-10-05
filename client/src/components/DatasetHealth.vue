@@ -1,0 +1,434 @@
+<template>
+  <div class="health viz-root">
+    <div class="d-flex align-items-center my-3">
+      <h5 class="mb-0 me-auto">{{ $t('health.title') }}</h5>
+      <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="loading" @click="load">
+        <i class="fa fa-refresh" :class="{ 'fa-spin': loading }" /> {{ $t('health.refresh') }}
+      </button>
+    </div>
+
+    <div v-if="!data" class="text-muted"><i class="fa fa-spinner fa-spin" /></div>
+    <template v-else>
+      <!-- headline numbers -->
+      <div class="row g-2 mb-3">
+        <div v-for="tile in tiles" :key="tile.label" class="col-6 col-md">
+          <div class="stat-tile">
+            <div class="stat-value">{{ tile.value }}</div>
+            <div class="stat-label">{{ tile.label }}</div>
+            <div v-if="tile.sub" class="stat-sub">{{ tile.sub }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- problems -->
+      <div class="card p-3 mb-3 shadow-sm">
+        <h6 class="mb-2"><b>{{ $t('health.issuesTitle') }}</b></h6>
+        <div v-if="!data.issues.length" class="text-success">
+          <i class="fa fa-check-circle" /> {{ $t('health.noIssues') }}
+        </div>
+        <ul v-else class="list-unstyled mb-0">
+          <li v-for="issue in data.issues" :key="issue.code" class="issue" :class="issue.level">
+            <i class="fa" :class="issue.level === 'warning' ? 'fa-exclamation-triangle' : 'fa-info-circle'" />
+            <span class="ms-1">{{ issueText(issue) }}</span>
+            <span v-if="issue.examples && issue.examples.length" class="examples">
+              {{ $t('health.examples') }}
+              <router-link
+                v-for="ex in issue.examples"
+                :key="issue.code + ex.image_id"
+                :to="{ name: 'annotate', params: { identifier: ex.image_id } }"
+                class="me-2"
+              >{{ ex.file_name }}</router-link>
+            </span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="row g-3">
+        <!-- class balance -->
+        <div class="col-lg-6">
+          <div class="card p-3 h-100 shadow-sm">
+            <h6><b>{{ $t('health.classBalance') }}</b></h6>
+            <div class="small text-secondary mb-2">{{ $t('health.classBalanceHint') }}</div>
+            <div v-if="!data.classes.length" class="text-muted small">{{ $t('health.noData') }}</div>
+            <div v-for="row in data.classes" :key="row.id" class="hbar-row" :title="classTitle(row)">
+              <span class="hbar-label">
+                <span class="swatch" :style="{ backgroundColor: row.color || '#adb5bd' }" />
+                {{ row.name }}
+              </span>
+              <span class="hbar-track">
+                <span v-if="row.annotations" class="hbar" :style="{ width: pctOf(row.annotations, maxClass) + '%' }" />
+              </span>
+              <span class="hbar-value">
+                {{ row.annotations }}
+                <small class="text-secondary">· {{ $t('health.imagesN', { n: row.images }) }}</small>
+                <small v-if="row.classified" class="text-secondary">· {{ $t('health.classifiedN', { n: row.classified }) }}</small>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- objects per image -->
+        <div class="col-lg-6">
+          <div class="card p-3 h-100 shadow-sm">
+            <h6><b>{{ $t('health.objectsPerImage') }}</b></h6>
+            <div class="small text-secondary mb-2">{{ $t('health.objectsPerImageHint', { avg: data.totals.per_image_avg }) }}</div>
+            <div class="histogram">
+              <div v-for="b in data.objects_per_image" :key="b.label" class="col-bar" :title="$t('health.imagesWithObjects', { n: b.n, label: b.label })">
+                <span class="col-value">{{ b.n || '' }}</span>
+                <span class="col-fill" :style="{ height: pctOf(b.n, maxOf(data.objects_per_image)) + '%' }" />
+                <span class="col-label">{{ b.label }}</span>
+              </div>
+            </div>
+            <div class="axis-title">{{ $t('health.objectsAxis') }}</div>
+          </div>
+        </div>
+
+        <!-- box sizes -->
+        <div class="col-lg-6">
+          <div class="card p-3 h-100 shadow-sm">
+            <h6><b>{{ $t('health.boxSizes') }}</b></h6>
+            <div class="small text-secondary mb-2">{{ $t('health.boxSizesHint') }}</div>
+            <div class="row g-2 mb-3">
+              <div v-for="s in ['small', 'medium', 'large']" :key="s" class="col-4">
+                <div class="stat-tile compact">
+                  <div class="stat-value">{{ pctOf(data.box_sizes[s], totalBoxes) }}%</div>
+                  <div class="stat-label">{{ $t('health.size.' + s) }}</div>
+                  <div class="stat-sub">{{ $t('health.boxesN', { n: data.box_sizes[s] }) }}</div>
+                </div>
+              </div>
+            </div>
+            <div class="small fw-semibold mb-1">{{ $t('health.relativeSize') }}</div>
+            <div class="histogram short">
+              <div v-for="b in data.relative_sizes" :key="b.label" class="col-bar" :title="$t('health.boxesInBucket', { n: b.n, label: b.label })">
+                <span class="col-value">{{ b.n || '' }}</span>
+                <span class="col-fill" :style="{ height: pctOf(b.n, maxOf(data.relative_sizes)) + '%' }" />
+                <span class="col-label">{{ b.label }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- aspect ratio -->
+        <div class="col-lg-6">
+          <div class="card p-3 h-100 shadow-sm">
+            <h6><b>{{ $t('health.aspectRatio') }}</b></h6>
+            <div class="small text-secondary mb-2">{{ $t('health.aspectRatioHint') }}</div>
+            <div class="histogram">
+              <div v-for="b in data.aspect_ratios" :key="b.label" class="col-bar" :title="$t('health.boxesInBucket', { n: b.n, label: b.label })">
+                <span class="col-value">{{ b.n || '' }}</span>
+                <span class="col-fill" :style="{ height: pctOf(b.n, maxOf(data.aspect_ratios)) + '%' }" />
+                <span class="col-label">{{ b.label }}</span>
+              </div>
+            </div>
+            <div class="axis-title">{{ $t('health.aspectAxis') }}</div>
+          </div>
+        </div>
+
+        <!-- heatmap -->
+        <div class="col-lg-6">
+          <div class="card p-3 h-100 shadow-sm">
+            <h6><b>{{ $t('health.heatmap') }}</b></h6>
+            <div class="small text-secondary mb-2">{{ $t('health.heatmapHint') }}</div>
+            <div class="heatmap" :style="{ aspectRatio: imageAspect, maxWidth: heatmapMaxWidth }">
+              <template v-for="(row, y) in data.heatmap" :key="'r' + y">
+                <span
+                  v-for="(n, x) in row"
+                  :key="x + '-' + y"
+                  class="cell"
+                  :style="{ backgroundColor: heatColor(n) }"
+                  :title="$t('health.heatCell', { n })"
+                />
+              </template>
+            </div>
+            <div class="d-flex align-items-center gap-2 small text-secondary mt-2">
+              <span>0</span>
+              <span class="ramp" />
+              <span>{{ maxHeat }}</span>
+              <span class="ms-2">{{ $t('health.heatLegend') }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- image sizes -->
+        <div class="col-lg-6">
+          <div class="card p-3 h-100 shadow-sm">
+            <h6><b>{{ $t('health.imageSizes') }}</b></h6>
+            <div class="row g-2 mb-3">
+              <div v-for="k in ['min', 'median', 'max']" :key="k" class="col-4">
+                <div class="stat-tile compact">
+                  <div class="stat-value small-value">{{ data.image_size[k][0] }}×{{ data.image_size[k][1] }}</div>
+                  <div class="stat-label">{{ $t('health.sizeStat.' + k) }}</div>
+                </div>
+              </div>
+            </div>
+            <table class="table table-sm mb-0">
+              <thead>
+                <tr>
+                  <th>{{ $t('health.resolution') }}</th>
+                  <th class="text-end">{{ $t('health.imageCount') }}</th>
+                  <th style="width: 45%" />
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="r in data.resolutions" :key="r.width + 'x' + r.height">
+                  <td>{{ r.width }} × {{ r.height }}</td>
+                  <td class="text-end">{{ r.n }}</td>
+                  <td>
+                    <span class="hbar-track d-block">
+                      <span class="hbar" :style="{ width: pctOf(r.n, data.totals.images) + '%' }" />
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+</template>
+
+<script>
+import axios from "axios";
+
+// sequential blue ramp (light -> dark) for the heatmap
+const RAMP = ["#cde2fb", "#b7d3f6", "#9ec5f4", "#86b6ef", "#6da7ec", "#5598e7", "#3987e5",
+  "#2a78d6", "#256abf", "#1c5cab", "#184f95", "#104281", "#0d366b"];
+
+export default {
+  name: "DatasetHealth",
+  props: {
+    datasetId: { type: Number, required: true }
+  },
+  data() {
+    return { data: null, loading: false };
+  },
+  computed: {
+    tiles() {
+      const t = this.data.totals;
+      const pct = t.images ? Math.round((100 * t.annotated_images) / t.images) : 0;
+      return [
+        { label: this.$t("health.tile.images"), value: t.images },
+        { label: this.$t("health.tile.annotatedImages"), value: t.annotated_images, sub: `${pct}%` },
+        { label: this.$t("health.tile.annotations"), value: t.annotations },
+        { label: this.$t("health.tile.perImage"), value: t.per_image_avg },
+        { label: this.$t("health.tile.categories"), value: t.categories }
+      ];
+    },
+    maxClass() {
+      return Math.max(1, ...this.data.classes.map(c => c.annotations));
+    },
+    totalBoxes() {
+      const s = this.data.box_sizes;
+      return (s.small || 0) + (s.medium || 0) + (s.large || 0);
+    },
+    maxHeat() {
+      return Math.max(0, ...this.data.heatmap.flat());
+    },
+    /** keeps the heatmap at most 300 px tall while keeping the image shape */
+    heatmapMaxWidth() {
+      const [w, h] = this.data.image_size.median;
+      return w && h ? `${Math.round((300 * w) / h)}px` : "300px";
+    },
+    imageAspect() {
+      const [w, h] = this.data.image_size.median;
+      return w && h ? `${w} / ${h}` : "1 / 1";
+    }
+  },
+  watch: {
+    datasetId: {
+      immediate: true,
+      handler(id) {
+        if (id) this.load();
+      }
+    }
+  },
+  methods: {
+    load() {
+      this.loading = true;
+      return axios
+        .get(`/api/dataset/${this.datasetId}/health`)
+        .then(r => (this.data = r.data))
+        .finally(() => (this.loading = false));
+    },
+    pctOf(n, total) {
+      return total ? Math.round((100 * (n || 0)) / total) : 0;
+    },
+    maxOf(buckets) {
+      return Math.max(1, ...buckets.map(b => b.n));
+    },
+    heatColor(n) {
+      if (!n) return "var(--heat-zero)";
+      const i = Math.min(RAMP.length - 1, Math.floor((Math.sqrt(n) / Math.sqrt(this.maxHeat || 1)) * (RAMP.length - 1)));
+      return RAMP[i];
+    },
+    classTitle(row) {
+      return this.$t("health.classTitle", { name: row.name, n: row.annotations, images: row.images });
+    },
+    issueText(issue) {
+      const params = { ...issue };
+      if (issue.names) params.names = issue.names.join("、");
+      return this.$t("health.issue." + issue.code, params);
+    }
+  }
+};
+</script>
+
+<style scoped>
+.viz-root {
+  --bar: #2a78d6;
+  --track: #eef1f5;
+  --heat-zero: #f1f3f5;
+  --text-secondary: #52514e;
+}
+.stat-tile {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 10px 12px;
+  height: 100%;
+}
+.stat-tile.compact {
+  padding: 8px 10px;
+  text-align: center;
+}
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #0b0b0b;
+}
+.stat-value.small-value {
+  font-size: 1rem;
+}
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.stat-sub {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+.issue {
+  padding: 4px 0;
+  border-bottom: 1px solid #f1f3f5;
+}
+.issue.warning .fa {
+  color: #b35c00;
+}
+.issue.info .fa {
+  color: #2a78d6;
+}
+.examples {
+  display: block;
+  margin-left: 1.3rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.hbar-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 30%) 1fr auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.85rem;
+  padding: 3px 0;
+}
+.hbar-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 4px;
+}
+.hbar-track {
+  background: var(--track);
+  border-radius: 4px;
+  height: 12px;
+  overflow: hidden;
+}
+.hbar {
+  display: block;
+  height: 100%;
+  background: var(--bar);
+  border-radius: 0 4px 4px 0;
+  min-width: 2px;
+}
+.hbar-value {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.histogram {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 160px;
+  border-bottom: 1px solid #ced4da;
+  padding-bottom: 0;
+}
+.histogram.short {
+  height: 110px;
+}
+.col-bar {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+  position: relative;
+}
+.col-fill {
+  display: block;
+  background: var(--bar);
+  border-radius: 4px 4px 0 0;
+  min-height: 0;
+}
+.col-value {
+  font-size: 0.7rem;
+  text-align: center;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.col-label {
+  position: absolute;
+  bottom: -18px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.axis-title {
+  margin-top: 22px;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+.histogram.short + * {
+  margin-top: 22px;
+}
+.heatmap {
+  display: grid;
+  grid-template-columns: repeat(20, 1fr);
+  gap: 1px;
+  width: 100%;
+  margin: 0 auto;
+  background: #fff;
+}
+.cell {
+  display: block;
+}
+.ramp {
+  display: inline-block;
+  width: 120px;
+  height: 10px;
+  border-radius: 2px;
+  background: linear-gradient(to right, #cde2fb, #3987e5, #0d366b);
+}
+</style>

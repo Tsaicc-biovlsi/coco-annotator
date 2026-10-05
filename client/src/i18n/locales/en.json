@@ -698,5 +698,67 @@
     "autoNext": "Go to the next image after choosing",
     "filter": "Image class",
     "none": "Not set"
+  },
+  "health": {
+    "tab": "Health",
+    "title": "Dataset health",
+    "refresh": "Recalculate",
+    "tile": {
+      "images": "Images",
+      "annotatedImages": "Annotated images",
+      "annotations": "Annotations",
+      "perImage": "Per image",
+      "categories": "Categories"
+    },
+    "issuesTitle": "Possible problems",
+    "noIssues": "No problems found",
+    "examples": "e.g.",
+    "issue": {
+      "unannotated": "{n} images have no annotations (and no image class). Keep them if they are true background images; otherwise label them.",
+      "emptyClasses": "{n} categories have no annotations: {names}",
+      "fewAnnotations": "{n} categories have fewer than {min} annotations, too few to learn: {names}",
+      "imbalance": "Class imbalance: \"{most}\" has {ratio}× as many annotations as \"{least}\". Label more of the rare class or weight classes in training.",
+      "duplicates": "{n} likely duplicate annotations (same image, same category, almost the same box)",
+      "outside": "{n} annotations extend outside the image",
+      "degenerate": "{n} annotations are narrower or shorter than 2 px, probably misclicks",
+      "tiny": "{n} annotations cover less than 0.01% of the image; check they are not misclicks",
+      "rejected": "{n} images were rejected and wait for fixes",
+      "toReview": "{n} images wait for review"
+    },
+    "classBalance": "Class balance",
+    "classBalanceHint": "Annotations per category (bar) and in how many images it appears.",
+    "imagesN": "{n} images",
+    "classifiedN": "{n} image class",
+    "classTitle": "{name}: {n} annotations in {images} images",
+    "noData": "No data yet",
+    "objectsPerImage": "Objects per image",
+    "objectsPerImageHint": "{avg} annotations per image on average.",
+    "imagesWithObjects": "{n} images with {label} objects",
+    "objectsAxis": "Objects per image",
+    "boxSizes": "Object sizes",
+    "boxSizesHint": "COCO definition: small < 32×32 px, medium < 96×96, large ≥ 96×96. Many small objects: consider a larger training image size.",
+    "size": {
+      "small": "Small",
+      "medium": "Medium",
+      "large": "Large"
+    },
+    "boxesN": "{n}",
+    "relativeSize": "Share of the image area",
+    "boxesInBucket": "{n} annotations at {label}",
+    "aspectRatio": "Box aspect ratio",
+    "aspectRatioHint": "Width : height. Very thin boxes may be mistakes, or a fit for rotated boxes.",
+    "aspectAxis": "Width : height",
+    "heatmap": "Object location heatmap",
+    "heatmapHint": "Where annotation centres fall in the image (normalised). If objects cluster in one area, use translate / flip augmentation.",
+    "heatCell": "{n} annotation centres in this cell",
+    "heatLegend": "annotations",
+    "imageSizes": "Image sizes",
+    "sizeStat": {
+      "min": "Smallest",
+      "median": "Median",
+      "max": "Largest"
+    },
+    "resolution": "Resolution (w × h)",
+    "imageCount": "Images"
   }
 }

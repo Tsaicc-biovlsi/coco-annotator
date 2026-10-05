@@ -22,6 +22,9 @@
         <a class="btn tab" @click="tab = 'statistics'" :style="{'color': tab == 'statistics' ? 'white' : 'darkgray'}">
           <i class="fa fa-bar-chart" aria-hidden="true"></i> {{ $t('dataset.statistics') }}
         </a>
+        <a class="btn tab" @click="tab = 'health'" :style="{'color': tab == 'health' ? 'white' : 'darkgray'}">
+          <i class="fa fa-heartbeat" aria-hidden="true"></i> {{ $t('health.tab') }}
+        </a>
         <a class="btn tab" @click="tab = 'settings'" :style="{'color': tab == 'settings' ? 'white' : 'darkgray'}">
           <i class="fa fa-cog" aria-hidden="true"></i> {{ $t('dataset.settings') }}
         </a>
@@ -63,6 +66,9 @@
             <Pagination :pages="pages" @pagechange="updatePage" />
           </div>
 
+        </div>
+        <div class="container-fluid exports-tab" v-if="tab == 'health'">
+          <DatasetHealth :dataset-id="dataset.id" />
         </div>
         <div class="container-fluid exports-tab" v-if="tab == 'progress'">
           <ReviewPanel :dataset-id="dataset.id" @changed="updatePage()" />
@@ -704,6 +710,7 @@ import TagsInput from "@/components/TagsInput.vue";
 import ModelRunModal from "@/components/ModelRunModal.vue";
 import ExportCategories from "@/components/ExportCategories.vue";
 import ReviewPanel from "@/components/ReviewPanel.vue";
+import DatasetHealth from "@/components/DatasetHealth.vue";
 import ExportSplit, { splitSizes, splitValid } from "@/components/ExportSplit.vue";
 import axios from "axios";
 
@@ -715,6 +722,7 @@ export default {
   components: {
     ImageCard,
     ReviewPanel,
+    DatasetHealth,
     ExportCategories,
     ExportSplit,
     Pagination,

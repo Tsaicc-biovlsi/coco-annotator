@@ -826,5 +826,67 @@
     "autoNext": "選好後自動跳下一張",
     "filter": "整張圖類別",
     "none": "未設定"
+  },
+  "health": {
+    "tab": "健康度",
+    "title": "資料集健康度",
+    "refresh": "重新計算",
+    "tile": {
+      "images": "圖片",
+      "annotatedImages": "有標註的圖片",
+      "annotations": "標註",
+      "perImage": "平均每張圖",
+      "categories": "類別"
+    },
+    "issuesTitle": "可能的問題",
+    "noIssues": "沒有發現問題",
+    "examples": "例如：",
+    "issue": {
+      "unannotated": "{n} 張圖片沒有任何標註（也沒設整張圖類別）。如果是背景圖（真的沒有物件）可以保留，否則請補標。",
+      "emptyClasses": "{n} 個類別完全沒有標註：{names}",
+      "fewAnnotations": "{n} 個類別標註少於 {min} 個，模型很難學會：{names}",
+      "imbalance": "類別不平衡：最多的「{most}」是最少的「{least}」的 {ratio} 倍。考慮多標少數類別，或訓練時調整權重。",
+      "duplicates": "{n} 組疑似重複標註（同一張圖、同類別、幾乎重疊的框）",
+      "outside": "{n} 個標註超出圖片邊界",
+      "degenerate": "{n} 個標註寬或高小於 2 像素，可能是誤點",
+      "tiny": "{n} 個標註面積不到整張圖的 0.01%，請確認是不是誤點",
+      "rejected": "{n} 張圖被退回，等待修正",
+      "toReview": "{n} 張圖待審核"
+    },
+    "classBalance": "類別分布",
+    "classBalanceHint": "每個類別的標註數（長條）和出現在幾張圖。",
+    "imagesN": "{n} 張圖",
+    "classifiedN": "整張圖 {n}",
+    "classTitle": "{name}：{n} 個標註，出現在 {images} 張圖",
+    "noData": "還沒有資料",
+    "objectsPerImage": "每張圖的物件數",
+    "objectsPerImageHint": "平均每張圖 {avg} 個標註。",
+    "imagesWithObjects": "{n} 張圖有 {label} 個物件",
+    "objectsAxis": "每張圖的物件數",
+    "boxSizes": "物件大小",
+    "boxSizesHint": "依 COCO 定義：小 < 32×32 像素，中 < 96×96，大 ≥ 96×96。小物件多時可考慮用較大的輸入尺寸訓練。",
+    "size": {
+      "small": "小物件",
+      "medium": "中物件",
+      "large": "大物件"
+    },
+    "boxesN": "{n} 個",
+    "relativeSize": "佔整張圖的面積比例",
+    "boxesInBucket": "{n} 個標註在 {label}",
+    "aspectRatio": "框的長寬比",
+    "aspectRatioHint": "寬 : 高。極端細長的框可能是標錯，或適合改用旋轉框。",
+    "aspectAxis": "寬 : 高",
+    "heatmap": "物件位置熱度圖",
+    "heatmapHint": "所有標註中心點在圖上的分布（以圖片比例正規化）。物件全集中在某區時，訓練可加強平移、翻轉擴增。",
+    "heatCell": "{n} 個標註中心在這一格",
+    "heatLegend": "標註數",
+    "imageSizes": "圖片尺寸",
+    "sizeStat": {
+      "min": "最小",
+      "median": "中位數",
+      "max": "最大"
+    },
+    "resolution": "解析度（寬 × 高）",
+    "imageCount": "張數"
   }
 }
