@@ -297,7 +297,7 @@ npm test
 
 ## 授權
 
-[MIT](LICENSE.md)。
+[MIT](LICENSE.md)：可以自由使用、修改與轉發（包含商業用途），但須保留授權檔中的著作權聲明。
 
 - 原專案：[Justin Brooks](https://github.com/jsbroks/coco-annotator)
 - 2026 升級與新功能：**TsaiCC × Claude**
