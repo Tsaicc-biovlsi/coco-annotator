@@ -265,7 +265,7 @@
     "noAnnotations": "No annotations"
   },
   "importDataset": {
-    "title": "Import images / annotations",
+    "title": "Import images / videos / annotations",
     "dataset": "Dataset",
     "newDataset": "+ New dataset",
     "newName": "Name of the new dataset",
@@ -760,5 +760,21 @@
     },
     "resolution": "Resolution (w × h)",
     "imageCount": "Images"
+  },
+  "video": {
+    "title": "Videos (optional)",
+    "choose": "Choose videos",
+    "every": "One frame every",
+    "seconds": "s",
+    "max": "At most per video",
+    "frames": "frames",
+    "hint": "Frames are saved as JPG in a sub-folder named after the video, e.g. clip/clip_000m01s000.jpg (the name is the time). The video itself is deleted after extraction.",
+    "emptyHint": "Optional. mp4, mov, avi, mkv, webm…: one frame every few seconds becomes a dataset image.",
+    "stage": {
+      "upload": "Uploading {name}",
+      "extract": "Extracting frames {name}"
+    },
+    "failed": "Extracting frames from {name} failed; see the Tasks page",
+    "done": "Extracted {n} frames from {videos} videos"
   }
 }

@@ -66,6 +66,10 @@ Several annotation tools are currently available, with most applications as a de
 - Pre-annotate an image or a whole dataset with your own Ultralytics YOLO models (detect, OBB, segment, pose)
 - Annotate images with semi-trained models (external model server)
 - User authentication system
+- Review workflow: assign images to members, submit for review, approve / reject with a note, progress per member, export only approved images
+- Whole-image class labels for image classification
+- Dataset health: class balance, object sizes and locations, and likely problems (unlabelled images, duplicates, boxes outside the image…)
+- Video import: one frame every N seconds becomes a dataset image
 - Interface in English and Traditional Chinese (繁體中文)
 
 Usage is described in the [Chinese README](README.md) and [UPGRADE.md](UPGRADE.md). The [original project's wiki](https://github.com/jsbroks/coco-annotator/wiki) still covers the basics.

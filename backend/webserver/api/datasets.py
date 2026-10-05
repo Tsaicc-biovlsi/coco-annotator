@@ -53,6 +53,13 @@ export.add_argument('seed', type=int, default=42, help='Random seed for the spli
 export.add_argument('only_approved', type=inputs.boolean, default=False, help='Only images a reviewer approved')
 export.add_argument('folder', default='', help='YOLO: folder in the zip that holds train / val / test (default: dataset name)')
 
+video_upload = reqparse.RequestParser()
+video_upload.add_argument('video', location='files', type=FileStorage, required=True, help='Video file')
+video_upload.add_argument('every_seconds', location='form', type=float, default=1.0,
+                          help='Save one frame every N seconds')
+video_upload.add_argument('max_frames', location='form', type=int, default=1000,
+                          help='Stop after this many frames')
+
 yolo_upload = reqparse.RequestParser()
 yolo_upload.add_argument('yolo', location='files', type=FileStorage, required=True,
                          help='Zip with YOLO label .txt files and data.yaml / classes.txt')
@@ -733,6 +740,48 @@ def _yolo_stats(stats):
         'unmatched_examples': stats['unmatched'][:5],
         'ambiguous': stats['ambiguous'][:5],
     }
+
+
+@api.route('/<int:dataset_id>/video')
+class DatasetVideo(Resource):
+
+    @api.expect(video_upload)
+    @login_required
+    def post(self, dataset_id):
+        """ Upload a video; frames at a fixed interval become dataset images (a task) """
+        import uuid
+        from config import Config
+        from ..util.video import VIDEO_EXTENSIONS, import_video
+        from ..sockets import socketio
+
+        args = video_upload.parse_args()
+        dataset = current_user.datasets.filter(id=dataset_id, deleted=False).first()
+        if dataset is None:
+            return {'message': 'Invalid dataset ID'}, 400
+        if not current_user.can_edit(dataset):
+            return {'message': 'You do not have permission to edit this dataset'}, 403
+
+        video = args['video']
+        name = os.path.basename((video.filename or 'video').replace('\\', '/'))
+        ext = os.path.splitext(name)[1].lower()
+        if ext not in VIDEO_EXTENSIONS:
+            return {'message': 'Unsupported video type: ' + (ext or name)}, 400
+        every = args.get('every_seconds') or 1.0
+        if not 0.04 <= every <= 3600:
+            return {'message': 'every_seconds must be between 0.04 and 3600'}, 400
+        max_frames = args.get('max_frames') or 1000
+        if not 1 <= max_frames <= 20000:
+            return {'message': 'max_frames must be between 1 and 20000'}, 400
+
+        # kept in a hidden folder until the frames are extracted, then deleted
+        upload_dir = os.path.join(dataset.directory, '.uploads')
+        os.makedirs(upload_dir, exist_ok=True)
+        path = os.path.join(upload_dir, uuid.uuid4().hex + ext)
+        video.save(path)
+
+        return import_video(dataset, path, name, every_seconds=every, max_frames=max_frames,
+                            user=current_user, socket=socketio,
+                            background=not Config.CELERY_TASK_ALWAYS_EAGER)
 
 
 @api.route('/<int:dataset_id>/scan')

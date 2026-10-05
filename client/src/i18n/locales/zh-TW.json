@@ -265,7 +265,7 @@
     "noAnnotations": "沒有標註"
   },
   "importDataset": {
-    "title": "匯入圖片 / 標註",
+    "title": "匯入圖片 / 影片 / 標註",
     "dataset": "資料集",
     "newDataset": "＋ 建立新資料集",
     "newName": "新資料集名稱",
@@ -888,5 +888,21 @@
     },
     "resolution": "解析度（寬 × 高）",
     "imageCount": "張數"
+  },
+  "video": {
+    "title": "影片（選填）",
+    "choose": "選擇影片",
+    "every": "每隔幾秒取一張",
+    "seconds": "秒",
+    "max": "每支影片最多",
+    "frames": "張",
+    "hint": "影格會存成 JPG，放在以影片命名的子資料夾，例如 影片名稱/影片名稱_000m01s000.jpg（檔名是時間點）。上傳完影片就會刪掉，只留下影格。",
+    "emptyHint": "選填。mp4、mov、avi、mkv、webm 等格式，每隔固定秒數擷取一張影格加入資料集。",
+    "stage": {
+      "upload": "上傳 {name}",
+      "extract": "擷取影格 {name}"
+    },
+    "failed": "{name} 擷取影格失敗，詳情請看「任務」頁面",
+    "done": "已從 {videos} 支影片擷取 {n} 張影格"
   }
 }
