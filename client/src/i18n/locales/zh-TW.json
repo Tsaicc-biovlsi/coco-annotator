@@ -693,6 +693,25 @@
     "missing": "檔案已不存在",
     "confirmDelete": "確定要刪除匯出 #{id} 嗎？伺服器上的檔案也會一起刪除，無法復原。",
     "deleted": "已刪除匯出 #{id}",
-    "downloadFailed": "下載失敗"
+    "downloadFailed": "下載失敗",
+    "splitPart": "{name} {pct}%（{n} 張）",
+    "seed": "亂數種子 {seed}"
+  },
+  "exportSplit": {
+    "title": "切分成訓練 / 驗證 / 測試集",
+    "offYolo": "不切分時，data.yaml 的 train 和 val 都指向全部圖片。",
+    "offCoco": "不切分時匯出一個 json；切分後會是內含 train.json、val.json、test.json 的 zip。",
+    "presets": "常用：",
+    "train": "訓練",
+    "val": "驗證",
+    "test": "測試",
+    "images": "約 {n} 張",
+    "invalid": "三個比例加起來要是 100%（現在是 {sum}%），且訓練要大於 0。",
+    "estimate": "以圖片為單位隨機分配，共約 {n} 張圖會匯出。",
+    "seed": "亂數種子",
+    "newSeed": "換一個",
+    "seedHint": "同樣的種子和圖片，每次切出來的結果都一樣；想重新洗牌就換一個種子。",
+    "layoutYolo": "zip 內會是 images/train、labels/train、images/val… 的結構，data.yaml 已設定好路徑。",
+    "layoutCoco": "zip 內有 train.json、val.json（和 test.json），各自只含該組的圖片和標註。"
   }
 }

@@ -565,6 +565,25 @@
     "missing": "File no longer exists",
     "confirmDelete": "Delete export #{id}? The file on the server is deleted too and cannot be recovered.",
     "deleted": "Export #{id} deleted",
-    "downloadFailed": "Download failed"
+    "downloadFailed": "Download failed",
+    "splitPart": "{name} {pct}% ({n})",
+    "seed": "Random seed {seed}"
+  },
+  "exportSplit": {
+    "title": "Split into train / val / test",
+    "offYolo": "Without a split, train and val in data.yaml both point at all images.",
+    "offCoco": "Without a split you get one json; with a split, a zip with train.json, val.json and test.json.",
+    "presets": "Presets:",
+    "train": "Train",
+    "val": "Val",
+    "test": "Test",
+    "images": "~{n} images",
+    "invalid": "The three percentages must add up to 100% (now {sum}%), with train above 0.",
+    "estimate": "Images are assigned at random; about {n} images will be exported.",
+    "seed": "Random seed",
+    "newSeed": "New seed",
+    "seedHint": "The same seed and images always give the same split; change the seed to reshuffle.",
+    "layoutYolo": "The zip uses images/train, labels/train, images/val, …; data.yaml already points at them.",
+    "layoutCoco": "The zip has train.json, val.json (and test.json), each with only its own images and annotations."
   }
 }

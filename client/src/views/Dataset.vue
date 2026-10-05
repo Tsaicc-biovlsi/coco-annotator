@@ -93,6 +93,12 @@
                         {{ exp.format }}
                       </span>
                       <div v-if="exp.yolo_task" class="small text-muted">{{ $t('yolo.' + exp.yolo_task) }}</div>
+                      <div
+                        v-for="part in splitParts(exp)"
+                        :key="part"
+                        class="small text-muted lh-sm"
+                        :title="$t('exportList.seed', { seed: exp.seed })"
+                      >{{ part }}</div>
                     </td>
                     <td class="text-center">
                       <span
@@ -463,7 +469,7 @@
                   v-model:order="exporting.order"
                   v-model:selected="exporting.categories"
                   :categories="categories"
-                  :counts="exporting.counts"
+                  :counts="exporting.counts && exporting.counts.categories"
                   :yolo-task="exporting.format === 'yolo' ? exporting.yolo_task : null"
                 />
               </div>
@@ -472,13 +478,21 @@
                   v-model="exporting.with_empty_images">
                 <label class="form-check-label mb-0" for="exportWithEmpty">{{ $t('dataset.exportWithNotAnnotatedImages') }}</label>
               </div>
+              <hr class="my-3" />
+              <ExportSplit
+                v-model:enabled="exporting.split_on"
+                v-model:ratios="exporting.split"
+                v-model:seed="exporting.seed"
+                :image-count="exportImageCount"
+                :yolo="exporting.format === 'yolo'"
+              />
             </form>
           </div>
           <div class="modal-footer">
             <button
               type="button"
               class="btn btn-primary"
-              :disabled="!exporting.categories.length"
+              :disabled="!exporting.categories.length || (exporting.split_on && !exportSplitValid)"
               @click="exportCOCO"
             >
               {{ $t('dataset.export') }}
@@ -520,6 +534,7 @@ import PanelDropdown from "@/components/PanelInputDropdown.vue"
 import TagsInput from "@/components/TagsInput.vue";
 import ModelRunModal from "@/components/ModelRunModal.vue";
 import ExportCategories from "@/components/ExportCategories.vue";
+import ExportSplit, { splitValid } from "@/components/ExportSplit.vue";
 import axios from "axios";
 
 import { mapMutations } from "vuex";
@@ -530,6 +545,7 @@ export default {
   components: {
     ImageCard,
     ExportCategories,
+    ExportSplit,
     Pagination,
     PanelString,
     PanelToggle,
@@ -588,6 +604,9 @@ export default {
         with_empty_images: false,
         order: [],
         counts: null,
+        split_on: false,
+        split: { train: 80, val: 20, test: 0 },
+        seed: 42,
         format: "coco",
         yolo_task: "detect",
         with_images: false,
@@ -685,6 +704,13 @@ export default {
           this.$toastr.error(data.message || String(error));
         });
     },
+    splitParts(exp) {
+      if (!exp.split) return [];
+      return ["train", "val", "test"].filter(k => exp.split[k] > 0).map(k => {
+        const n = exp.split_counts ? exp.split_counts[k] : null;
+        return this.$t("exportList.splitPart", { name: this.$t("exportSplit." + k), pct: exp.split[k], n });
+      });
+    },
     shownCategories(exp) {
       const names = exp.categories || [];
       return this.expandedExports.includes(exp.id) ? names : names.slice(0, this.EXPORT_TAGS_SHOWN);
@@ -769,7 +795,7 @@ export default {
       axios
         .get(`/api/dataset/${this.dataset.id}/category_counts`)
         .then(r => (this.exporting.counts = r.data))
-        .catch(() => (this.exporting.counts = {}));
+        .catch(() => (this.exporting.counts = { categories: {}, image_categories: [], total_images: null }));
     },
     exportCOCO() {
       hideModal("#exportDataset");
@@ -777,6 +803,11 @@ export default {
       if (this.exporting.format === "yolo") {
         options.yolo_task = this.exporting.yolo_task;
         options.with_images = this.exporting.with_images;
+      }
+      if (this.exporting.split_on) {
+        const r = this.exporting.split;
+        options.split = [r.train, r.val, r.test].map(v => Number(v) || 0).join(",");
+        options.seed = this.exporting.seed;
       }
       // ticked categories in the chosen order (= YOLO class index)
       const chosen = new Set(this.exporting.categories);
@@ -902,6 +933,18 @@ export default {
     }
   },
   computed: {
+    exportSplitValid() {
+      return splitValid(this.exporting.split);
+    },
+    /** Images the export will contain (for the split estimate) */
+    exportImageCount() {
+      const counts = this.exporting.counts;
+      if (!counts || counts.total_images == null) return null;
+      const chosen = new Set(this.exporting.categories);
+      const images = counts.image_categories || [];
+      const matched = images.filter(cats => cats.some(id => chosen.has(id))).length;
+      return this.exporting.with_empty_images ? counts.total_images - images.length + matched : matched;
+    },
     importIsYolo() {
       return isYoloFile(this.importFile);
     },

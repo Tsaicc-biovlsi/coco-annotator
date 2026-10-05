@@ -47,6 +47,8 @@ export.add_argument('with_empty_images', type=inputs.boolean, default=False, req
 export.add_argument('format', default='coco', choices=('coco', 'yolo'), help='coco (JSON) or yolo (zip of label files)')
 export.add_argument('yolo_task', default='detect', choices=('detect', 'segment', 'obb', 'pose'), help='YOLO label type')
 export.add_argument('with_images', type=inputs.boolean, default=False, help='YOLO: put the images in the zip too')
+export.add_argument('split', default='', help='train,val,test percentages, e.g. 80,10,10 (empty: no split)')
+export.add_argument('seed', type=int, default=42, help='Random seed for the split')
 
 yolo_upload = reqparse.RequestParser()
 yolo_upload.add_argument('yolo', location='files', type=FileStorage, required=True,
@@ -137,7 +139,8 @@ class DatasetCategoryCounts(Resource):
     @login_required
     def get(self, dataset_id):
         """ Per category: annotations, images, and how many are boxes, rotated
-        boxes, polygons or have keypoints (for the export dialog) """
+        boxes, polygons or have keypoints; plus the categories of each
+        annotated image and the image total (for the export dialog) """
         dataset = current_user.datasets.filter(id=dataset_id, deleted=False).first()
         if dataset is None:
             return {"message": "Invalid dataset id"}, 400
@@ -165,9 +168,17 @@ class DatasetCategoryCounts(Resource):
             if has_keypoints:
                 c['keypoints'] += 1
             images.setdefault(a['category_id'], set()).add(a['image_id'])
+        per_image = {}
         for category_id, ids in images.items():
             counts[category_id]['images'] = len(ids)
-        return {str(k): v for k, v in counts.items()}
+            for image_id in ids:
+                per_image.setdefault(image_id, []).append(category_id)
+        return {
+            'categories': {str(k): v for k, v in counts.items()},
+            # categories of each annotated image (to estimate split sizes)
+            'image_categories': list(per_image.values()),
+            'total_images': len(image_ids),
+        }
 
 
 @api.route('/<int:dataset_id>/stats')
@@ -522,6 +533,9 @@ class DatasetExports(Resource):
                 'categories': names,
                 'created_at': export.created_at.replace(microsecond=0).isoformat() + 'Z',
                 'size': os.path.getsize(export.path) if exists else None,
+                'split': getattr(export, 'split', None),
+                'split_counts': getattr(export, 'split_counts', None),
+                'seed': getattr(export, 'seed', None),
                 'exists': exists,
             })
 
@@ -553,7 +567,14 @@ class DatasetExport(Resource):
         if not current_user.can_download(dataset):
             return {"message": "You do not have permission to download the dataset's annotations"}, 403
 
+        from geometry.yolo_format import parse_split
+        try:
+            split = parse_split(args.get('split'))
+        except ValueError as e:
+            return {'message': str(e)}, 400
+
         return dataset.export_coco(categories=categories, with_empty_images=with_empty_images,
+                                   split=split, seed=args.get('seed') if args.get('seed') is not None else 42,
                                    fmt=args.get('format') or 'coco',
                                    yolo_task=args.get('yolo_task') or 'detect',
                                    with_images=bool(args.get('with_images')))

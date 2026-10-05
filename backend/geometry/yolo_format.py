@@ -204,18 +204,75 @@ def _flip_idx(categories, num_kpts):
     return flip
 
 
-def data_yaml(names, task="detect", kpt_shape=None, flip_idx=None, images="images"):
-    """Ultralytics dataset YAML (train and val both point at all images).
+SUBSETS = ("train", "val", "test")
 
+
+def parse_split(text):
+    """'80,10,10' (train, val, test percentages) -> {"train": 80, "val": 10, "test": 10}.
+
+    Empty / None -> None (no split). Raises ValueError when invalid.
+    """
+    if text in (None, "", "none"):
+        return None
+    try:
+        values = [float(v) for v in str(text).replace("/", ",").replace(":", ",").split(",")]
+    except ValueError:
+        raise ValueError("split must look like 80,10,10")
+    values += [0.0] * (3 - len(values))
+    if len(values) != 3 or any(v < 0 for v in values) or abs(sum(values) - 100) > 0.01 or values[0] <= 0:
+        raise ValueError("split: train, val and test percentages must add up to 100, with train above 0")
+    return {name: (int(v) if float(v).is_integer() else v) for name, v in zip(SUBSETS, values)}
+
+
+def split_images(image_ids, ratios, seed=42):
+    """Randomly (but reproducibly for the same seed) assign images to subsets.
+
+    Returns {image_id: "train" | "val" | "test"}. Every subset with a
+    percentage above 0 gets at least one image when there are enough.
+    """
+    import random
+    ids = sorted(image_ids)
+    random.Random(seed).shuffle(ids)
+    n = len(ids)
+    sizes = {name: int(round(n * ratios.get(name, 0) / 100.0)) for name in ("val", "test")}
+    for name in ("val", "test"):
+        if ratios.get(name, 0) > 0 and sizes[name] == 0 and n - sum(sizes.values()) > 1:
+            sizes[name] = 1
+    while n and n - sum(sizes.values()) < 1:  # train keeps at least one image
+        largest = max(sizes, key=sizes.get)
+        sizes[largest] -= 1
+    assignment = {}
+    val_end = sizes["val"]
+    test_end = val_end + sizes["test"]
+    for i, image_id in enumerate(ids):
+        assignment[image_id] = "val" if i < val_end else "test" if i < test_end else "train"
+    return assignment
+
+
+def data_yaml(names, task="detect", kpt_shape=None, flip_idx=None, images="images", split=None):
+    """Ultralytics dataset YAML.
+
+    Without ``split`` train and val both point at all images. With a split
+    ({"train": 80, "val": 10, "test": 10}) they point at images/train etc.
     No ``path:`` key, so Ultralytics resolves the folders next to this file.
     """
-    lines = [
-        f"# YOLO {task} dataset exported from COCO Annotator",
-        "# train and val both use all images: split them before training for real",
-        f"train: {images}",
-        f"val: {images}",
-        "",
-    ]
+    lines = [f"# YOLO {task} dataset exported from COCO Annotator"]
+    if split:
+        lines += [
+            "# split " + " / ".join(f"{k} {split.get(k, 0)}%" for k in SUBSETS),
+            f"train: {images}/train",
+            f"val: {images}/val" if split.get("val") else f"val: {images}/train  # no validation split",
+        ]
+        if split.get("test"):
+            lines.append(f"test: {images}/test")
+        lines.append("")
+    else:
+        lines += [
+            "# train and val both use all images: split them before training for real",
+            f"train: {images}",
+            f"val: {images}",
+            "",
+        ]
     if kpt_shape:
         lines.append(f"kpt_shape: [{kpt_shape[0]}, {kpt_shape[1]}]")
         if flip_idx is not None:

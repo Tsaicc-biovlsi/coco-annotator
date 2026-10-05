@@ -201,7 +201,9 @@ def test_api_category_counts_and_export_order(yolo_world):
     ship = CategoryModel.objects(name="ship").first().id
     kayak = CategoryModel.objects(name="kayak").first().id
 
-    counts = c.get(f"/api/dataset/{ds}/category_counts").get_json()
+    body = c.get(f"/api/dataset/{ds}/category_counts").get_json()
+    counts = body["categories"]
+    assert body["total_images"] == 2 and sorted(map(sorted, body["image_categories"])) == [sorted([ship, kayak])]
     assert counts[str(kayak)]["annotations"] == 1 and counts[str(kayak)]["boxes"] == 1
     assert counts[str(ship)]["polygons"] == 1 and counts[str(ship)]["images"] == 1
 
@@ -234,3 +236,58 @@ def test_api_export_list_and_delete(yolo_world):
     assert c.delete(f"/api/export/{yolo_row['id']}").status_code == 200
     assert not os.path.exists(path)
     assert yolo_row["id"] not in [r["id"] for r in c.get(f"/api/dataset/{ds}/exports").get_json()]
+
+
+def test_split_helpers():
+    from geometry.yolo_format import parse_split, split_images
+    assert parse_split("") is None
+    assert parse_split("80,10,10") == {"train": 80, "val": 10, "test": 10}
+    assert parse_split("70:30") == {"train": 70, "val": 30, "test": 0}
+    for bad in ("50,10,10", "0,50,50", "a,b,c", "90,-10,20"):
+        with pytest.raises(ValueError):
+            parse_split(bad)
+
+    ids = list(range(1, 101))
+    a = split_images(ids, {"train": 70, "val": 20, "test": 10}, seed=1)
+    assert sorted(a) == ids
+    assert [sum(v == k for v in a.values()) for k in ("train", "val", "test")] == [70, 20, 10]
+    assert a == split_images(list(reversed(ids)), {"train": 70, "val": 20, "test": 10}, seed=1)
+    assert a != split_images(ids, {"train": 70, "val": 20, "test": 10}, seed=2)
+    # tiny datasets: every non-zero subset gets an image, train keeps one
+    small = split_images([1, 2, 3], {"train": 80, "val": 10, "test": 10})
+    assert sorted(small.values()) == ["test", "train", "val"]
+    assert list(split_images([5], {"train": 50, "val": 50, "test": 0}).values()) == ["train"]
+
+
+def test_api_export_with_split(yolo_world):
+    import json as _json
+    from database import ExportModel
+    c, ds = yolo_world["client"], yolo_world["dataset"]["id"]
+    assert c.get(f"/api/dataset/{ds}/export?format=yolo&split=50,10,10").status_code == 400
+
+    r = c.get(f"/api/dataset/{ds}/export?format=yolo&split=50,50,0&with_empty_images=true&with_images=true&seed=3")
+    assert r.status_code == 200, r.data
+    export = ExportModel.objects(dataset_id=ds).order_by("-id").first()
+    with zipfile.ZipFile(export.path) as zf:
+        names = zf.namelist()
+        yaml_text = zf.read("data.yaml").decode()
+    assert sum(n.startswith("labels/train/") for n in names) == 1
+    assert sum(n.startswith("labels/val/") for n in names) == 1
+    assert sum(n.startswith("images/val/") for n in names) == 1
+    assert "train: images/train" in yaml_text and "val: images/val" in yaml_text and "test:" not in yaml_text
+    row = next(x for x in c.get(f"/api/dataset/{ds}/exports").get_json() if x["id"] == export.id)
+    assert row["split"] == {"train": 50, "val": 50, "test": 0}
+    assert row["split_counts"] == {"train": 1, "val": 1, "test": 0} and row["seed"] == 3
+
+    r = c.get(f"/api/dataset/{ds}/export?format=coco&split=50,50,0&with_empty_images=true")
+    export = ExportModel.objects(dataset_id=ds).order_by("-id").first()
+    assert export.path.endswith(".zip")
+    with zipfile.ZipFile(export.path) as zf:
+        assert sorted(zf.namelist()) == ["train.json", "val.json"]
+        parts = [_json.loads(zf.read(n)) for n in ("train.json", "val.json")]
+    assert sum(len(p["images"]) for p in parts) == 2
+    for p in parts:
+        ids = {i["id"] for i in p["images"]}
+        assert all(a["image_id"] in ids for a in p["annotations"])
+    d = c.get(f"/api/export/{export.id}/download")
+    assert ".zip" in d.headers["Content-Disposition"]

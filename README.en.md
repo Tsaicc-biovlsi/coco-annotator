@@ -57,7 +57,7 @@ Several annotation tools are currently available, with most applications as a de
 - Ability to add key points
 - Useful API endpoints to analyze data
 - Import datasets already annotated in COCO format
-- **COCO ↔ YOLO conversion:** export a dataset as YOLO labels (detect, segment, OBB, pose; zip with `labels/`, `data.yaml`, optionally `images/`) and import YOLO label zips or whole YOLO dataset folders. Offline: `python scripts/coco_yolo.py coco2yolo|yolo2coco ...`
+- **COCO ↔ YOLO conversion:** export a dataset as YOLO labels (detect, segment, OBB, pose; zip with `labels/`, `data.yaml`, optionally `images/`, optionally split into train / val / test by percentage with a reproducible seed) and import YOLO label zips or whole YOLO dataset folders. Offline: `python scripts/coco_yolo.py coco2yolo|yolo2coco ...`
 - Annotate disconnect objects as a single instance
 - Labeling image segments with any number of labels simultaneously
 - Allow custom metadata for each instance or object

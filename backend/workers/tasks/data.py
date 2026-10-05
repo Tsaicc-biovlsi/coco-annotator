@@ -23,7 +23,7 @@ from mongoengine import Q
 
 @shared_task
 def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
-                       fmt="coco", yolo_task="detect", with_images=False):
+                       fmt="coco", yolo_task="detect", with_images=False, split=None, seed=42):
 
     task = TaskModel.objects.get(id=task_id)
     dataset = DatasetModel.objects.get(id=dataset_id)
@@ -126,13 +126,26 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
     if not os.path.exists(directory):
         os.makedirs(directory)
 
+    subsets = None
+    if split:
+        from geometry.yolo_format import split_images
+        subsets = split_images([img['id'] for img in coco['images']], split, seed)
+        split_counts = {name: sum(1 for v in subsets.values() if v == name) for name in ("train", "val", "test")}
+        task.info("Split (seed {}): {}".format(
+            seed, ", ".join(f"{k} {split[k]}% = {split_counts[k]} images" for k in split_counts)))
+
     if fmt == "yolo":
         file_path = f"{directory}yolo-{yolo_task}-{timestamp}.zip"
         task.info(f"Writing YOLO {yolo_task} labels to {file_path}")
-        result = _write_yolo_zip(coco, yolo_task, with_images, file_path, task)
+        result = _write_yolo_zip(coco, yolo_task, with_images, file_path, task, subsets, split)
         tags = ["YOLO", yolo_task, *category_names]
         task.info(f"Wrote {result['written']} labels ({result['skipped']} annotations "
                   f"could not be converted to {yolo_task})")
+    elif subsets:
+        file_path = f"{directory}coco-split-{timestamp}.zip"
+        task.info(f"Writing COCO train / val / test files to {file_path}")
+        _write_coco_split_zip(coco, subsets, file_path)
+        tags = ["COCO", *category_names]
     else:
         file_path = f"{directory}coco-{timestamp}.json"
         task.info(f"Writing export to file {file_path}")
@@ -142,13 +155,34 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
 
     task.info("Creating export object")
     export = ExportModel(dataset_id=dataset.id, path=file_path, tags=tags)
+    if subsets:
+        export.split = split
+        export.split_counts = split_counts
+        export.seed = seed
     export.save()
 
     task.set_progress(100, socket=socket)
 
 
-def _write_yolo_zip(coco, yolo_task, with_images, file_path, task):
-    """COCO dict -> zip with labels/*.txt, data.yaml, classes.txt (+ images/)."""
+def _write_coco_split_zip(coco, subsets, file_path):
+    """One COCO json per subset (train.json, val.json, test.json) in a zip."""
+    import zipfile
+    tmp_path = file_path + ".tmp"
+    with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name in ("train", "val", "test"):
+            images = [img for img in coco["images"] if subsets.get(img["id"]) == name]
+            if not images:
+                continue
+            ids = {img["id"] for img in images}
+            part = dict(coco, images=images,
+                        annotations=[a for a in coco["annotations"] if a.get("image_id") in ids])
+            zf.writestr(f"{name}.json", json.dumps(part))
+    os.replace(tmp_path, file_path)
+
+
+def _write_yolo_zip(coco, yolo_task, with_images, file_path, task, subsets=None, split=None):
+    """COCO dict -> zip with labels/*.txt, data.yaml, classes.txt (+ images/).
+    With ``subsets`` ({image_id: train/val/test}) files go to labels/train/ etc."""
     import zipfile
     from geometry.yolo_format import coco_to_yolo, data_yaml, stem
 
@@ -162,16 +196,18 @@ def _write_yolo_zip(coco, yolo_task, with_images, file_path, task):
                 name = f"{name}_{image['id']}"
             used.add(name)
             lines = result["labels"].get(image["id"], [])
-            zf.writestr(f"labels/{name}.txt", "\n".join(lines) + ("\n" if lines else ""))
+            folder = f"/{subsets[image['id']]}" if subsets else ""
+            zf.writestr(f"labels{folder}/{name}.txt", "\n".join(lines) + ("\n" if lines else ""))
             if with_images:
                 path = image.get("path")
                 if path and os.path.isfile(path):
                     ext = os.path.splitext(path)[1]
                     # images are already compressed
-                    zf.write(path, f"images/{name}{ext}", compress_type=zipfile.ZIP_STORED)
+                    zf.write(path, f"images{folder}/{name}{ext}", compress_type=zipfile.ZIP_STORED)
                 else:
                     task.warning(f"Image file missing: {image.get('file_name')}")
-        zf.writestr("data.yaml", data_yaml(result["names"], yolo_task, result["kpt_shape"], result["flip_idx"]))
+        zf.writestr("data.yaml", data_yaml(result["names"], yolo_task, result["kpt_shape"], result["flip_idx"],
+                                           split=split if subsets else None))
         zf.writestr("classes.txt", "\n".join(result["names"]) + "\n")
     os.replace(tmp_path, file_path)
     return result
