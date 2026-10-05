@@ -106,12 +106,15 @@ class Config:
     ALLOW_REGISTRATION = _get_bool('ALLOW_REGISTRATION', True)
 
     ### AI assist (Segment Anything)
-    #   SAM_MODEL_TYPE: vit_b (fast, ~375MB), vit_l, vit_h (best, ~2.5GB)
+    #   SAM_CHECKPOINT: sam2.1_b.pt (default, SAM 2.1 via Ultralytics) or
+    #     sam2.1_t/s/l.pt, or an original SAM sam_vit_b/l/h_*.pth. When it is
+    #     missing the best checkpoint found in MODELS_DIRECTORY is used.
+    #   SAM_MODEL_TYPE: only for original SAM files with other names (vit_b, vit_l, vit_h)
     #   SAM_DEVICE: auto | cpu | cuda
     SAM_MODEL_TYPE = os.getenv("SAM_MODEL_TYPE", "vit_b")
-    SAM_CHECKPOINT = os.getenv("SAM_CHECKPOINT", "/models/sam_vit_b_01ec64.pth")
+    SAM_CHECKPOINT = os.getenv("SAM_CHECKPOINT", "/models/sam2.1_b.pt")
     SAM_DEVICE = os.getenv("SAM_DEVICE", "auto")
-    # image embeddings kept in memory (~4 MB each): one per image in use
+    # image embeddings kept in memory (SAM 1 ~4 MB, SAM 2.1 ~16 MB of RAM each)
     SAM_CACHE_SIZE = int(os.getenv("SAM_CACHE_SIZE", 64))
 
     ### Your own models (Ultralytics YOLO .pt files) for pre-annotation

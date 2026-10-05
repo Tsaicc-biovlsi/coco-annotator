@@ -62,7 +62,7 @@ Several annotation tools are currently available, with most applications as a de
 - Labeling image segments with any number of labels simultaneously
 - Allow custom metadata for each instance or object
 - **Rotated (oriented) bounding boxes** with rotate / resize / move handles, exported as `rbbox = [cx, cy, w, h, angle]` and exported as YOLO-OBB or converted to DOTA
-- AI-assisted segmentation with [Segment Anything](https://github.com/facebookresearch/segment-anything) (click / box prompts) and Magic Wand
+- AI-assisted segmentation with [Segment Anything 2.1](https://github.com/facebookresearch/sam2) (or the original SAM) (click / box prompts) and Magic Wand
 - Pre-annotate an image or a whole dataset with your own Ultralytics YOLO models (detect, OBB, segment, pose)
 - Annotate images with semi-trained models (external model server)
 - User authentication system

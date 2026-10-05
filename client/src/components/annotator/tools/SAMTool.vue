@@ -70,7 +70,7 @@ export default {
       if (this.status.preparing) return this.$t("sam.preparing");
       if (this.status.predicting) return this.$t("sam.segmenting");
       if (this.preview) return this.$t("sam.score", { score: Math.max(0, this.score * 100).toFixed(0) });
-      return this.$t("sam.hint");
+      return this.status.model ? `${this.status.model} · ${this.$t("sam.hint")}` : this.$t("sam.hint");
     },
     imageId() {
       return this.$parent.image.id;
@@ -89,6 +89,7 @@ export default {
         .then(response => {
           let sam = response.data.sam || {};
           this.status.available = !!sam.available;
+          this.status.model = sam.model_type || "";
           this.status.message = sam.error || "";
         })
         .catch(() => {

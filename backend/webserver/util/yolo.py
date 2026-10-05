@@ -168,7 +168,8 @@ class YoloService:
         for root, dirs, files in os.walk(self.directory):
             dirs[:] = [d for d in dirs if not d.startswith('.')]
             for f in files:
-                if f.lower().endswith('.pt') and not f.startswith('.'):
+                # SAM 2 checkpoints (sam2*.pt) live here too but are not YOLO models
+                if f.lower().endswith('.pt') and not f.startswith('.') and not f.lower().startswith('sam2'):
                     full = os.path.join(root, f)
                     names.append(os.path.relpath(full, self.directory))
         return sorted(names)

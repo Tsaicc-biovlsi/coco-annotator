@@ -26,7 +26,7 @@ COCO Annotator 是一套網頁版的影像標註工具，用來製作物件偵�
 
 - **多種標註方式：** 邊界框（BBox）、旋轉框、多邊形、筆刷、橡皮擦、魔術棒、關鍵點
 - **旋轉物件框：** 三下點擊畫出任意角度的框，可旋轉、縮放、移動；可直接匯出 YOLO-OBB，或轉成 DOTA 格式訓練
-- **Segment Anything（SAM）：** 點一下物體就自動切出輪廓
+- **Segment Anything（SAM 2.1）：** 點一下物體就自動切出輪廓
 - **用自己訓練的 YOLO 模型預標註：** 支援 detect、OBB、segment、pose，可以標單張圖或整個資料集
 - **多人共同標註：** 把資料集分享給成員，大家一起標；管理員管理帳號與權限
 - **COCO / YOLO 格式匯入、匯出：** 兩種格式互轉，YOLO 支援 detect、segment、OBB、pose
@@ -71,6 +71,10 @@ sudo docker compose up -d --build
 ```
 
 用 CPU 也能運作，只是每張圖第一次使用 SAM 時要等幾秒，模型預標註也比較慢。
+
+`download_sam.sh` 預設下載 SAM 2.1 base（約 320 MB）。只有 CPU 時可改下載較快的 tiny 版：`./models/download_sam.sh sam2.1_t`，並在 `.env` 加上 `SAM_CHECKPOINT=/models/sam2.1_t.pt`。其他選項：`sam2.1_s`、`sam2.1_l`（最準、約 900 MB），以及第一代的 `vit_b`、`vit_l`、`vit_h`。
+
+**從第一代 SAM 升級：** 執行 `./models/download_sam.sh` 下載 SAM 2.1 後重新啟動即可。還沒下載前，伺服器會自動沿用 `models` 資料夾裡的第一代 SAM 檔案，功能不受影響。SAM 工具面板會顯示目前用的是哪個模型。
 
 ## 第一次使用
 
@@ -137,9 +141,9 @@ sudo docker compose up -d --build
 
 需要先[啟用 AI 功能](#啟用-ai-功能sam-與-yolo-預標註)。
 
-### Segment Anything（SAM）
+### Segment Anything（SAM 2.1）
 
-選取一個標註，按 `A` 切到 SAM 工具：
+選取一個標註，按 `A` 切到 SAM 工具（面板會顯示目前的模型，例如「SAM 2.1 b」）：
 
 - 點物體（綠點）：自動切出輪廓。
 - `Shift` + 點擊（紅點）：排除不要的部分。
@@ -241,6 +245,7 @@ python scripts/export_obb.py coco-export.json labels/ --format dota
 | `DATASETS_DIR` | `./datasets` | 圖片放在主機的哪個資料夾 |
 | `MODELS_DIR` | `./models` | SAM 和 YOLO 模型放在主機的哪個資料夾 |
 | `SAM` | `none` | 建置時是否安裝 AI 功能：`none`、`cpu`、`cuda` |
+| `SAM_CHECKPOINT` | `/models/sam2.1_b.pt` | SAM 權重檔；找不到時自動使用 `models` 資料夾裡最好的 SAM 檔案 |
 | `COMPOSE_FILE` | — | 使用 GPU 時設為 `docker-compose.yml:docker-compose.gpu.yml` |
 | `LOG_LEVEL` | `info` | 伺服器紀錄的詳細程度，除錯時可設 `debug` |
 | `WEB_THREADS` | `300` | 同時連線數上限，每個開著的頁面佔用一個 |

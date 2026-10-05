@@ -49,7 +49,7 @@ services:
       <<: *backend-env
       FILE_WATCHER: "true"
       DEBUG: "true"
-      SAM_CHECKPOINT: /models/sam_vit_b_01ec64.pth
+      SAM_CHECKPOINT: ${SAM_CHECKPOINT:-/models/sam2.1_b.pt}
     volumes:
       - "./backend:/workspace/backend"
       - "${DATASETS_DIR:-./datasets}:/datasets"

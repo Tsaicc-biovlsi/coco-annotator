@@ -32,8 +32,8 @@ services:
     environment:
       <<: *backend-env
       FILE_WATCHER: "true"
-      SAM_MODEL_TYPE: vit_b
-      SAM_CHECKPOINT: /models/sam_vit_b_01ec64.pth
+      # SAM 2.1 base by default; falls back to any SAM checkpoint in ./models
+      SAM_CHECKPOINT: ${SAM_CHECKPOINT:-/models/sam2.1_b.pt}
       SAM_DEVICE: auto
     volumes:
       - "${DATASETS_DIR:-./datasets}:/datasets"
