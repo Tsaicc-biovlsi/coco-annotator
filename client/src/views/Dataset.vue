@@ -733,6 +733,25 @@ import axios from "axios";
 import { mapMutations } from "vuex";
 
 
+const TABS = ["images", "progress", "exports", "members", "statistics", "health", "settings"];
+
+function rememberedTab(datasetId) {
+  try {
+    const tab = sessionStorage.getItem(`dataset/${datasetId}/tab`);
+    return TABS.includes(tab) ? tab : "images";
+  } catch {
+    return "images";
+  }
+}
+
+function rememberTab(datasetId, tab) {
+  try {
+    sessionStorage.setItem(`dataset/${datasetId}/tab`, tab);
+  } catch {
+    // not remembered
+  }
+}
+
 export default {
   name: "Dataset",
   components: {
@@ -1380,7 +1399,7 @@ export default {
   },
   watch: {
     tab(tab) {
-      localStorage.setItem("dataset/tab", tab);
+      rememberTab(this.dataset.id, tab);
       if (tab == "members") this.getUsers();
       if (tab == "statistics") this.getStats();
       if (tab == "exports") this.getExports();
@@ -1464,20 +1483,22 @@ export default {
       }
     }
   },
-  beforeRouteUpdate() {
-    this.dataset.id = parseInt(this.identifier);
+  beforeRouteUpdate(to) {
+    this.dataset.id = parseInt(to.params.identifier);
+    this.tab = rememberedTab(this.dataset.id);
     this.updatePage();
   },
   created() {
-    let tab = localStorage.getItem("dataset/tab");
     let order = localStorage.getItem("dataset/order");
     let sideWidth = localStorage.getItem("dataset/sideWidth");
     
     if (sideWidth !== null) this.sidebar.width = parseInt(sideWidth);
-    if (tab !== null) this.tab = tab;
     if (order !== null) this.order = order;
 
     this.dataset.id = parseInt(this.identifier);
+    // each dataset opens on Images, except when coming back to it in this
+    // browser tab (e.g. from the annotator): then on the tab it was left on
+    this.tab = rememberedTab(this.dataset.id);
     // coming from the import dialog on the datasets page: follow its task
     if (this.$route.query.importTask) {
       this.importing.id = parseInt(this.$route.query.importTask);
