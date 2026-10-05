@@ -106,7 +106,7 @@
             <form>
               <div class="mb-3">
                 <label>{{ $t('category.supercategory') }}</label>
-                <ParentInput v-model="parents" :known="knownParents" />
+                <ParentInput v-model="parents" :known="knownParents" fetch-known />
                 <div class="form-text">{{ $t('parents.hint') }}</div>
               </div>
 

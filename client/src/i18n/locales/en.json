@@ -949,9 +949,7 @@
     }
   },
   "parents": {
-    "placeholder": "Type a parent and press Enter (several allowed)",
-    "remove": "Remove",
-    "hint": "A category can have several parents; COCO export writes the first one as supercategory.",
+    "hint": "Click the parents you want (several allowed); type a new one below if it is missing. COCO export writes the first as supercategory.",
     "quick": "Add by parent:",
     "none": "No parent",
     "others": "Other categories",
@@ -961,6 +959,11 @@
     "expandAll": "Expand all",
     "collapseAll": "Collapse all",
     "addHere": "New category under {name}",
-    "addHereShort": "Add"
+    "addHereShort": "Add",
+    "noMatch": "No matching parent",
+    "findOrNew": "Search, or type a new parent",
+    "firstOne": "No parents yet: type a name to add one",
+    "addNew": "Add \"{name}\"",
+    "picked": "Picked: {names}"
   }
 }

@@ -1,65 +1,112 @@
 <template>
-  <div class="parent-input form-control form-control-sm d-flex flex-wrap align-items-center gap-1" @click="$refs.input.focus()">
-    <span v-for="p in modelValue" :key="p" class="parent-tag">
-      <i class="fa fa-folder-o" /> {{ p }}
-      <button type="button" class="btn-close btn-close-sm" :aria-label="$t('parents.remove')" @click.stop="remove(p)" />
-    </span>
-    <input
-      ref="input"
-      v-model="text"
-      :list="listId"
-      class="flex-grow-1"
-      :placeholder="modelValue.length ? '' : $t('parents.placeholder')"
-      @keydown.enter.prevent="add"
-      @keydown="onKey"
-      @blur="add"
-      @change="add"
-    />
-    <datalist :id="listId">
-      <option v-for="p in suggestions" :key="p" :value="p" />
-    </datalist>
+  <div class="parent-input">
+    <!-- existing parents: click to pick / unpick -->
+    <div v-if="options.length" class="d-flex flex-wrap gap-1 mb-1">
+      <button
+        v-for="p in shownOptions"
+        :key="p"
+        type="button"
+        class="btn btn-sm parent-option"
+        :class="isPicked(p) ? 'btn-primary' : 'btn-outline-secondary'"
+        :aria-pressed="isPicked(p)"
+        @click="toggle(p)"
+      >
+        <i class="fa" :class="isPicked(p) ? 'fa-check-square-o' : 'fa-square-o'" /> {{ p }}
+      </button>
+      <span v-if="!shownOptions.length" class="small text-muted">{{ $t('parents.noMatch') }}</span>
+    </div>
+
+    <!-- filter the list, or type a new one when it is not there -->
+    <div class="input-group input-group-sm">
+      <span class="input-group-text"><i class="fa" :class="options.length ? 'fa-search' : 'fa-folder-o'" /></span>
+      <input
+        v-model="text"
+        class="form-control"
+        :placeholder="options.length ? $t('parents.findOrNew') : $t('parents.firstOne')"
+        @keydown.enter.prevent="onEnter"
+      />
+      <button
+        v-if="newName"
+        type="button"
+        class="btn btn-outline-primary"
+        @click="addNew"
+      >
+        <i class="fa fa-plus" /> {{ $t('parents.addNew', { name: newName }) }}
+      </button>
+    </div>
+    <div v-if="modelValue.length" class="small text-muted mt-1">
+      {{ $t('parents.picked', { names: modelValue.join('、') }) }}
+    </div>
   </div>
 </template>
 
 <script>
-import { parseParents } from "@/libs/parents";
+import axios from "axios";
+import { allParents, parseParents } from "@/libs/parents";
 
-let counter = 0;
+// parents of all the user's categories, fetched once per page (annotator)
+let everyParent = null;
+function loadEveryParent() {
+  if (!everyParent) {
+    everyParent = axios.get("/api/category/").then(r => allParents(r.data || [])).catch(() => []);
+  }
+  return everyParent;
+}
 
-/** Parent categories as tags: type a name and press Enter (or comma); existing parents are suggested. */
+/**
+ * Pick parent categories from the ones already in use (click to toggle);
+ * typing filters them, and offers to add a new one only when it does not exist.
+ */
 export default {
   name: "ParentInput",
   props: {
     modelValue: { type: Array, default: () => [] },
-    /** parent names already in use, offered as suggestions */
-    known: { type: Array, default: () => [] }
+    /** parent names already in use */
+    known: { type: Array, default: () => [] },
+    /** also offer the parents of all the user's categories (fetched once) */
+    fetchKnown: { type: Boolean, default: false }
   },
   emits: ["update:modelValue"],
   data() {
-    counter += 1;
-    return { text: "", listId: `parents-${counter}` };
+    return { text: "", fetched: [] };
+  },
+  created() {
+    if (this.fetchKnown) loadEveryParent().then(list => (this.fetched = list));
   },
   computed: {
-    suggestions() {
-      return this.known.filter(p => !this.modelValue.includes(p));
+    options() {
+      return parseParents([...this.known, ...this.fetched, ...this.modelValue])
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    },
+    shownOptions() {
+      const q = this.text.trim().toLowerCase();
+      return q ? this.options.filter(p => p.toLowerCase().includes(q)) : this.options;
+    },
+    /** the typed name, if no parent of that name exists yet */
+    newName() {
+      const name = this.text.trim();
+      if (!name) return "";
+      return this.options.some(p => p.toLowerCase() === name.toLowerCase()) ? "" : name;
     }
   },
   methods: {
-    add() {
-      const names = parseParents(this.text);
+    isPicked(p) {
+      return this.modelValue.includes(p);
+    },
+    toggle(p) {
+      this.$emit("update:modelValue", this.isPicked(p) ? this.modelValue.filter(x => x !== p) : [...this.modelValue, p]);
+    },
+    addNew() {
+      const names = parseParents(this.newName);
       this.text = "";
-      if (!names.length) return;
-      this.$emit("update:modelValue", parseParents([...this.modelValue, ...names]));
+      if (names.length) this.$emit("update:modelValue", parseParents([...this.modelValue, ...names]));
     },
-    remove(p) {
-      this.$emit("update:modelValue", this.modelValue.filter(x => x !== p));
-    },
-    onKey(event) {
-      if (event.key === "," || event.key === "，" || event.key === "、") {
-        event.preventDefault();
-        this.add();
-      } else if (event.key === "Backspace" && !this.text && this.modelValue.length) {
-        this.remove(this.modelValue[this.modelValue.length - 1]);
+    onEnter() {
+      if (this.newName) return this.addNew();
+      // Enter on a filtered list with one match picks it
+      if (this.shownOptions.length === 1) {
+        if (!this.isPicked(this.shownOptions[0])) this.toggle(this.shownOptions[0]);
+        this.text = "";
       }
     }
   }
@@ -67,32 +114,9 @@ export default {
 </script>
 
 <style scoped>
-.parent-input {
-  min-height: 31px;
-  cursor: text;
-  height: auto;
-}
-.parent-input input {
-  border: none;
-  outline: none;
-  min-width: 120px;
-  background: transparent;
-  color: inherit;
-  font-size: 0.875rem;
-}
-.parent-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: #e7f0fb;
-  color: #1d5ea8;
-  border-radius: 4px;
-  padding: 0 4px 0 6px;
+.parent-option {
+  padding: 0 8px;
   font-size: 0.8rem;
-}
-.btn-close-sm {
-  width: 0.5em;
-  height: 0.5em;
-  padding: 2px;
+  border-radius: 999px;
 }
 </style>

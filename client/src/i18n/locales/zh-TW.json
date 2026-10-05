@@ -1077,9 +1077,7 @@
     }
   },
   "parents": {
-    "placeholder": "輸入上層類別後按 Enter，可加多個",
-    "remove": "移除",
-    "hint": "一個類別可以屬於多個上層類別；COCO 匯出時第一個會寫在 supercategory。",
+    "hint": "點選要的上層類別（可多選）；沒有的話在下面輸入新增。COCO 匯出時第一個會寫在 supercategory。",
     "quick": "依上層類別帶入：",
     "none": "沒有上層類別",
     "others": "其他類別",
@@ -1089,6 +1087,11 @@
     "expandAll": "全部展開",
     "collapseAll": "全部收合",
     "addHere": "在「{name}」下新增類別",
-    "addHereShort": "新增"
+    "addHereShort": "新增",
+    "noMatch": "沒有符合的上層類別",
+    "findOrNew": "搜尋，或輸入新的上層類別",
+    "firstOne": "還沒有上層類別，輸入名稱新增",
+    "addNew": "新增「{name}」",
+    "picked": "已選：{names}"
   }
 }
