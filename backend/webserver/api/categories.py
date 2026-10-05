@@ -61,6 +61,21 @@ class Category(Resource):
         keypoint_labels = args.get('keypoint_labels')
         keypoint_colors = args.get('keypoint_colors')
 
+        # the same name in the creator's trash: bring that one back with the new settings
+        trashed = CategoryModel.objects(name=name, creator=current_user.username, deleted=True).first()
+        if trashed is not None:
+            update = {'set__deleted': False, 'unset__deleted_date': True, 'unset__deleted_by': True,
+                      'unset__delete_batch': True, 'set__supercategory': parents[0] if parents else '',
+                      'set__supercategories': parents}
+            if color:
+                update['set__color'] = color
+            trashed.update(**update)
+            trashed.reload()
+            from ..util import activity
+            activity.record('restore', current_user, counts={'items': 1},
+                            detail={'kind': 'category', 'name': trashed.name})
+            return {**query_util.fix_ids(trashed), 'restored': True}
+
         try:
             category = CategoryModel(
                 name=name,

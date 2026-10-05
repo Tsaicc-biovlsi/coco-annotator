@@ -126,6 +126,28 @@
                   />
                   <div class="invalid-feedback">{{ validDatasetName }}</div>
                 </div>
+                <!-- the same name is in the trash: bring it back, or start again in its folder -->
+                <div v-if="trashedSameName" class="alert alert-warning py-2 small">
+                  <div class="mb-2">
+                    <i class="fa fa-trash-o" />
+                    {{ $t('datasets.inTrash', { name: trashedSameName.name, n: trashedSameName.images }) }}
+                  </div>
+                  <div class="d-flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-sm btn-success" :disabled="creating" @click="restoreTrashed">
+                      <i class="fa fa-undo" /> {{ $t('datasets.restoreOld') }}
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm"
+                      :class="create.replaceTrashed ? 'btn-primary' : 'btn-outline-primary'"
+                      @click="create.replaceTrashed = !create.replaceTrashed"
+                    >
+                      <i class="fa" :class="create.replaceTrashed ? 'fa-check-square-o' : 'fa-square-o'" />
+                      {{ $t('datasets.replaceOld') }}
+                    </button>
+                  </div>
+                  <div class="mt-1 text-muted">{{ $t('datasets.replaceOldHint') }}</div>
+                </div>
                 <div class="mb-1">
                   <label class="form-label">{{ $t('datasets.folderDirectory') }}</label>
                   <input class="form-control" disabled :value="directory" />
@@ -151,6 +173,9 @@
                     {{ create.name }}
                     <a href="#" class="ms-1 small" @click.prevent="create.step = 1">{{ $t('exportSteps.edit') }}</a>
                     <div class="small text-muted">{{ directory }}</div>
+                    <div v-if="trashedSameName && create.replaceTrashed" class="small text-warning-emphasis">
+                      <i class="fa fa-exclamation-triangle" /> {{ $t('datasets.replaceOldReview', { n: trashedSameName.images }) }}
+                    </div>
                   </dd>
                   <dt class="col-4">{{ $t('datasetTask.label') }}</dt>
                   <dd class="col-8">
@@ -196,7 +221,7 @@
               v-else
               type="button"
               class="btn btn-success"
-              :disabled="creating || !!validDatasetName"
+              :disabled="creating || !canGoCreateStep(4)"
               @click="createDataset"
             >
               <i class="fa" :class="creating ? 'fa-spinner fa-spin' : 'fa-plus'" /> {{ $t('datasets.createDataset') }}
@@ -250,6 +275,7 @@
 </template>
 
 <script>
+import axios from "axios";
 import toastrs from "@/mixins/toastrs";
 import Datasets from "@/models/datasets";
 import AdminPanel from "@/models/admin";
@@ -289,6 +315,7 @@ export default {
       total: 0,
       shownTotal: 0,
       allNames: [],
+      trashed: [],
       create: {
         step: 1,
         touched: false,
@@ -333,6 +360,7 @@ export default {
         this.total = response.data.total || 0;
         this.shownTotal = response.data.pagination.total;
         this.allNames = response.data.names || [];
+        this.trashed = response.data.trashed || [];
         // a remembered tab that no longer exists: back to all
         if (this.parent && this.parent !== "-" && !this.parents.some(p => p.name === this.parent)) {
           this.selectTab("");
@@ -355,14 +383,14 @@ export default {
       this.$router.push({ name: "dataset", params: { identifier: datasetId }, query });
     },
     openCreate() {
-      this.create = { step: 1, touched: false, name: "", categories: [], task: "" };
+      this.create = { step: 1, touched: false, name: "", categories: [], task: "", replaceTrashed: false };
       if (this.$refs.categoryPicker) this.$refs.categoryPicker.reset();
       showModal("#createDataset");
       setTimeout(() => this.$refs.createName && this.$refs.createName.focus(), 400);
     },
     /** a step opens once the name is filled in */
     canGoCreateStep(step) {
-      return step <= 1 || !this.validDatasetName;
+      return step <= 1 || (!this.validDatasetName && !(this.trashedSameName && !this.create.replaceTrashed));
     },
     nextCreateStep() {
       this.create.touched = true;
@@ -372,17 +400,41 @@ export default {
       if (this.create.name.trim().length < 1 || this.creating) return;
       const categories = [...this.create.categories];
       this.creating = true;
-      Datasets.create(this.create.name.trim(), categories, this.create.task)
-        .then(() => {
+      const replace = !!(this.trashedSameName && this.create.replaceTrashed);
+      Datasets.create(this.create.name.trim(), categories, this.create.task, replace)
+        .then(response => {
           hideModal("#createDataset");
-          this.$toastr.success(this.$t("datasets.created", { name: this.create.name.trim() }));
+          this.$toastr.success(this.$t(response.data.scanned ? "datasets.createdScanning" : "datasets.created",
+            { name: this.create.name.trim() }));
           this.updatePage();
         })
         .catch(error => {
-          this.axiosReqestError(
-            "Creating Dataset",
-            error.response.data.message
-          );
+          const data = (error.response && error.response.data) || {};
+          if (data.code === "in_trash") {
+            // not known when the dialog opened: show the choice on the first step
+            this.trashed = [...this.trashed.filter(t => t.id !== data.dataset_id),
+              { id: data.dataset_id, name: this.create.name.trim(), images: data.images || 0 }];
+            this.create.step = 1;
+            return;
+          }
+          const message = { exists: "datasets.nameTaken", in_trash_other: "datasets.nameInOthersTrash" }[data.code];
+          this.$toastr.error(message ? this.$t(message) : data.message || String(error), this.$t("datasets.creatingADataset"));
+        })
+        .finally(() => (this.creating = false));
+    },
+    restoreTrashed() {
+      const target = this.trashedSameName;
+      if (!target) return;
+      this.creating = true;
+      axios.post("/api/trash/restore", { items: [{ type: "dataset", ids: [target.id] }], include_parents: true })
+        .then(() => {
+          hideModal("#createDataset");
+          this.$toastr.success(this.$t("datasets.restored", { name: target.name }));
+          this.updatePage();
+        })
+        .catch(error => {
+          const data = (error.response && error.response.data) || {};
+          this.$toastr.error(data.message || String(error));
         })
         .finally(() => (this.creating = false));
     }
@@ -397,6 +449,10 @@ export default {
     }
   },
   computed: {
+    trashedSameName() {
+      const name = this.create.name.trim();
+      return name ? this.trashed.find(t => t.name === name) || null : null;
+    },
     tabs() {
       const tabs = [{ key: "", label: this.$t("parents.all"), icon: "fa-th", count: this.total }];
       this.parents.forEach(p => tabs.push({ key: p.name, label: p.name, icon: "fa-folder-o", count: p.count }));

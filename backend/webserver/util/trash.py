@@ -294,18 +294,23 @@ def _purge_docs(kind, docs):
                     os.remove(doc.path)
                 doc.delete()  # also deletes its annotations and thumbnail
             elif kind == 'dataset':
-                image_ids = [i['_id'] for i in ImageModel.objects(dataset_id=doc.id).only('id').as_pymongo()]
-                AnnotationModel.objects(image_id__in=image_ids).delete()
-                ImageModel.objects(dataset_id=doc.id).delete()
-                if doc.directory and os.path.isdir(doc.directory):
-                    shutil.rmtree(doc.directory, ignore_errors=True)
-                doc.delete()
+                purge_dataset(doc)
             else:
                 doc.delete()
             count += 1
         except Exception:
             logger.exception(f"Could not permanently delete {kind} {doc.id}")
     return count
+
+
+def purge_dataset(dataset, keep_files=False):
+    """Delete a dataset's records for good (and its folder unless keep_files)."""
+    image_ids = [i['_id'] for i in ImageModel.objects(dataset_id=dataset.id).only('id').as_pymongo()]
+    AnnotationModel.objects(image_id__in=image_ids).delete()
+    ImageModel.objects(dataset_id=dataset.id).delete()
+    if not keep_files and dataset.directory and os.path.isdir(dataset.directory):
+        shutil.rmtree(dataset.directory, ignore_errors=True)
+    dataset.delete()
 
 
 def purge(user, items):

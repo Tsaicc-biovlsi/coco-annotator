@@ -31,6 +31,9 @@ dataset_create.add_argument('task', location='json', default='', choices=DATASET
                             help='Planned task: detect, segment, obb, pose, classify, semantic')
 dataset_create.add_argument('categories', type=list, required=False, location='json',
                             help="List of default categories for sub images")
+dataset_create.add_argument('replace_trashed', type=bool, location='json', default=False,
+                            help='A dataset of this name is in the trash: delete its records for good '
+                                 '(the images in its folder are kept and scanned again) and create a new one')
 
 page_data = reqparse.RequestParser()
 page_data.add_argument('page', default=1, type=int)
@@ -104,19 +107,42 @@ class Dataset(Resource):
                 or any(c in name for c in '/\\\0'):
             return {'message': 'Invalid dataset name (it cannot contain / or \\ or start with a dot)'}, 400
 
+        existing = DatasetModel.objects(name=name).first()
+        if existing is not None:
+            if not existing.deleted:
+                return {'code': 'exists', 'message': 'A dataset with this name already exists'}, 400
+            if not existing.is_owner(current_user):
+                return {'code': 'in_trash_other',
+                        'message': "A deleted dataset of another user has this name (in their trash)"}, 409
+            if not args.get('replace_trashed'):
+                return {'code': 'in_trash', 'dataset_id': existing.id,
+                        'images': ImageModel.objects(dataset_id=existing.id).count(),
+                        'message': 'A deleted dataset with this name is in the trash'}, 409
+            from ..util import activity
+            from ..util.trash import purge_dataset
+            activity.record('purge', current_user, counts={'items': 1},
+                            detail={'kind': 'dataset', 'name': existing.name, 'kept_files': True})
+            purge_dataset(existing, keep_files=True)
+
         category_ids = CategoryModel.bulk_create(categories)
 
         try:
             dataset = DatasetModel(name=name, categories=category_ids, task=args.get('task') or '')
             dataset.save()
         except NotUniqueError:
-            return {'message': 'Dataset already exists. If it was deleted, restore or permanently delete it in the trash (activity log).'}, 400
+            return {'code': 'exists', 'message': 'A dataset with this name already exists'}, 400
 
         from ..util import activity
         activity.record('dataset_create', current_user, dataset_id=dataset.id,
                         counts={'categories': len(category_ids)},
                         detail={'name': dataset.name, 'task': dataset.task or None})
-        return query_util.fix_ids(dataset)
+        result = query_util.fix_ids(dataset)
+        # images already in the folder (e.g. kept from a deleted dataset) are added
+        if args.get('replace_trashed') and any(
+                f.lower().endswith(ImageModel.PATTERN) for _, _, files in os.walk(dataset.directory) for f in files):
+            dataset.scan(user=current_user)
+            result['scanned'] = True
+        return result
 
 
 
@@ -468,6 +494,10 @@ class DatasetData(Resource):
             "no_parent": no_parent,
             "total": total_shown,
             "names": names,
+            # deleted datasets the user could restore or replace: name -> images
+            "trashed": [{"id": d.id, "name": d.name, "images": ImageModel.objects(dataset_id=d.id).count()}
+                        for d in DatasetModel.objects(deleted=True).only('id', 'name', 'owner')
+                        if d.is_owner(current_user)],
         }
 
 @api.route('/<int:dataset_id>/data')

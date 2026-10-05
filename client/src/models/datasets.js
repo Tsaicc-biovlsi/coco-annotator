@@ -21,10 +21,11 @@ export default {
       }
     });
   },
-  create(name, categories, task = "") {
+  create(name, categories, task = "", replaceTrashed = false) {
     return axios.post(`${baseURL}/?name=${encodeURIComponent(name)}`, {
       categories: categories,
-      task
+      task,
+      replace_trashed: replaceTrashed
     });
   },
   scan(id) {

@@ -59,6 +59,11 @@ class CategoryModel(DynamicDocument):
         for category in categories:
             category_model = CategoryModel.objects(name=category).first()
 
+            if category_model is not None and category_model.deleted:
+                # in the trash: picking it again brings it back
+                category_model.update(set__deleted=False, unset__deleted_date=True,
+                                      unset__deleted_by=True, unset__delete_batch=True)
+
             if category_model is None:
                 new_category = CategoryModel(name=category)
                 new_category.save()

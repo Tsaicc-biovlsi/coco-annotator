@@ -56,3 +56,47 @@ def test_datasets_grouped_by_parent(world):
     assert "quarry" in none and "safari" not in none
     found = c.get("/api/dataset/data", query_string={"q": "SAF"}).get_json()
     assert [d["name"] for d in found["datasets"]] == ["safari"] and found["total"] == 1
+
+
+def test_recreate_deleted_dataset(world, dataset_directory):
+    import os
+    from PIL import Image
+    from database import DatasetModel, ImageModel
+    c = world["client"]
+    ds = c.post("/api/dataset/", json={"name": "again"}).get_json()["id"]
+    folder = os.path.join(dataset_directory, "again")
+    Image.new("RGB", (40, 30)).save(os.path.join(folder, "x.jpg"))
+    c.get(f"/api/dataset/{ds}/scan")
+    c.delete(f"/api/dataset/{ds}")
+
+    listed = c.get("/api/dataset/data").get_json()["trashed"]
+    assert {"id": ds, "name": "again", "images": 1} in listed
+
+    r = c.post("/api/dataset/", json={"name": "again"})
+    assert r.status_code == 409 and r.get_json()["code"] == "in_trash" and r.get_json()["images"] == 1
+
+    r = c.post("/api/dataset/", json={"name": "again", "replace_trashed": True})
+    assert r.status_code == 200 and r.get_json()["scanned"] is True
+    new_id = r.get_json()["id"]
+    assert new_id != ds and DatasetModel.objects(id=ds).first() is None
+    assert os.path.exists(os.path.join(folder, "x.jpg"))
+    assert ImageModel.objects(dataset_id=new_id, deleted=False).count() == 1
+
+    # a live dataset of that name: plain "exists"
+    r = c.post("/api/dataset/", json={"name": "again"})
+    assert r.status_code == 400 and r.get_json()["code"] == "exists"
+
+
+def test_recreate_deleted_category(world):
+    from database import CategoryModel
+    c = world["client"]
+    cat = c.post("/api/category/", json={"name": "phoenix"}).get_json()
+    c.delete(f"/api/category/{cat['id']}")
+    r = c.post("/api/category/", json={"name": "phoenix", "supercategories": ["myth"]})
+    body = r.get_json()
+    assert r.status_code == 200 and body["restored"] and body["id"] == cat["id"]
+    assert CategoryModel.objects(id=cat["id"]).first().parents() == ["myth"]
+    # picking a deleted category by name for a new dataset brings it back
+    c.delete(f"/api/category/{cat['id']}")
+    c.post("/api/dataset/", json={"name": "myths", "categories": ["phoenix"]})
+    assert CategoryModel.objects(id=cat["id"]).first().deleted is False

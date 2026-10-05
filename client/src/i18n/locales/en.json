@@ -245,7 +245,15 @@
     "nameInvalid": "The name cannot contain / or \\ or start with a dot",
     "nameTaken": "A dataset with this name already exists",
     "confirmStep": "Confirm",
-    "searchName": "Search dataset names…"
+    "searchName": "Search dataset names…",
+    "inTrash": "A deleted dataset \"{name}\" ({n} images) is in the trash. Folder names must be unique, so choose:",
+    "restoreOld": "Restore the old dataset",
+    "replaceOld": "Create a new dataset with this name",
+    "replaceOldHint": "New dataset: the old dataset's annotations are deleted for good; the images in its folder are kept and added to the new one.",
+    "replaceOldReview": "The deleted dataset's annotations will be deleted for good; its {n} images stay in the folder and join the new dataset.",
+    "nameInOthersTrash": "This name belongs to another user's deleted dataset (in their trash). Pick another name or ask them to delete it for good.",
+    "restored": "Restored dataset \"{name}\"",
+    "createdScanning": "Created dataset \"{name}\"; adding the images already in its folder"
   },
   "eraserPanel": {
     "radius": "Radius",
