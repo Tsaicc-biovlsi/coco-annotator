@@ -657,5 +657,26 @@
     "noNames": "沒有 data.yaml / classes.txt，類別會命名為 class_0、class_1…",
     "folderFound": "在資料夾裡找到 {n} 個 YOLO 標註檔，會在圖片上傳後一起匯入。",
     "folderUsed": "會匯入所選資料夾裡的 YOLO 標註；也可以改選一個 COCO .json 或 YOLO .zip。"
+  },
+  "exportCategories": {
+    "title": "要匯出的類別",
+    "selected": "（已選 {n} / {total}）",
+    "all": "全選",
+    "none": "全不選",
+    "withAnnotations": "只選有標註的",
+    "search": "搜尋類別…",
+    "classIndex": "YOLO 類別編號",
+    "count": "{n} 個標註 · {images} 張圖",
+    "keypointCount": "{n} 個有關鍵點",
+    "noKeypoints": "沒有關鍵點，不會輸出",
+    "noAnnotations": "沒有標註",
+    "moveUp": "往上移",
+    "moveDown": "往下移",
+    "sortByName": "依名稱排序",
+    "total": "共會匯出 {n} 個標註",
+    "yoloOrder": "藍色數字是 YOLO 的類別編號，照上面的順序從 0 開始。要配合已訓練好的模型時，用箭頭調整成跟模型相同的順序。",
+    "pickOne": "請至少選一個類別",
+    "noMatch": "找不到符合的類別",
+    "empty": "這個資料集還沒有類別"
   }
 }

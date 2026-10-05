@@ -131,6 +131,45 @@ class DatasetCleanMeta(Resource):
         return {'success': True}
 
 
+@api.route('/<int:dataset_id>/category_counts')
+class DatasetCategoryCounts(Resource):
+
+    @login_required
+    def get(self, dataset_id):
+        """ Per category: annotations, images, and how many are boxes, rotated
+        boxes, polygons or have keypoints (for the export dialog) """
+        dataset = current_user.datasets.filter(id=dataset_id, deleted=False).first()
+        if dataset is None:
+            return {"message": "Invalid dataset id"}, 400
+
+        image_ids = [i['_id'] for i in ImageModel.objects(dataset_id=dataset.id, deleted=False)
+                     .only('id').as_pymongo()]
+        counts = {}
+        images = {}
+        rows = AnnotationModel.objects(image_id__in=image_ids, deleted=False) \
+            .only('category_id', 'image_id', 'segmentation', 'keypoints', 'isbbox', 'isrbbox').as_pymongo()
+        for a in rows:
+            has_shape = bool(a.get('segmentation'))
+            has_keypoints = any(v > 0 for v in (a.get('keypoints') or [])[2::3])
+            if not has_shape and not has_keypoints:
+                continue  # empty annotations are not exported
+            c = counts.setdefault(a['category_id'], {
+                'annotations': 0, 'images': 0, 'boxes': 0, 'rotated': 0, 'polygons': 0, 'keypoints': 0})
+            c['annotations'] += 1
+            if a.get('isrbbox'):
+                c['rotated'] += 1
+            elif a.get('isbbox'):
+                c['boxes'] += 1
+            elif has_shape:
+                c['polygons'] += 1
+            if has_keypoints:
+                c['keypoints'] += 1
+            images.setdefault(a['category_id'], set()).add(a['image_id'])
+        for category_id, ids in images.items():
+            counts[category_id]['images'] = len(ids)
+        return {str(k): v for k, v in counts.items()}
+
+
 @api.route('/<int:dataset_id>/stats')
 class DatasetStats(Resource):
 
@@ -431,7 +470,7 @@ class DatasetDataId(Resource):
         subdirectories = [f for f in sorted(os.listdir(directory))
                           if os.path.isdir(directory + f) and not f.startswith('.')]
         
-        categories = CategoryModel.objects(id__in=dataset.categories).only('id', 'name')
+        categories = CategoryModel.objects(id__in=dataset.categories).only('id', 'name', 'color')
 
         return {
             "total": total,

@@ -54,7 +54,9 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
 
     # iterate though all categoires and upsert
     category_names = []
-    for category in fix_ids(db_categories):
+    # keep the order that was asked for (it becomes the YOLO class index)
+    position = {c: i for i, c in enumerate(categories)}
+    for category in sorted(fix_ids(db_categories), key=lambda c: position.get(c.get('id'), len(position))):
 
         if len(category.get('keypoint_labels', [])) > 0:
             category['keypoints'] = category.pop('keypoint_labels', [])

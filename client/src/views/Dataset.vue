@@ -374,7 +374,7 @@
 
     <div class="modal fade" tabindex="-1" role="dialog" id="exportDataset">
       <div class="modal-dialog" role="document">
-        <div class="modal-content">
+        <div class="modal-content text-start">
           <div class="modal-header">
             <h5 class="modal-title">{{ $t('dataset.exportTitle', { name: dataset.name }) }}</h5>
             <button
@@ -406,14 +406,13 @@
                 </div>
               </div>
               <div class="mb-3">
-                <label>{{ $t('dataset.categoriesEmptyExportAll') }}</label>
-                <TagsInput
-                  v-model:value="exporting.categories"
-                  element-id="exportCategories"
-                  :existing-tags="categoryTags"
-                  :typeahead="true"
-                  :typeahead-activation-threshold="0"
-                ></TagsInput>
+                <ExportCategories
+                  v-model:order="exporting.order"
+                  v-model:selected="exporting.categories"
+                  :categories="categories"
+                  :counts="exporting.counts"
+                  :yolo-task="exporting.format === 'yolo' ? exporting.yolo_task : null"
+                />
               </div>
               <div class="form-check d-inline-flex align-items-center gap-2 ps-0">
                 <input type="checkbox" class="form-check-input m-0" id="exportWithEmpty"
@@ -426,6 +425,7 @@
             <button
               type="button"
               class="btn btn-primary"
+              :disabled="!exporting.categories.length"
               @click="exportCOCO"
             >
               {{ $t('dataset.export') }}
@@ -466,6 +466,7 @@ import PanelToggle from "@/components/PanelToggle.vue";
 import PanelDropdown from "@/components/PanelInputDropdown.vue"
 import TagsInput from "@/components/TagsInput.vue";
 import ModelRunModal from "@/components/ModelRunModal.vue";
+import ExportCategories from "@/components/ExportCategories.vue";
 import axios from "axios";
 
 import { mapMutations } from "vuex";
@@ -475,6 +476,7 @@ export default {
   name: "Dataset",
   components: {
     ImageCard,
+    ExportCategories,
     Pagination,
     PanelString,
     PanelToggle,
@@ -531,6 +533,8 @@ export default {
         categories: [],
         progress: 0,
         with_empty_images: false,
+        order: [],
+        counts: null,
         format: "coco",
         yolo_task: "detect",
         with_images: false,
@@ -648,7 +652,25 @@ export default {
         this.$router.push({ path: "/tasks", query: { id: this.exporting.id } });
         return;
       }
+      this.prepareExportCategories();
       showModal("#exportDataset");
+    },
+    /** Keep the order / ticks from last time; new categories go last, ticked */
+    prepareExportCategories() {
+      const ids = this.categories.map(c => c.id);
+      const known = new Set(this.exporting.order);
+      const order = this.exporting.order.filter(id => ids.includes(id));
+      const added = ids.filter(id => !known.has(id));
+      this.exporting.order = [...order, ...added];
+      this.exporting.categories = [
+        ...this.exporting.categories.filter(id => ids.includes(id)),
+        ...added
+      ];
+      this.exporting.counts = null;
+      axios
+        .get(`/api/dataset/${this.dataset.id}/category_counts`)
+        .then(r => (this.exporting.counts = r.data))
+        .catch(() => (this.exporting.counts = {}));
     },
     exportCOCO() {
       hideModal("#exportDataset");
@@ -657,7 +679,10 @@ export default {
         options.yolo_task = this.exporting.yolo_task;
         options.with_images = this.exporting.with_images;
       }
-      Dataset.exportingCOCO(this.dataset.id, this.exporting.categories, this.exporting.with_empty_images, options)
+      // ticked categories in the chosen order (= YOLO class index)
+      const chosen = new Set(this.exporting.categories);
+      const categories = this.exporting.order.filter(id => chosen.has(id));
+      Dataset.exportingCOCO(this.dataset.id, categories, this.exporting.with_empty_images, options)
         .then(response => {
           let id = response.data.id;
           this.exporting.id = id;

@@ -192,3 +192,27 @@ def test_api_yolo_import_then_export(yolo_world):
     export = ExportModel.objects(dataset_id=ds).order_by("-created_at").first()
     d = c.get(f"/api/export/{export.id}/download")
     assert ".json" in d.headers["Content-Disposition"]
+
+
+def test_api_category_counts_and_export_order(yolo_world):
+    from database import CategoryModel, ExportModel
+    c, ds = yolo_world["client"], yolo_world["dataset"]["id"]
+    # runs after the import test above: p1 has a kayak box and a ship polygon
+    ship = CategoryModel.objects(name="ship").first().id
+    kayak = CategoryModel.objects(name="kayak").first().id
+
+    counts = c.get(f"/api/dataset/{ds}/category_counts").get_json()
+    assert counts[str(kayak)]["annotations"] == 1 and counts[str(kayak)]["boxes"] == 1
+    assert counts[str(ship)]["polygons"] == 1 and counts[str(ship)]["images"] == 1
+
+    # the order of the ids is the YOLO class order
+    r = c.get(f"/api/dataset/{ds}/export?format=yolo&categories={kayak},{ship}")
+    assert r.status_code == 200, r.data
+    export = ExportModel.objects(dataset_id=ds).order_by("-id").first()
+    with zipfile.ZipFile(export.path) as zf:
+        assert zf.read("classes.txt").decode().split() == ["kayak", "ship"]
+    r = c.get(f"/api/dataset/{ds}/export?format=yolo&categories={ship}")
+    export = ExportModel.objects(dataset_id=ds).order_by("-id").first()
+    with zipfile.ZipFile(export.path) as zf:
+        assert zf.read("classes.txt").decode().split() == ["ship"]
+        assert zf.read("labels/p1.txt").decode().count("\n") == 1

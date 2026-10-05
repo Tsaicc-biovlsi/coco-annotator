@@ -529,5 +529,26 @@
     "noNames": "No data.yaml / classes.txt: classes will be named class_0, class_1, …",
     "folderFound": "Found {n} YOLO label files in the folder; they are imported after the images.",
     "folderUsed": "The YOLO labels in the picked folder will be imported; or choose a COCO .json or YOLO .zip instead."
+  },
+  "exportCategories": {
+    "title": "Categories to export",
+    "selected": "({n} of {total} selected)",
+    "all": "All",
+    "none": "None",
+    "withAnnotations": "Only annotated",
+    "search": "Search categories…",
+    "classIndex": "YOLO class index",
+    "count": "{n} annotations · {images} images",
+    "keypointCount": "{n} with keypoints",
+    "noKeypoints": "no keypoints, nothing exported",
+    "noAnnotations": "no annotations",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "sortByName": "Sort by name",
+    "total": "{n} annotations will be exported",
+    "yoloOrder": "The blue numbers are the YOLO class indices, from 0 in the order above. To match a model you already trained, use the arrows to put them in the model's order.",
+    "pickOne": "Pick at least one category",
+    "noMatch": "No matching category",
+    "empty": "This dataset has no categories yet"
   }
 }
