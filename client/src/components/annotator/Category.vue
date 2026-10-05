@@ -448,9 +448,12 @@ export default {
         annotations.forEach(a => a.setColor());
       } else {
         annotations.forEach(a => {
-          a.compoundPath.fillColor = this.color;
-          a.keypoints.color = this.darkHSL;
-          a.keypoints.bringToFront();
+          // annotations still being mounted have no shape yet
+          if (a.compoundPath != null) a.compoundPath.fillColor = this.color;
+          if (a.keypoints != null) {
+            a.keypoints.color = this.darkHSL;
+            a.keypoints.bringToFront();
+          }
         });
       }
     },

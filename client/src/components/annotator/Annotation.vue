@@ -780,7 +780,7 @@ export default {
 
       this.compoundPath.opacity = this.opacity;
       this.compoundPath.fillColor = this.color;
-      this.keypoints.color = this.darkHSL;
+      if (this.keypoints != null) this.keypoints.color = this.darkHSL;
     },
     setCategory(event) {
       const newCategoryName = event.target.value;

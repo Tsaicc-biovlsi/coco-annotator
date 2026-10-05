@@ -5,7 +5,10 @@ import { io } from "socket.io-client";
 
 export default {
   install(app, { connection = window.location.origin, options = {} } = {}) {
-    const socket = io(connection, { transports: ["websocket", "polling"], ...options });
+    // Start with HTTP long-polling and upgrade to WebSocket when possible:
+    // behind a reverse proxy that does not pass WebSocket upgrades the
+    // connection still works (WebSocket-first never fell back to polling).
+    const socket = io(connection, { transports: ["polling", "websocket"], tryAllTransports: true, ...options });
     app.config.globalProperties.$socket = socket;
 
     app.mixin({
