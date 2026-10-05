@@ -956,14 +956,13 @@
     "selectedInOrder": "Selected (in order)",
     "alsoIn": "also in: {names}",
     "searchCategories": "Search categories or parents…",
-    "expandAll": "Expand all",
-    "collapseAll": "Collapse all",
     "addHere": "New category under {name}",
-    "addHereShort": "Add",
     "noMatch": "No matching parent",
     "findOrNew": "Search, or type a new parent",
     "firstOne": "No parents yet: type a name to add one",
     "addNew": "Add \"{name}\"",
-    "picked": "Picked: {names}"
+    "picked": "Picked: {names}",
+    "all": "All",
+    "showing": "{from}–{to} of {n}"
   }
 }

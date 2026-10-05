@@ -46,49 +46,50 @@
           {{ $t('categories.youNeedToCreateA') }}
         </p>
         <div v-else>
+          <!-- one tab per parent category -->
+          <ul v-if="grouped" class="nav nav-tabs mb-3 parent-tabs">
+            <li v-for="g in tabs" :key="g.key" class="nav-item">
+              <a href="#" class="nav-link" :class="{ active: g.key === currentKey }" @click.prevent="selectTab(g.key)">
+                <i class="fa" :class="g.key === '*' ? 'fa-th' : g.parent ? 'fa-folder-o' : 'fa-file-o'" />
+                {{ g.label }}
+                <span class="badge rounded-pill text-bg-secondary ms-1">{{ g.items.length }}</span>
+              </a>
+            </li>
+          </ul>
+
           <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
             <input
               v-model="search"
               class="form-control form-control-sm search-box"
               :placeholder="$t('parents.searchCategories')"
             />
-            <div v-if="grouped" class="btn-group btn-group-sm ms-auto">
-              <button type="button" class="btn btn-outline-secondary" @click="collapsed = {}">
-                <i class="fa fa-plus-square-o" /> {{ $t('parents.expandAll') }}
-              </button>
-              <button type="button" class="btn btn-outline-secondary" @click="collapseAll">
-                <i class="fa fa-minus-square-o" /> {{ $t('parents.collapseAll') }}
-              </button>
-            </div>
+            <button
+              v-if="current && current.parent"
+              type="button"
+              class="btn btn-sm btn-outline-success"
+              @click="openCreate([current.parent])"
+            ><i class="fa fa-plus" /> {{ $t('parents.addHere', { name: current.parent }) }}</button>
+            <span v-if="currentItems.length" class="small text-muted ms-auto">
+              {{ $t('parents.showing', { from: pageStart + 1, to: Math.min(pageStart + perPage, currentItems.length), n: currentItems.length }) }}
+            </span>
           </div>
 
-          <div v-for="g in groups" :key="g.key" class="mb-2">
-            <div v-if="grouped" class="group-title d-flex align-items-center gap-2" @click="toggleGroup(g.key)">
-              <i class="fa fa-fw" :class="collapsed[g.key] ? 'fa-caret-right' : 'fa-caret-down'" />
-              <i class="fa" :class="g.parent ? 'fa-folder-open-o' : 'fa-file-o'" />
-              <strong>{{ g.parent || $t('parents.none') }}</strong>
-              <span class="badge rounded-pill text-bg-secondary">{{ g.items.length }}</span>
-              <button
-                v-if="g.parent"
-                type="button"
-                class="btn btn-link btn-sm p-0 ms-1"
-                :title="$t('parents.addHere', { name: g.parent })"
-                @click.stop="openCreate([g.parent])"
-              ><i class="fa fa-plus" /> {{ $t('parents.addHereShort') }}</button>
-            </div>
-            <div v-show="!collapsed[g.key]" class="row mt-2">
-              <CategoryCard
-                v-for="category in g.items"
-                :key="g.key + '-' + category.id"
-                :category="category"
-                :uid="grouped ? '-' + g.index : ''"
-                :group-parent="g.parent"
-                :known-parents="knownParents"
-                @changed="updatePage"
-              />
-            </div>
+          <div class="row">
+            <CategoryCard
+              v-for="category in pageItems"
+              :key="currentKey + '-' + category.id"
+              :category="category"
+              :uid="'-' + currentIndex"
+              :group-parent="current ? current.parent : null"
+              :known-parents="knownParents"
+              @changed="updatePage"
+            />
           </div>
-          <p v-if="!groups.length" class="text-center text-muted">{{ $t('exportCategories.noMatch') }}</p>
+          <p v-if="!currentItems.length" class="text-center text-muted">{{ $t('exportCategories.noMatch') }}</p>
+
+          <div v-if="pageCount > 1" class="d-flex justify-content-center">
+            <Pagination :key="currentKey + '|' + search + '|' + pageCount" :pages="pageCount" @pagechange="p => (page = p)" />
+          </div>
         </div>
       </div>
     </div>
@@ -209,21 +210,32 @@ import Category from "@/models/categories";
 import CategoryCard from "@/components/cards/CategoryCard.vue";
 import KeypointsDefinition from "@/components/KeypointsDefinition.vue";
 import ParentInput from "@/components/ParentInput.vue";
+import Pagination from "@/components/Pagination.vue";
 import { allParents, groupByParent, matchesSearch } from "@/libs/parents";
 import { Modal } from "bootstrap";
 
 import { mapMutations } from "vuex";
 
+function readTab() {
+  try {
+    return localStorage.getItem("categories.tab") || "";
+  } catch {
+    return "";
+  }
+}
+
 export default {
   name: "Categories",
-  components: { CategoryCard, KeypointsDefinition, ParentInput },
+  components: { CategoryCard, KeypointsDefinition, ParentInput, Pagination },
   mixins: [toastrs],
   data() {
     return {
       docsUrl: docsSection("第一次使用"),
       categoryCount: 0,
       search: "",
-      collapsed: {},
+      tab: readTab(),
+      page: 1,
+      perPage: 16,
       newCategoryName: "",
       newCategoryParents: [],
       newCategoryColor: null,
@@ -246,10 +258,37 @@ export default {
     grouped() {
       return this.knownParents.length > 0;
     },
-    groups() {
+    /** one tab per parent, then "no parent", then all */
+    tabs() {
       const q = this.search.trim();
       const shown = this.categories.filter(c => matchesSearch(c, q));
-      return groupByParent(shown).map((g, index) => ({ ...g, index, key: g.parent === null ? "-" : "p:" + g.parent }));
+      const tabs = groupByParent(shown).map(g => ({
+        ...g, key: g.parent === null ? "-" : "p:" + g.parent, label: g.parent === null ? this.$t("parents.none") : g.parent
+      }));
+      tabs.push({ key: "*", parent: null, label: this.$t("parents.all"), items: shown });
+      return tabs;
+    },
+    currentKey() {
+      if (!this.grouped) return "*";
+      return this.tabs.some(t => t.key === this.tab) ? this.tab : this.tabs[0].key;
+    },
+    currentIndex() {
+      return this.tabs.findIndex(t => t.key === this.currentKey);
+    },
+    current() {
+      return this.tabs[this.currentIndex] || null;
+    },
+    currentItems() {
+      return this.current ? this.current.items : [];
+    },
+    pageCount() {
+      return Math.max(1, Math.ceil(this.currentItems.length / this.perPage));
+    },
+    pageStart() {
+      return (Math.min(this.page, this.pageCount) - 1) * this.perPage;
+    },
+    pageItems() {
+      return this.currentItems.slice(this.pageStart, this.pageStart + this.perPage);
     },
     isFormValid() {
       return (
@@ -258,6 +297,11 @@ export default {
         this.$refs.keypoints &&
         this.$refs.keypoints.valid
       );
+    }
+  },
+  watch: {
+    search() {
+      this.page = 1;
     }
   },
   methods: {
@@ -274,13 +318,14 @@ export default {
         })
         .finally(() => this.removeProcess(process));
     },
-    toggleGroup(key) {
-      this.collapsed = { ...this.collapsed, [key]: !this.collapsed[key] };
-    },
-    collapseAll() {
-      const next = {};
-      this.groups.forEach(g => (next[g.key] = true));
-      this.collapsed = next;
+    selectTab(key) {
+      this.tab = key;
+      this.page = 1;
+      try {
+        localStorage.setItem("categories.tab", key);
+      } catch {
+        // private mode etc.: the tab is just not remembered
+      }
     },
     openCreate(parents) {
       this.newCategoryParents = [...parents];
@@ -335,11 +380,12 @@ export default {
   max-width: 320px;
 }
 
-.group-title {
-  cursor: pointer;
-  border-bottom: 1px solid #dee2e6;
-  padding: 4px 2px;
-  user-select: none;
+.parent-tabs {
+  flex-wrap: wrap;
+}
+
+.parent-tabs .nav-link {
+  padding: 6px 12px;
 }
 
 .help-icon {

@@ -1084,14 +1084,13 @@
     "selectedInOrder": "已選（依序）",
     "alsoIn": "也在：{names}",
     "searchCategories": "搜尋類別或上層類別…",
-    "expandAll": "全部展開",
-    "collapseAll": "全部收合",
     "addHere": "在「{name}」下新增類別",
-    "addHereShort": "新增",
     "noMatch": "沒有符合的上層類別",
     "findOrNew": "搜尋，或輸入新的上層類別",
     "firstOne": "還沒有上層類別，輸入名稱新增",
     "addNew": "新增「{name}」",
-    "picked": "已選：{names}"
+    "picked": "已選：{names}",
+    "all": "全部",
+    "showing": "第 {from}–{to} 個，共 {n} 個"
   }
 }
