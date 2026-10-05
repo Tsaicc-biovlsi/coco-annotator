@@ -42,6 +42,12 @@ def stem(file_name):
     return os.path.splitext(os.path.basename(str(file_name).replace("\\", "/")))[0]
 
 
+def safe_prefix(name):
+    """Dataset name -> file name prefix: 'My ships/2024' -> 'My_ships_2024_'."""
+    cleaned = re.sub(r'[\\/:*?"<>|\s]+', "_", str(name or "")).strip("_.")
+    return f"{cleaned}_" if cleaned else ""
+
+
 def _fmt(values):
     return " ".join(f"{min(max(v, 0.0), 1.0):.6f}" for v in values)
 
@@ -338,12 +344,14 @@ def detect_task(label_texts, kpt_shape=None):
     return "segment"
 
 
-def yolo_to_coco(label_texts, images, names=None, task=None, kpt_shape=None):
+def yolo_to_coco(label_texts, images, names=None, task=None, kpt_shape=None, prefixes=()):
     """YOLO labels -> COCO dict.
 
     ``label_texts``: {stem or file name: text of the .txt}
     ``images``: [{"id", "file_name", "width", "height"}] matched by stem.
     ``task`` None or "auto" guesses from the lines.
+    ``prefixes``: file name prefixes to ignore when a label has no exact
+    match (e.g. "ships_" from an export that prefixed the dataset name).
 
     Returns ``(coco, stats)``; stats has ``task``, ``matched``,
     ``unmatched`` (label files without an image), ``ambiguous``,
@@ -367,6 +375,11 @@ def yolo_to_coco(label_texts, images, names=None, task=None, kpt_shape=None):
 
     for key, text in sorted(texts.items()):
         candidates = by_stem.get(key, [])
+        for prefix in prefixes:
+            if candidates:
+                break
+            if prefix and key.startswith(prefix):
+                candidates = by_stem.get(key[len(prefix):], [])
         if not candidates:
             stats["unmatched"].append(key)
             continue

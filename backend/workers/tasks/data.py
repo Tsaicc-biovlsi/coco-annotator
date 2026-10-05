@@ -23,7 +23,8 @@ from mongoengine import Q
 
 @shared_task
 def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
-                       fmt="coco", yolo_task="detect", with_images=False, split=None, seed=42):
+                       fmt="coco", yolo_task="detect", with_images=False, split=None, seed=42,
+                       prefix_dataset=False):
 
     task = TaskModel.objects.get(id=task_id)
     dataset = DatasetModel.objects.get(id=dataset_id)
@@ -137,7 +138,11 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
     if fmt == "yolo":
         file_path = f"{directory}yolo-{yolo_task}-{timestamp}.zip"
         task.info(f"Writing YOLO {yolo_task} labels to {file_path}")
-        result = _write_yolo_zip(coco, yolo_task, with_images, file_path, task, subsets, split)
+        from geometry.yolo_format import safe_prefix
+        prefix = safe_prefix(dataset.name) if prefix_dataset else ""
+        if prefix:
+            task.info(f"File names start with the dataset name: {prefix}<image name>")
+        result = _write_yolo_zip(coco, yolo_task, with_images, file_path, task, subsets, split, prefix)
         tags = ["YOLO", yolo_task, *category_names]
         task.info(f"Wrote {result['written']} labels ({result['skipped']} annotations "
                   f"could not be converted to {yolo_task})")
@@ -155,6 +160,8 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
 
     task.info("Creating export object")
     export = ExportModel(dataset_id=dataset.id, path=file_path, tags=tags)
+    if fmt == "yolo" and prefix_dataset:
+        export.prefix_dataset = True
     if subsets:
         export.split = split
         export.split_counts = split_counts
@@ -180,7 +187,7 @@ def _write_coco_split_zip(coco, subsets, file_path):
     os.replace(tmp_path, file_path)
 
 
-def _write_yolo_zip(coco, yolo_task, with_images, file_path, task, subsets=None, split=None):
+def _write_yolo_zip(coco, yolo_task, with_images, file_path, task, subsets=None, split=None, prefix=""):
     """COCO dict -> zip with labels/*.txt, data.yaml, classes.txt (+ images/).
     With ``subsets`` ({image_id: train/val/test}) files go to labels/train/ etc."""
     import zipfile
@@ -191,7 +198,7 @@ def _write_yolo_zip(coco, yolo_task, with_images, file_path, task, subsets=None,
     used = set()
     with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for image in coco["images"]:
-            name = stem(image["file_name"])
+            name = prefix + stem(image["file_name"])
             if name in used:  # same name in two folders
                 name = f"{name}_{image['id']}"
             used.add(name)

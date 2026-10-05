@@ -93,6 +93,7 @@
                         {{ exp.format }}
                       </span>
                       <div v-if="exp.yolo_task" class="small text-muted">{{ $t('yolo.' + exp.yolo_task) }}</div>
+                      <div v-if="exp.prefix_dataset" class="small text-muted">{{ $t('exportList.prefixed') }}</div>
                       <div
                         v-for="part in splitParts(exp)"
                         :key="part"
@@ -489,6 +490,13 @@
                     <input id="exportWithImages" v-model="exporting.with_images" type="checkbox" class="form-check-input m-0" />
                     <label class="form-check-label mb-0" for="exportWithImages">{{ $t('yolo.withImages') }}</label>
                   </div>
+                  <div class="form-check d-flex align-items-center gap-2 ps-0 mt-2">
+                    <input id="exportPrefix" v-model="exporting.prefix_dataset" type="checkbox" class="form-check-input m-0" />
+                    <label class="form-check-label mb-0" for="exportPrefix">{{ $t('exportSteps.prefix') }}</label>
+                  </div>
+                  <div class="form-text mt-0 ms-4">
+                    {{ $t('exportSteps.prefixExample', { image: exportExampleName.image, label: exportExampleName.label }) }}
+                  </div>
                 </template>
               </div>
 
@@ -525,6 +533,9 @@
                       <template v-if="exporting.format === 'yolo'">
                         · {{ $t('yolo.' + exporting.yolo_task) }}
                         <template v-if="exporting.with_images"> · {{ $t('exportSteps.withImages') }}</template>
+                        <div v-if="exporting.prefix_dataset" class="text-muted">
+                          {{ $t('exportSteps.prefixSummary', { image: exportExampleName.image }) }}
+                        </div>
                       </template>
                     </dd>
                     <dt class="col-4">{{ $t('exportSteps.categories') }}</dt>
@@ -683,6 +694,7 @@ export default {
         order: [],
         counts: null,
         step: 1,
+        prefix_dataset: true,
         split_on: false,
         split: { train: 80, val: 20, test: 0 },
         seed: 42,
@@ -893,6 +905,7 @@ export default {
       if (this.exporting.format === "yolo") {
         options.yolo_task = this.exporting.yolo_task;
         options.with_images = this.exporting.with_images;
+        options.prefix_dataset = this.exporting.prefix_dataset;
       }
       if (this.exporting.split_on) {
         const r = this.exporting.split;
@@ -1025,6 +1038,17 @@ export default {
   computed: {
     exportSplitValid() {
       return splitValid(this.exporting.split);
+    },
+    /** e.g. ships_IMG_0001.jpg / .txt, as the server names them */
+    exportExampleName() {
+      const sample = (this.images[0] && this.images[0].file_name) || "IMG_0001.jpg";
+      const base = sample.split(/[\\/]/).pop();
+      const dot = base.lastIndexOf(".");
+      const stem = dot > 0 ? base.slice(0, dot) : base;
+      const ext = dot > 0 ? base.slice(dot) : ".jpg";
+      const cleaned = String(this.dataset.name || "").replace(/[\\/:*?"<>|\s]+/g, "_").replace(/^[_.]+|[_.]+$/g, "");
+      const name = (this.exporting.prefix_dataset && cleaned ? `${cleaned}_` : "") + stem;
+      return { image: name + ext, label: name + ".txt" };
     },
     exportReady() {
       return this.exporting.categories.length > 0 && (!this.exporting.split_on || this.exportSplitValid);

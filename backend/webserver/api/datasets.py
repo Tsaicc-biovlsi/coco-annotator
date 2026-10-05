@@ -49,6 +49,8 @@ export.add_argument('yolo_task', default='detect', choices=('detect', 'segment',
 export.add_argument('with_images', type=inputs.boolean, default=False, help='YOLO: put the images in the zip too')
 export.add_argument('split', default='', help='train,val,test percentages, e.g. 80,10,10 (empty: no split)')
 export.add_argument('seed', type=int, default=42, help='Random seed for the split')
+export.add_argument('prefix_dataset', type=inputs.boolean, default=False,
+                    help='YOLO: name files <dataset>_<image name>')
 
 yolo_upload = reqparse.RequestParser()
 yolo_upload.add_argument('yolo', location='files', type=FileStorage, required=True,
@@ -536,6 +538,7 @@ class DatasetExports(Resource):
                 'split': getattr(export, 'split', None),
                 'split_counts': getattr(export, 'split_counts', None),
                 'seed': getattr(export, 'seed', None),
+                'prefix_dataset': bool(getattr(export, 'prefix_dataset', False)),
                 'exists': exists,
             })
 
@@ -577,7 +580,8 @@ class DatasetExport(Resource):
                                    split=split, seed=args.get('seed') if args.get('seed') is not None else 42,
                                    fmt=args.get('format') or 'coco',
                                    yolo_task=args.get('yolo_task') or 'detect',
-                                   with_images=bool(args.get('with_images')))
+                                   with_images=bool(args.get('with_images')),
+                                   prefix_dataset=bool(args.get('prefix_dataset')))
     
     @api.expect(coco_upload)
     @login_required
@@ -652,8 +656,10 @@ class DatasetYolo(Resource):
                   for i in ImageModel.objects(dataset_id=dataset.id, deleted=False)
                   .only('id', 'file_name', 'width', 'height')]
         try:
+            from geometry.yolo_format import safe_prefix
             coco, stats = yolo_to_coco(label_texts, images, names=names,
-                                       task=args.get('task'), kpt_shape=kpt_shape)
+                                       task=args.get('task'), kpt_shape=kpt_shape,
+                                       prefixes=[safe_prefix(dataset.name)])
         except ValueError as e:
             return {'message': str(e)}, 400
 

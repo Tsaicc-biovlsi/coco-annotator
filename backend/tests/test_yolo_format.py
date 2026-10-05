@@ -291,3 +291,36 @@ def test_api_export_with_split(yolo_world):
         assert all(a["image_id"] in ids for a in p["annotations"])
     d = c.get(f"/api/export/{export.id}/download")
     assert ".zip" in d.headers["Content-Disposition"]
+
+
+def test_dataset_name_prefix(yolo_world):
+    from geometry.yolo_format import safe_prefix
+    from database import ExportModel
+    assert safe_prefix("ships") == "ships_"
+    assert safe_prefix("My ships/2024") == "My_ships_2024_"
+    assert safe_prefix("") == ""
+    # a label named with a prefix still finds its image
+    coco, stats = yolo_to_coco({"ships_a": "0 .5 .5 .1 .1"}, IMAGES, prefixes=["ships_"])
+    assert stats["matched"] == 1
+
+    c, ds = yolo_world["client"], yolo_world["dataset"]["id"]
+    r = c.get(f"/api/dataset/{ds}/export?format=yolo&prefix_dataset=true&with_images=true&with_empty_images=true")
+    assert r.status_code == 200, r.data
+    export = ExportModel.objects(dataset_id=ds).order_by("-id").first()
+    with zipfile.ZipFile(export.path) as zf:
+        names = set(zf.namelist())
+        data = {n: zf.read(n) for n in names}
+    assert {"labels/yolo_conv_p1.txt", "images/yolo_conv_p1.jpg", "images/yolo_conv_p2.jpg"} <= names
+    row = next(x for x in c.get(f"/api/dataset/{ds}/exports").get_json() if x["id"] == export.id)
+    assert row["prefix_dataset"] is True
+
+    # importing that export back matches the original images
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for n, b in data.items():
+            if n.startswith("labels/") or n == "data.yaml":
+                zf.writestr(n, b)
+    buf.seek(0)
+    r = c.post(f"/api/dataset/{ds}/yolo", data={"yolo": (buf, "x.zip")}, content_type="multipart/form-data")
+    assert r.status_code == 200, r.data
+    assert r.get_json()["stats"]["matched"] == 2 and r.get_json()["stats"]["unmatched"] == 0

@@ -204,6 +204,7 @@ sudo docker compose up -d --build
     | obb | `class x1 y1 … x4 y4` | 旋轉框照原本的 4 個角；其他標註用最小外接旋轉矩形 |
     | pose | `class xc yc w h px py v …` | 只輸出有關鍵點的標註，`data.yaml` 含 `kpt_shape`、`flip_idx` |
 
+  - **檔名加上資料集名稱：** YOLO 匯出預設把圖片和標註檔命名為「資料集名稱_原檔名」（例如 `ships_IMG_0001.jpg`、`ships_IMG_0001.txt`），合併多個資料集訓練時不會撞名；匯入回本系統時一樣對得到原圖。可在第 1 步取消。
   - **切分訓練 / 驗證 / 測試集：** 匯出時勾選「切分成訓練 / 驗證 / 測試集」，設定比例（例如 70 / 20 / 10，有常用比例可點）和亂數種子。以圖片為單位隨機分配，同樣的種子每次切出來都一樣。YOLO 會變成 `images/train`、`labels/val`… 的結構，`data.yaml` 自動指到各組；COCO 會變成內含 `train.json`、`val.json`、`test.json` 的 zip。不切分時，YOLO 的 train 和 val 都指向全部圖片。
 - **匯出紀錄：** 列出每次匯出的序號、格式（含切分比例與張數）、類別、時間，可以下載或刪除（伺服器上的檔案會一起刪掉）。
 - **從首頁匯入：** 首頁的「匯入」可以把圖片和標註檔（COCO json 或 YOLO zip）一起匯入到既有或新的資料集。直接選一個 YOLO 資料集資料夾（含 `images/`、`labels/`、`data.yaml`）也可以，圖片和標註會一起匯入。
