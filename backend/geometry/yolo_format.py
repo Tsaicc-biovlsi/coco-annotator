@@ -308,13 +308,18 @@ def data_yaml(names, task="detect", kpt_shape=None, flip_idx=None, split=None, r
 
 # ------------------------------------------------- classify / semantic export
 
-def image_classes(coco):
-    """classify: each image's class from its annotations.
+def image_classes(coco, explicit=None):
+    """classify: each image's class.
+
+    ``explicit`` ({image id: category id}) is the whole-image class set in
+    the annotator; it wins. Other images get the class of their
+    annotations when they are all one category.
 
     Returns ``(single, mixed, empty)``: ``single`` maps image id -> class
-    index for images whose annotations are all one category; ``mixed`` and
-    ``empty`` list the images with several categories / no annotations.
+    index; ``mixed`` and ``empty`` list the images with several categories /
+    no class at all.
     """
+    explicit = explicit or {}
     index = {c["id"]: i for i, c in enumerate(coco.get("categories", []))}
     per_image = {}
     for a in coco.get("annotations", []):
@@ -322,6 +327,9 @@ def image_classes(coco):
             per_image.setdefault(a.get("image_id"), set()).add(index[a["category_id"]])
     single, mixed, empty = {}, [], []
     for image in coco.get("images", []):
+        if explicit.get(image["id"]) in index:
+            single[image["id"]] = index[explicit[image["id"]]]
+            continue
         classes = per_image.get(image["id"], set())
         if len(classes) == 1:
             single[image["id"]] = next(iter(classes))

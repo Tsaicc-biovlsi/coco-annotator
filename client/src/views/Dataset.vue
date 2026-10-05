@@ -58,7 +58,7 @@
           <div v-else>
             <Pagination :pages="pages" @pagechange="updatePage" />
             <div class="row">
-              <ImageCard v-for="image in images" :key="image.id" :image="image" />
+              <ImageCard v-for="image in images" :key="image.id" :image="image" :category-map="categoryMap" />
             </div>
             <Pagination :pages="pages" @pagechange="updatePage" />
           </div>
@@ -366,6 +366,7 @@
         <PanelDropdown :name="$t('dataset.order')" v-model:value="order" :values="orderTypes" />
         <PanelDropdown :name="$t('review.filterStatus')" v-model:value="reviewFilter.status" :values="statusOptions" />
         <PanelDropdown :name="$t('review.filterAssignee')" v-model:value="reviewFilter.assignee" :values="assigneeOptions" />
+        <PanelDropdown :name="$t('imageClass.filter')" v-model:value="reviewFilter.image_class" :values="imageClassOptions" />
       </div>
         <div
           class="sidebar-section"
@@ -809,7 +810,7 @@ export default {
         // query string filters (but not the import task id, see created)
         ...Object.fromEntries(Object.entries(this.$route.query).filter(([k]) => k !== "importTask"))
       },
-      reviewFilter: { status: "", assignee: "" },
+      reviewFilter: { status: "", assignee: "", image_class: "" },
       memberNames: [],
       panel: {
         showAnnotated: true,
@@ -832,6 +833,7 @@ export default {
         annotated: this.queryAnnotated,
         status: this.reviewFilter.status,
         assignee: this.reviewFilter.assignee,
+        image_class: this.reviewFilter.image_class,
         category_ids__in: encodeURI(this.selected.categories),
         order: this.order
       })
@@ -1151,6 +1153,14 @@ export default {
       ["unlabeled", "labeled", "approved", "rejected"].forEach(s => (options[s] = this.$t("review.status." + s)));
       return options;
     },
+    imageClassOptions() {
+      const options = { "": this.$t("review.all"), none: this.$t("imageClass.none") };
+      this.categories.forEach(c => (options[String(c.id)] = c.name));
+      return options;
+    },
+    categoryMap() {
+      return Object.fromEntries(this.categories.map(c => [c.id, { name: c.name, color: c.color }]));
+    },
     assigneeOptions() {
       const options = { "": this.$t("review.all"), me: this.$t("review.assignedToMe"), none: this.$t("review.unassigned") };
       this.memberNames.forEach(name => (options[name] = name));
@@ -1254,8 +1264,11 @@ export default {
       const chosen = new Set(this.exporting.categories);
       const images = counts.image_categories || [];
       if (this.exporting.format === "yolo" && this.exporting.yolo_task === "classify") {
-        // classify keeps only images whose annotations are all one category
-        return images.filter(cats => new Set(cats.filter(id => chosen.has(id))).size === 1).length;
+        // classify: images with a whole-image class, plus images whose
+        // annotations are all one (ticked) category
+        const classified = (counts.image_classes || []).filter(id => chosen.has(id)).length;
+        const unclassified = counts.unclassified_image_categories || images;
+        return classified + unclassified.filter(cats => new Set(cats.filter(id => chosen.has(id))).size === 1).length;
       }
       const matched = images.filter(cats => cats.some(id => chosen.has(id))).length;
       return this.exporting.with_empty_images ? counts.total_images - images.length + matched : matched;

@@ -399,3 +399,31 @@ def test_api_export_classify_and_semantic(yolo_world):
     assert classes[0] == "background"
     assert mask.shape == (H, W) and mask.dtype == np.uint8
     assert mask[20, 30] == classes.index("ship") and mask[90, 190] == 0
+
+
+def test_whole_image_class(yolo_world):
+    from database import CategoryModel, ExportModel, ImageModel
+    c, ds = yolo_world["client"], yolo_world["dataset"]["id"]
+    p1, p2 = yolo_world["images"]["p1.jpg"]["id"], yolo_world["images"]["p2.jpg"]["id"]
+    ship = CategoryModel.objects(name="ship").first().id
+    kayak = CategoryModel.objects(name="kayak").first().id
+
+    assert c.post(f"/api/image/{p1}/class", json={"category_id": 999999}).status_code == 400
+    # p1 has ship + kayak annotations (mixed): the whole-image class decides
+    assert c.post(f"/api/image/{p1}/class", json={"category_id": kayak}).get_json()["image_class"] == kayak
+    assert ImageModel.objects(id=p1).first().image_class == kayak
+    data = c.get(f"/api/dataset/{ds}/data?image_class={kayak}").get_json()["images"]
+    assert [i["id"] for i in data] == [p1] and data[0]["image_class"] == kayak
+
+    counts = c.get(f"/api/dataset/{ds}/category_counts").get_json()
+    assert counts["categories"][str(kayak)]["classified"] == 1 and counts["image_classes"] == [kayak]
+    assert all(len(x) for x in counts["unclassified_image_categories"])
+
+    c.get(f"/api/dataset/{ds}/export?format=yolo&yolo_task=classify&folder=wc")
+    with zipfile.ZipFile(ExportModel.objects(dataset_id=ds).order_by("-id").first().path) as zf:
+        names = zf.namelist()
+    assert "wc/kayak/yolo_conv_p1.jpg" in names and "wc/ship/yolo_conv_p2.jpg" in names
+
+    assert c.post(f"/api/image/{p1}/class", json={"category_id": None}).status_code == 200
+    assert ImageModel.objects(id=p1).first().image_class is None
+    assert c.get(f"/api/dataset/{ds}/data?image_class=none").get_json()["total"] == 2

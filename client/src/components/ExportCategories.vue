@@ -155,7 +155,7 @@ export default {
     usable(id) {
       const s = this.stat(id);
       if (this.yoloTask === "pose") return s.keypoints;
-      if (this.yoloTask === "classify") return s.images;
+      if (this.yoloTask === "classify") return (s.classified || 0) + (s.images || 0);
       // semantic masks need a shape (box, rotated box or polygon)
       if (this.yoloTask === "semantic") return (s.boxes || 0) + (s.rotated || 0) + (s.polygons || 0);
       return s.annotations;
@@ -167,8 +167,11 @@ export default {
           ? this.$t("exportCategories.keypointCount", { n: s.keypoints })
           : this.$t("exportCategories.noKeypoints");
       }
+      if (this.yoloTask === "classify") {
+        if (!s.classified && !s.images) return this.$t("exportCategories.noAnnotations");
+        return this.$t("exportCategories.classifyCount", { classified: s.classified || 0, images: s.images || 0 });
+      }
       if (!s.annotations) return this.$t("exportCategories.noAnnotations");
-      if (this.yoloTask === "classify") return this.$t("exportCategories.imageCount", { n: s.images });
       if (this.yoloTask === "semantic" && !this.usable(id)) return this.$t("exportCategories.noShapes");
       return this.$t("exportCategories.count", { n: s.annotations, images: s.images });
     },

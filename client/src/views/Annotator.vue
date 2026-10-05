@@ -125,6 +125,16 @@
         @navigate="id => $refs.filetitle.route(id)"
       />
 
+      <ImageClassPicker
+        v-if="image.id != null"
+        v-model:value="image.imageClass"
+        :image-id="image.id"
+        :categories="categories"
+        :can-edit="!!(permissions.dataset && permissions.dataset.edit)"
+        :next-image-id="image.next"
+        @navigate="id => $refs.filetitle.route(id)"
+      />
+
       <div v-if="categories.length > 5">
         <div style="padding: 0px 5px">
           <input
@@ -263,6 +273,7 @@ import shortcuts from "@/mixins/shortcuts";
 
 import FileTitle from "@/components/annotator/FileTitle.vue";
 import ReviewBar from "@/components/annotator/ReviewBar.vue";
+import ImageClassPicker from "@/components/annotator/ImageClassPicker.vue";
 import Category from "@/components/annotator/Category.vue";
 import Label from "@/components/annotator/Label.vue";
 import Annotations from "@/models/annotations";
@@ -309,6 +320,7 @@ export default {
   components: {
     FileTitle,
     ReviewBar,
+    ImageClassPicker,
     CopyAnnotationsButton,
     Category,
     CLabel: Label,
@@ -391,6 +403,7 @@ export default {
         next: null,
         filename: "",
         categoryIds: [],
+        imageClass: null,
         data: null
       },
       text: {
@@ -713,6 +726,7 @@ export default {
           this.image.next = data.image.next;
           this.image.previous = data.image.previous;
           this.image.categoryIds = data.image.category_ids || [];
+          this.image.imageClass = data.image.image_class ?? null;
 
           this.annotating = data.image.annotating || [];
 

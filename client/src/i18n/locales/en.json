@@ -521,7 +521,7 @@
       "segment": "Polygons; box-only annotations become 4-point polygons and multi-part ones are joined into one polygon.",
       "obb": "Rotated boxes keep their 4 corners; other boxes and polygons use the minimum-area rotated rectangle.",
       "pose": "Only annotations with keypoints (box + keypoints); data.yaml gets kpt_shape and flip_idx.",
-      "classify": "One class per image, taken from its annotations: only images with a single category are exported, into a folder per class.",
+      "classify": "One class per image: the image class set in the annotator, or else the single category of its annotations. Images go into a folder per class.",
       "semantic": "One class per pixel: boxes and polygons become PNG masks; 0 is background and your categories start at 1."
     },
     "withImages": "Include the images in the zip (larger, ready to train after unzipping)",
@@ -557,7 +557,8 @@
     "empty": "This dataset has no categories yet",
     "imageCount": "{n} images",
     "noShapes": "no boxes or polygons, not in the masks",
-    "classifyHint": "Only images with a single (ticked) category are exported; images with several are skipped. Ultralytics numbers classification classes by folder name, alphabetically, not by this order."
+    "classifyHint": "An image's class is its image class when set; otherwise images whose annotations are all one (ticked) category are used and images with several are skipped. Ultralytics numbers classification classes by folder name, alphabetically, not by this order.",
+    "classifyCount": "{classified} images with this image class · {images} with annotations"
   },
   "exportList": {
     "id": "ID",
@@ -688,5 +689,14 @@
     "all": "All",
     "assignedToMe": "Assigned to me",
     "onlyApproved": "Only images that were approved"
+  },
+  "imageClass": {
+    "title": "Image class",
+    "clear": "Click again to clear",
+    "set": "This image is \"{name}\"",
+    "noCategories": "This dataset has no categories yet",
+    "autoNext": "Go to the next image after choosing",
+    "filter": "Image class",
+    "none": "Not set"
   }
 }

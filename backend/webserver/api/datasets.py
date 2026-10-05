@@ -148,8 +148,10 @@ class DatasetCategoryCounts(Resource):
         if dataset is None:
             return {"message": "Invalid dataset id"}, 400
 
-        image_ids = [i['_id'] for i in ImageModel.objects(dataset_id=dataset.id, deleted=False)
-                     .only('id').as_pymongo()]
+        image_rows = list(ImageModel.objects(dataset_id=dataset.id, deleted=False)
+                          .only('id', 'image_class').as_pymongo())
+        image_ids = [i['_id'] for i in image_rows]
+        explicit = {i['_id']: i['image_class'] for i in image_rows if i.get('image_class') is not None}
         counts = {}
         images = {}
         rows = AnnotationModel.objects(image_id__in=image_ids, deleted=False) \
@@ -171,15 +173,24 @@ class DatasetCategoryCounts(Resource):
             if has_keypoints:
                 c['keypoints'] += 1
             images.setdefault(a['category_id'], set()).add(a['image_id'])
+        empty = {'annotations': 0, 'images': 0, 'boxes': 0, 'rotated': 0, 'polygons': 0, 'keypoints': 0}
         per_image = {}
         for category_id, ids in images.items():
             counts[category_id]['images'] = len(ids)
             for image_id in ids:
                 per_image.setdefault(image_id, []).append(category_id)
+        # whole-image classes (image classification)
+        for category_id in explicit.values():
+            c = counts.setdefault(category_id, dict(empty))
+            c['classified'] = c.get('classified', 0) + 1
         return {
             'categories': {str(k): v for k, v in counts.items()},
             # categories of each annotated image (to estimate split sizes)
             'image_categories': list(per_image.values()),
+            # classify estimate: whole-image class of each classified image, and
+            # the annotation categories of the images without one
+            'image_classes': list(explicit.values()),
+            'unclassified_image_categories': [cats for i, cats in per_image.items() if i not in explicit],
             'total_images': len(image_ids),
         }
 
@@ -415,6 +426,7 @@ class DatasetDataId(Resource):
         # review workflow filters: assignee=me / none / <username>, status=<status>
         assignee = query.pop('assignee', None)
         status = query.pop('status', None)
+        image_class = query.pop('image_class', None)
 
         # Change category_ids__in to list
         if 'category_ids__in' in query.keys():
@@ -468,6 +480,10 @@ class DatasetDataId(Resource):
             query_build &= (Q(assignee=None) | Q(assignee=''))
         elif assignee:
             query_build &= Q(assignee=str(assignee))
+        if image_class == 'none':
+            query_build &= Q(image_class=None)
+        elif image_class not in (None, ''):
+            query_build &= Q(image_class=int(image_class))
         if status == 'unlabeled':
             query_build &= (Q(status=None) | Q(status='unlabeled'))
         elif status in ImageModel.STATUSES:
@@ -477,7 +493,7 @@ class DatasetDataId(Resource):
         images = current_user.images \
             .filter(query_build) \
             .order_by(order).only('id', 'file_name', 'annotating', 'annotated', 'num_annotations',
-                                  'status', 'assignee', 'review_note')
+                                  'status', 'assignee', 'review_note', 'image_class')
         
         total = images.count()
         pages = int(total/per_page) + 1

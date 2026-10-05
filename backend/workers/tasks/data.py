@@ -78,6 +78,13 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
         progress += 1
         task.set_progress((progress / total_items) * 100, socket=socket)
 
+    # classify: images with a whole-image class are exported even without annotations
+    explicit = {}
+    if fmt == "yolo" and yolo_task == "classify":
+        explicit = {row['_id']: row['image_class'] for row in ImageModel.objects(
+            dataset_id=dataset.id, deleted=False, image_class__ne=None, image_class__in=categories)
+            .only('id', 'image_class').as_pymongo()}
+
     total_annotations = db_annotations.count()
     total_images = db_images.count()
     for image in db_images:
@@ -91,7 +98,7 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
         annotations = fix_ids(annotations)
 
         if len(annotations) == 0:
-            if with_empty_images:
+            if with_empty_images or image.get('id') in explicit:
                 coco.get('images').append(image)
             continue
 
@@ -132,9 +139,10 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
 
     classes = None
     if fmt == "yolo" and yolo_task == "classify":
-        # one class per image, taken from its annotations
+        # one class per image: the whole-image class, else its annotations
         from geometry.yolo_format import image_classes
-        classes, mixed, empty = image_classes(coco)
+        classes, mixed, empty = image_classes(coco, explicit)
+        task.info(f"{sum(1 for i in classes if i in explicit)} images use their whole-image class")
         if mixed:
             task.warning(f"{len(mixed)} images have annotations of several categories and are skipped "
                          "(classification needs one class per image): "

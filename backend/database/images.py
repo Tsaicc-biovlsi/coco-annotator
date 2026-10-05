@@ -83,6 +83,9 @@ class ImageModel(DynamicDocument):
     metadata = DictField()
     license = IntField()
 
+    # Whole-image class (image classification), a category id
+    image_class = IntField()
+
     # -- Review workflow
     status = StringField(default="unlabeled")
     assignee = StringField()

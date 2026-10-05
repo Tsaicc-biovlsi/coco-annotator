@@ -75,6 +75,17 @@
           <span class="badge" :class="statusClass(image.status || 'unlabeled')" :title="image.review_note || ''">
             {{ $t('review.status.' + (image.status || 'unlabeled')) }}
           </span>
+          <span
+            v-if="image.image_class != null && categoryMap[image.image_class]"
+            class="badge"
+            :style="{
+              backgroundColor: categoryMap[image.image_class].color || 'var(--bs-primary)',
+              color: textColorFor(categoryMap[image.image_class].color)
+            }"
+            :title="$t('imageClass.title')"
+          >
+            {{ categoryMap[image.image_class].name }}
+          </span>
           <span v-if="image.assignee" class="text-muted text-truncate" :title="$t('review.assignee')">
             <i class="fa fa-user-o" /> {{ image.assignee }}
           </span>
@@ -100,6 +111,7 @@ import loaderImg from "@/assets/loader.gif";
 import notFoundImageImg from "@/assets/404-image.png";
 import axios from "axios";
 import { statusClass } from "@/components/annotator/ReviewBar.vue";
+import { textColorFor } from "@/libs/colors";
 
 export default {
   name: "ImageCard",
@@ -107,6 +119,11 @@ export default {
     image: {
       type: Object,
       required: true
+    },
+    /** { [category id]: { name, color } } for the whole-image class badge */
+    categoryMap: {
+      type: Object,
+      default: () => ({})
     }
   },
   data() {
@@ -119,6 +136,7 @@ export default {
   },
   methods: {
     statusClass,
+    textColorFor,
     downloadURI(uri, exportName) {
       let link = document.createElement("a");
       link.href = uri;

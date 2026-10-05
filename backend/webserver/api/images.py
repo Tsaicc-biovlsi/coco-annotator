@@ -39,6 +39,10 @@ image_download.add_argument('width', type=int)
 image_download.add_argument('height', type=int)
 image_download.add_argument('original', type=bool, default=False)
 
+image_class_args = reqparse.RequestParser()
+image_class_args.add_argument('category_id', location='json', type=int, default=None,
+                              help='Whole-image class (a category of the dataset), null to clear')
+
 copy_annotations = reqparse.RequestParser()
 copy_annotations.add_argument('category_ids', location='json', type=list,
                               required=False, default=None, help='Categories to copy')
@@ -179,6 +183,31 @@ class ImageId(Resource):
 
         image.update(set__deleted=True, set__deleted_date=datetime.datetime.now())
         return {"success": True}
+
+
+@api.route('/<int:image_id>/class')
+class ImageClass(Resource):
+
+    @api.expect(image_class_args)
+    @login_required
+    def post(self, image_id):
+        """ Sets (or clears) the whole-image class used for image classification """
+        args = image_class_args.parse_args()
+        image = current_user.images.filter(id=image_id, deleted=False).first()
+        if image is None:
+            return {'message': 'Invalid image id'}, 400
+        dataset = current_user.datasets.filter(id=image.dataset_id).first()
+        if dataset is None or not current_user.can_edit(dataset):
+            return {'message': 'You do not have permission to edit this dataset'}, 403
+
+        category_id = args.get('category_id')
+        if category_id is None:
+            image.update(unset__image_class=True, set__annotated=(image.num_annotations or 0) > 0)
+        else:
+            if category_id not in (dataset.categories or []):
+                return {'message': 'That category is not part of this dataset'}, 400
+            image.update(set__image_class=category_id, set__annotated=True)
+        return {'success': True, 'image_class': category_id}
 
 
 @api.route('/copy/<int:from_id>/<int:to_id>/annotations')
