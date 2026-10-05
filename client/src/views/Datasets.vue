@@ -68,7 +68,7 @@
 
     <div class="modal fade" tabindex="-1" role="dialog" id="createDataset">
       <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
+        <div class="modal-content text-start">
           <div class="modal-header">
             <h5 class="modal-title">{{ $t('datasets.creatingADataset') }}</h5>
             <button
@@ -103,14 +103,8 @@
               </div>
 
               <div class="mb-3">
-                <label>{{ $t('datasets.defaultCategories') }}</label>
-                <TagsInput
-                  v-model:value="create.categories"
-                  element-id="createCategory"
-                  :existing-tags="categoryTags"
-                  :typeahead="true"
-                  :typeahead-activation-threshold="0"
-                ></TagsInput>
+                <label class="form-label">{{ $t('datasets.defaultCategories') }}</label>
+                <CategoryPicker ref="categoryPicker" v-model="create.categories" :categories="categories" />
               </div>
 
               <div class="mb-3" required>
@@ -188,15 +182,15 @@ import Datasets from "@/models/datasets";
 import AdminPanel from "@/models/admin";
 import DatasetCard from "@/components/cards/DatasetCard.vue";
 import Pagination from "@/components/Pagination.vue";
-import TagsInput from "@/components/TagsInput.vue";
 import ImportDatasetModal from "@/components/ImportDatasetModal.vue";
 import TaskPicker from "@/components/TaskPicker.vue";
+import CategoryPicker from "@/components/CategoryPicker.vue";
 
 import { mapMutations } from "vuex";
 
 export default {
   name: "Datasets",
-  components: { DatasetCard, Pagination, TagsInput, ImportDatasetModal, TaskPicker },
+  components: { DatasetCard, Pagination, ImportDatasetModal, TaskPicker, CategoryPicker },
   mixins: [toastrs],
   data() {
     return {
@@ -245,16 +239,13 @@ export default {
     },
     createDataset() {
       if (this.create.name.length < 1) return;
-      let categories = [];
-
-      for (let key in this.create.categories) {
-        categories.push(this.create.categories[key]);
-      }
+      const categories = [...this.create.categories];
       Datasets.create(this.create.name, categories, this.create.task)
         .then(() => {
           this.create.name = "";
           this.create.categories = [];
           this.create.task = "";
+          if (this.$refs.categoryPicker) this.$refs.categoryPicker.reset();
           this.updatePage();
         })
         .catch(error => {
@@ -274,13 +265,6 @@ export default {
     directory() {
       let closing = this.create.name.length > 0 ? "/" : "";
       return "/datasets/" + this.create.name + closing;
-    },
-    categoryTags() {
-      let tags = {};
-      this.categories.forEach(category => {
-        tags[category.name] = category.name;
-      });
-      return tags;
     },
     validDatasetName() {
       if (this.create.name.length === 0) return this.$t("datasets.nameRequired");

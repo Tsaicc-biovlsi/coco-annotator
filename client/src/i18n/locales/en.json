@@ -815,5 +815,15 @@
       "name": "Semantic segmentation",
       "desc": "Polygons covering every region"
     }
+  },
+  "categoryPicker": {
+    "addPlaceholder": "New category, press Enter (comma-separated, or paste a whole list)",
+    "add": "Add",
+    "selected": "{n} of {total} selected",
+    "order": "Order (default class index in exports)",
+    "new": "new",
+    "remove": "Remove",
+    "empty": "No categories yet: type a new one above",
+    "hint": "Tick the categories to use; the blue numbers are their order, also the default YOLO class index in exports. Use the arrows to change it."
   }
 }
