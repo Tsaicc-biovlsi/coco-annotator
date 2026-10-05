@@ -20,6 +20,39 @@ def _get_bool(key, default_value):
         return False
     return default_value
 
+_DEFAULT_SECRET_KEYS = {"", "ChangeThisSecretKey", "<--- CHANGE THIS KEY --->"}
+
+
+def _secret_key():
+    """SECRET_KEY from the environment, or a random one kept on disk.
+
+    The key signs login sessions: a well-known default would let anyone
+    forge them. When none is set, one is generated once and stored next to
+    the datasets (a persistent volume), so restarts keep people logged in.
+    """
+    key = os.getenv("SECRET_KEY", "").strip()
+    if key not in _DEFAULT_SECRET_KEYS:
+        return key
+    path = os.path.join(os.getenv("DATASET_DIRECTORY", "/datasets/"), ".secret_key")
+    try:
+        with open(path) as f:
+            key = f.read().strip()
+        if key:
+            return key
+    except OSError:
+        pass
+    import secrets
+    key = secrets.token_hex(32)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            f.write(key)
+        os.chmod(path, 0o600)
+    except OSError:
+        pass  # not persisted: sessions end when the server restarts
+    return key
+
+
 class Config:
 
     NAME = os.getenv("NAME", "COCO Annotator")
@@ -50,7 +83,7 @@ class Config:
 
     MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", 1 * 1024 * 1024 * 1024))  # 1GB
     MONGODB_HOST = os.getenv("MONGODB_HOST", "mongodb://database/flask")
-    SECRET_KEY = os.getenv("SECRET_KEY", "<--- CHANGE THIS KEY --->")
+    SECRET_KEY = _secret_key()
 
     LOG_LEVEL = os.getenv("LOG_LEVEL", "info")
     # gunicorn threads; each open page holds one for its websocket
