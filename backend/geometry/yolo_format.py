@@ -42,6 +42,12 @@ def stem(file_name):
     return os.path.splitext(os.path.basename(str(file_name).replace("\\", "/")))[0]
 
 
+def safe_folder(name, default="dataset"):
+    """User folder name -> safe zip folder: 'My ships/v1' -> 'My_ships_v1'."""
+    cleaned = re.sub(r'[\\/:*?"<>|\s]+', "_", str(name or "")).strip("_.")
+    return cleaned[:100] or default
+
+
 def safe_prefix(name):
     """Dataset name -> file name prefix: 'My ships/2024' -> 'My_ships_2024_'."""
     cleaned = re.sub(r'[\\/:*?"<>|\s]+', "_", str(name or "")).strip("_.")
@@ -255,29 +261,31 @@ def split_images(image_ids, ratios, seed=42):
     return assignment
 
 
-def data_yaml(names, task="detect", kpt_shape=None, flip_idx=None, split=None):
+def data_yaml(names, task="detect", kpt_shape=None, flip_idx=None, split=None, root=""):
     """Ultralytics dataset YAML for the train/images, train/labels layout.
 
     Without ``split`` every image is in train/ and val also points there.
     With a split ({"train": 80, "val": 10, "test": 10}) val and test point
     at val/images and test/images. No ``path:`` key, so Ultralytics
-    resolves the folders next to this file.
+    resolves the folders next to this file. ``root`` is the folder the
+    subsets are in (``<root>/train/images``).
     """
+    base = f"{root}/" if root else ""
     lines = [f"# YOLO {task} dataset exported from COCO Annotator"]
     if split:
         lines += [
             "# split " + " / ".join(f"{k} {split.get(k, 0)}%" for k in SUBSETS),
-            "train: train/images",
-            "val: val/images" if split.get("val") else "val: train/images  # no validation split",
+            f"train: {base}train/images",
+            f"val: {base}val/images" if split.get("val") else f"val: {base}train/images  # no validation split",
         ]
         if split.get("test"):
-            lines.append("test: test/images")
+            lines.append(f"test: {base}test/images")
         lines.append("")
     else:
         lines += [
             "# not split: val also uses all images, split them before training for real",
-            "train: train/images",
-            "val: train/images",
+            f"train: {base}train/images",
+            f"val: {base}train/images",
             "",
         ]
     if kpt_shape:

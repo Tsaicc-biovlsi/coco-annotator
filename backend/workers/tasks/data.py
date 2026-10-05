@@ -23,7 +23,8 @@ from mongoengine import Q
 
 @shared_task
 def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
-                       fmt="coco", yolo_task="detect", with_images=False, split=None, seed=42):
+                       fmt="coco", yolo_task="detect", with_images=False, split=None, seed=42,
+                       folder=None):
 
     task = TaskModel.objects.get(id=task_id)
     dataset = DatasetModel.objects.get(id=dataset_id)
@@ -137,12 +138,14 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
     if fmt == "yolo":
         file_path = f"{directory}yolo-{yolo_task}-{timestamp}.zip"
         task.info(f"Writing YOLO {yolo_task} labels to {file_path}")
-        from geometry.yolo_format import safe_prefix
+        from geometry.yolo_format import safe_folder, safe_prefix
         # YOLO files are always named <dataset>_<image> (unique across datasets)
         prefix = safe_prefix(dataset.name)
+        folder = safe_folder(folder, safe_folder(dataset.name))
+        task.info(f"Folder in the zip: {folder}/ (train, val, test)")
         if prefix:
             task.info(f"File names start with the dataset name: {prefix}<image name>")
-        result = _write_yolo_zip(coco, yolo_task, with_images, file_path, task, subsets, split, prefix)
+        result = _write_yolo_zip(coco, yolo_task, with_images, file_path, task, subsets, split, prefix, folder)
         tags = ["YOLO", yolo_task, *category_names]
         task.info(f"Wrote {result['written']} labels ({result['skipped']} annotations "
                   f"could not be converted to {yolo_task})")
@@ -162,6 +165,7 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
     export = ExportModel(dataset_id=dataset.id, path=file_path, tags=tags)
     if fmt == "yolo":
         export.prefix_dataset = True
+        export.folder = folder
     if subsets:
         export.split = split
         export.split_counts = split_counts
@@ -187,14 +191,20 @@ def _write_coco_split_zip(coco, subsets, file_path):
     os.replace(tmp_path, file_path)
 
 
-def _write_yolo_zip(coco, yolo_task, with_images, file_path, task, subsets=None, split=None, prefix=""):
-    """COCO dict -> zip with <subset>/labels/*.txt (+ <subset>/images/),
-    data.yaml and classes.txt. ``subsets`` ({image_id: train/val/test})
+def _write_yolo_zip(coco, yolo_task, with_images, file_path, task, subsets=None, split=None, prefix="",
+                    root="dataset"):
+    """COCO dict -> zip with data.yaml, classes.txt and <root>/<subset>/labels/*.txt
+    (+ <root>/<subset>/images/). ``subsets`` ({image_id: train/val/test})
     picks the folder; without it everything goes to train/."""
     import zipfile
     from geometry.yolo_format import coco_to_yolo, data_yaml, stem
 
     result = coco_to_yolo(coco, yolo_task)
+    used_split = None
+    if subsets:
+        # a subset that got no images (tiny datasets) is left out of data.yaml
+        present = set(subsets.values())
+        used_split = {k: (v if k in present else 0) for k, v in split.items()}
     tmp_path = file_path + ".tmp"
     used = set()
     with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -204,7 +214,7 @@ def _write_yolo_zip(coco, yolo_task, with_images, file_path, task, subsets=None,
                 name = f"{name}_{image['id']}"
             used.add(name)
             lines = result["labels"].get(image["id"], [])
-            folder = subsets[image['id']] if subsets else "train"
+            folder = f"{root}/" + (subsets[image['id']] if subsets else "train")
             zf.writestr(f"{folder}/labels/{name}.txt", "\n".join(lines) + ("\n" if lines else ""))
             if with_images:
                 path = image.get("path")
@@ -215,7 +225,7 @@ def _write_yolo_zip(coco, yolo_task, with_images, file_path, task, subsets=None,
                 else:
                     task.warning(f"Image file missing: {image.get('file_name')}")
         zf.writestr("data.yaml", data_yaml(result["names"], yolo_task, result["kpt_shape"], result["flip_idx"],
-                                           split=split if subsets else None))
+                                           split=used_split, root=root))
         zf.writestr("classes.txt", "\n".join(result["names"]) + "\n")
     os.replace(tmp_path, file_path)
     return result

@@ -195,7 +195,7 @@ sudo docker compose up -d --build
 
 - **匯出：** 資料集頁面的「匯出 COCO / YOLO」，選格式後匯出，完成後在「匯出紀錄」分頁下載。
   - **COCO：** 一個 json 檔。
-  - **YOLO：** 一個 zip，結構是 `train/labels/*.txt`（可勾選連圖片一起打包到 `train/images/`）、`data.yaml`、`classes.txt`，解壓後就能用 `yolo train data=data.yaml` 訓練。標註類型：
+  - **YOLO：** 一個 zip，最上層是 `data.yaml`、`classes.txt` 和一個由匯出者命名的資料夾（預設為資料集名稱），資料夾裡是 `train/labels/*.txt`（可勾選連圖片一起打包到 `train/images/`），解壓後就能用 `yolo train data=data.yaml` 訓練。標註類型：
 
     | 類型 | 輸出 | 說明 |
     |---|---|---|
@@ -205,7 +205,7 @@ sudo docker compose up -d --build
     | pose | `class xc yc w h px py v …` | 只輸出有關鍵點的標註，`data.yaml` 含 `kpt_shape`、`flip_idx` |
 
   - **檔名含資料集名稱：** YOLO 匯出的圖片和標註檔一律命名為「資料集名稱_原檔名」（例如 `ships_IMG_0001.jpg`、`ships_IMG_0001.txt`），合併多個資料集訓練時不會撞名；匯入回本系統時一樣對得到原圖。
-  - **切分訓練 / 驗證 / 測試集：** 匯出時勾選「切分成訓練 / 驗證 / 測試集」，設定比例（例如 70 / 20 / 10，有常用比例可點）和亂數種子。以圖片為單位隨機分配，同樣的種子每次切出來都一樣。YOLO 會變成 `train/images`、`train/labels`、`val/images`、`val/labels`、`test/…` 的結構，`data.yaml` 自動指到各組；COCO 會變成內含 `train.json`、`val.json`、`test.json` 的 zip。不切分時，YOLO 全部放在 `train/`，data.yaml 的 train 和 val 都指向它。
+  - **切分訓練 / 驗證 / 測試集：** 匯出時勾選「切分成訓練 / 驗證 / 測試集」，設定比例（例如 70 / 20 / 10，有常用比例可點）和亂數種子。以圖片為單位隨機分配，同樣的種子每次切出來都一樣。YOLO 的自訂資料夾裡會是 `train/images`、`train/labels`、`val/images`、`val/labels`、`test/…`，沒分到圖片的組不會寫進 data.yaml，`data.yaml` 自動指到各組；COCO 會變成內含 `train.json`、`val.json`、`test.json` 的 zip。不切分時，YOLO 全部放在 `資料夾/train/`，data.yaml 的 train 和 val 都指向它。
 - **匯出紀錄：** 列出每次匯出的序號、格式（含切分比例與張數）、類別、時間，可以下載或刪除（伺服器上的檔案會一起刪掉）。
 - **從首頁匯入：** 首頁的「匯入」可以把圖片和標註檔（COCO json 或 YOLO zip）一起匯入到既有或新的資料集。直接選一個 YOLO 資料集資料夾（例如 `train/images`、`train/labels`、`data.yaml`，或 `images/`、`labels/` 的結構都可以）也可以，圖片和標註會一起匯入。
 - **匯入 COCO：** 資料集頁面的「匯入 COCO / YOLO」上傳 COCO 格式的 json。圖片要先放好並掃描，會依檔名對應圖片（`file_name` 裡的資料夾會被忽略）。支援只有框的標註（例如 Roboflow、YOLO 轉出的 COCO）、多邊形、RLE 遮罩、關鍵點和旋轉框。匯入完成會跳出提示，有找不到的圖片等問題時，詳情在「任務」頁面。

@@ -49,6 +49,7 @@ export.add_argument('yolo_task', default='detect', choices=('detect', 'segment',
 export.add_argument('with_images', type=inputs.boolean, default=False, help='YOLO: put the images in the zip too')
 export.add_argument('split', default='', help='train,val,test percentages, e.g. 80,10,10 (empty: no split)')
 export.add_argument('seed', type=int, default=42, help='Random seed for the split')
+export.add_argument('folder', default='', help='YOLO: folder in the zip that holds train / val / test (default: dataset name)')
 
 yolo_upload = reqparse.RequestParser()
 yolo_upload.add_argument('yolo', location='files', type=FileStorage, required=True,
@@ -537,6 +538,7 @@ class DatasetExports(Resource):
                 'split_counts': getattr(export, 'split_counts', None),
                 'seed': getattr(export, 'seed', None),
                 'prefix_dataset': bool(getattr(export, 'prefix_dataset', False)),
+                'folder': getattr(export, 'folder', None),
                 'exists': exists,
             })
 
@@ -578,7 +580,8 @@ class DatasetExport(Resource):
                                    split=split, seed=args.get('seed') if args.get('seed') is not None else 42,
                                    fmt=args.get('format') or 'coco',
                                    yolo_task=args.get('yolo_task') or 'detect',
-                                   with_images=bool(args.get('with_images')))
+                                   with_images=bool(args.get('with_images')),
+                                   folder=args.get('folder') or None)
     
     @api.expect(coco_upload)
     @login_required

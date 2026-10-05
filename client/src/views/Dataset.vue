@@ -93,6 +93,9 @@
                         {{ exp.format }}
                       </span>
                       <div v-if="exp.yolo_task" class="small text-muted">{{ $t('yolo.' + exp.yolo_task) }}</div>
+                      <div v-if="exp.folder" class="small text-muted">
+                        <i class="fa fa-folder-o" /> {{ exp.folder }}/
+                      </div>
                       <div
                         v-for="part in splitParts(exp)"
                         :key="part"
@@ -493,6 +496,23 @@
                     <i class="fa fa-info-circle" />
                     {{ $t('exportSteps.prefixExample', { image: exportExampleName.image, label: exportExampleName.label }) }}
                   </div>
+
+                  <div class="mt-3">
+                    <label class="form-label fw-semibold mb-1" for="exportFolder">{{ $t('exportSteps.folder') }}</label>
+                    <input
+                      id="exportFolder"
+                      v-model="exporting.folder"
+                      class="form-control"
+                      :class="{ 'is-invalid': !exportFolderName }"
+                      maxlength="100"
+                      :placeholder="defaultExportFolder"
+                    />
+                    <div v-if="!exportFolderName" class="invalid-feedback">{{ $t('exportSteps.folderRequired') }}</div>
+                    <div v-else-if="exportFolderName !== exporting.folder.trim()" class="form-text">
+                      {{ $t('exportSteps.folderCleaned', { name: exportFolderName }) }}
+                    </div>
+                    <pre class="zip-tree small mb-0 mt-2">{{ exportTree }}</pre>
+                  </div>
                 </template>
               </div>
 
@@ -532,6 +552,7 @@
                         <div class="text-muted">
                           {{ $t('exportSteps.prefixSummary', { image: exportExampleName.image }) }}
                         </div>
+                        <div class="text-muted">{{ $t('exportSteps.folderSummary', { name: exportFolderName }) }}</div>
                       </template>
                     </dd>
                     <dt class="col-4">{{ $t('exportSteps.categories') }}</dt>
@@ -690,6 +711,7 @@ export default {
         order: [],
         counts: null,
         step: 1,
+        folder: "",
         split_on: false,
         split: { train: 80, val: 20, test: 0 },
         seed: 42,
@@ -866,11 +888,17 @@ export default {
       }
       this.prepareExportCategories();
       this.exporting.step = 1;
+      if (!this.exporting.folder.trim()) this.exporting.folder = this.defaultExportFolder;
       showModal("#exportDataset");
     },
     /** Steps can be visited in any order once the earlier ones are valid */
+    /** Same rules as the server (geometry/yolo_format.py safe_folder) */
+    cleanFolderName(name) {
+      return String(name || "").replace(/[\\/:*?"<>|\s]+/g, "_").replace(/^[_.]+|[_.]+$/g, "").slice(0, 100);
+    },
     canGoToStep(step) {
       if (step <= 1) return true;
+      if (this.exporting.format === "yolo" && !this.exportFolderName) return false;
       if (step >= 3 && !this.exporting.categories.length) return false;
       return true;
     },
@@ -900,6 +928,7 @@ export default {
       if (this.exporting.format === "yolo") {
         options.yolo_task = this.exporting.yolo_task;
         options.with_images = this.exporting.with_images;
+        options.folder = this.exportFolderName;
       }
       if (this.exporting.split_on) {
         const r = this.exporting.split;
@@ -1033,6 +1062,29 @@ export default {
     exportSplitValid() {
       return splitValid(this.exporting.split);
     },
+    defaultExportFolder() {
+      return this.cleanFolderName(this.dataset.name) || "dataset";
+    },
+    /** The folder name as the server will write it */
+    exportFolderName() {
+      return this.cleanFolderName(this.exporting.folder);
+    },
+    /** What the zip will contain */
+    exportTree() {
+      const root = this.exportFolderName || "…";
+      const split = this.exporting.split_on ? this.exporting.split : null;
+      const subsets = split ? ["train", "val", "test"].filter(k => Number(split[k]) > 0) : ["train"];
+      const lines = ["data.yaml", "classes.txt", `${root}/`];
+      subsets.forEach((name, i) => {
+        const last = i === subsets.length - 1;
+        const branch = last ? "└─ " : "├─ ";
+        const pipe = last ? "   " : "│  ";
+        lines.push(`${branch}${name}/`);
+        if (this.exporting.with_images) lines.push(`${pipe}├─ images/   ${this.exportExampleName.image}`);
+        lines.push(`${pipe}└─ labels/   ${this.exportExampleName.label}`);
+      });
+      return lines.join("\n");
+    },
     /** e.g. ships_IMG_0001.jpg / .txt, as the server names them */
     exportExampleName() {
       const sample = (this.images[0] && this.images[0].file_name) || "IMG_0001.jpg";
@@ -1045,6 +1097,7 @@ export default {
       return { image: name + ext, label: name + ".txt" };
     },
     exportReady() {
+      if (this.exporting.format === "yolo" && !this.exportFolderName) return false;
       return this.exporting.categories.length > 0 && (!this.exporting.split_on || this.exportSplitValid);
     },
     exportSelectedNames() {
@@ -1386,5 +1439,13 @@ export default {
   background: #f8f9fa;
   border-radius: 0.5rem;
   padding: 0.6rem 0.75rem;
+}
+.zip-tree {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  white-space: pre;
+  overflow-x: auto;
 }
 </style>

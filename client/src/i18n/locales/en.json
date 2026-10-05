@@ -509,7 +509,7 @@
   "yolo": {
     "format": "Format",
     "formatCoco": "COCO (.json)",
-    "formatYolo": "YOLO (.zip: train/images, train/labels + data.yaml)",
+    "formatYolo": "YOLO (.zip: data.yaml + folder/train/images, labels)",
     "task": "YOLO label type",
     "auto": "Detect automatically",
     "detect": "Boxes (detect)",
@@ -571,7 +571,7 @@
   },
   "exportSplit": {
     "title": "Split into train / val / test",
-    "offYolo": "Without a split everything goes to train/images and train/labels; train and val in data.yaml both point there.",
+    "offYolo": "Without a split everything goes to folder/train/images and train/labels; train and val in data.yaml both point there.",
     "offCoco": "Without a split you get one json; with a split, a zip with train.json, val.json and test.json.",
     "presets": "Presets:",
     "train": "Train",
@@ -583,7 +583,7 @@
     "seed": "Random seed",
     "newSeed": "New seed",
     "seedHint": "The same seed and images always give the same split; change the seed to reshuffle.",
-    "layoutYolo": "The zip uses train/images, train/labels, val/images, val/labels, …; data.yaml already points at them.",
+    "layoutYolo": "Inside your folder: train/images, train/labels, val/images, val/labels, …; data.yaml already points at them.",
     "layoutCoco": "The zip has train.json, val.json (and test.json), each with only its own images and annotations."
   },
   "exportSteps": {
@@ -592,7 +592,7 @@
     "split": "Split",
     "formatHint": {
       "coco": "One .json (a zip when split), for Detectron2, MMDetection, …",
-      "yolo": "Zip: train/images, train/labels + data.yaml, for Ultralytics YOLO training"
+      "yolo": "Zip: data.yaml, classes.txt + a folder you name (train/images, train/labels, …), for Ultralytics YOLO training"
     },
     "back": "Back",
     "next": "Next",
@@ -604,6 +604,10 @@
     "noSplit": "No split",
     "separator": ", ",
     "prefixExample": "Files are always named <dataset>_<original name>, e.g. {image}, {label}, so merged datasets never clash; importing back here still matches the original images.",
-    "prefixSummary": "file names like {image}"
+    "prefixSummary": "file names like {image}",
+    "folder": "Folder name",
+    "folderRequired": "Enter a folder name",
+    "folderCleaned": "Saved as \"{name}\" (spaces and / \\ : * ? \" < > {'|'} become underscores)",
+    "folderSummary": "folder {name}/ (with train, val, test)"
   }
 }
