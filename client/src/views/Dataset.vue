@@ -63,29 +63,81 @@
         </div>
         <div class="container" v-show="tab == 'exports'">
           <div class="card my-3 p-3 shadow-sm me-2">
-            <h6 class="border-bottom border-gray pb-2"><b>{{ $t('dataset.exports') }}</b></h6>
-            
-            <div class="d-flex align-items-start text-muted pt-3" v-for="exp in datasetExports" :key="exp.id">
-              <div class="flex-grow-1 lh-125 border-bottom border-gray">
-                  {{ exp.id }}. {{ $t('dataset.exportedAgo', { time: $ago(exp.ago) }) }}
-                  <div style="display: inline">
-                    <span
-                      v-for="tag in exp.tags"
-                      :key="tag"
-                      class="badge text-bg-secondary"
-                      style="margin: 1px"
-                    >
-                      {{tag}}
-                    </span>
-                  </div>
-                  <button 
-                    class="btn btn-sm btn-success"
-                    style="float: right; margin: 2px; padding: 2px"
-                    @click="downloadExport(exp.id)"
-                  >
-                    {{ $t('dataset.download') }}
-                  </button>
-              </div>
+            <div class="d-flex align-items-center border-bottom border-gray pb-2">
+              <h6 class="mb-0 me-auto"><b>{{ $t('dataset.exports') }}</b></h6>
+              <button type="button" class="btn btn-sm btn-outline-secondary" @click="getExports">
+                <i class="fa fa-refresh" /> {{ $t('exportList.refresh') }}
+              </button>
+            </div>
+
+            <div v-if="!datasetExports.length" class="text-muted small pt-3">
+              {{ $t('exportList.empty') }}
+            </div>
+            <div v-else class="table-responsive">
+              <table class="table table-sm table-hover align-middle mb-0 export-table">
+                <thead>
+                  <tr>
+                    <th class="text-nowrap">{{ $t('exportList.id') }}</th>
+                    <th>{{ $t('exportList.categories') }}</th>
+                    <th class="text-nowrap">{{ $t('exportList.time') }}</th>
+                    <th class="text-nowrap text-center">{{ $t('exportList.download') }}</th>
+                    <th class="text-nowrap text-center">{{ $t('exportList.delete') }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="exp in datasetExports" :key="exp.id">
+                    <td class="text-nowrap fw-semibold">#{{ exp.id }}</td>
+                    <td>
+                      <span
+                        class="badge me-1"
+                        :class="exp.format === 'YOLO' ? 'text-bg-primary' : 'text-bg-dark'"
+                      >
+                        {{ exp.format }}<template v-if="exp.yolo_task"> · {{ $t('yolo.' + exp.yolo_task) }}</template>
+                      </span>
+                      <span
+                        v-for="name in shownCategories(exp)"
+                        :key="name"
+                        class="badge text-bg-light border me-1"
+                      >{{ name }}</span>
+                      <a
+                        v-if="(exp.categories || []).length > EXPORT_TAGS_SHOWN"
+                        href="#"
+                        class="small"
+                        @click.prevent="toggleExportTags(exp.id)"
+                      >{{ expandedExports.includes(exp.id)
+                        ? $t('exportList.less')
+                        : $t('exportList.more', { n: exp.categories.length - EXPORT_TAGS_SHOWN }) }}</a>
+                    </td>
+                    <td class="text-nowrap">
+                      {{ exportTime(exp) }}
+                      <div class="small text-muted">{{ $t('dataset.exportedAgo', { time: $ago(exp.ago) }) }}</div>
+                    </td>
+                    <td class="text-center text-nowrap">
+                      <button
+                        class="btn btn-sm btn-success"
+                        :disabled="exp.exists === false || downloadingExport === exp.id"
+                        :title="exp.exists === false ? $t('exportList.missing') : ''"
+                        @click="downloadExport(exp)"
+                      >
+                        <i class="fa" :class="downloadingExport === exp.id ? 'fa-spinner fa-spin' : 'fa-download'" />
+                        {{ $t('exportList.download') }}
+                      </button>
+                      <div class="small text-muted">
+                        {{ exp.exists === false ? $t('exportList.missing') : fileSize(exp.size) }}
+                      </div>
+                    </td>
+                    <td class="text-center">
+                      <button
+                        class="btn btn-sm btn-outline-danger"
+                        :title="$t('exportList.delete')"
+                        @click="deleteExport(exp)"
+                      >
+                        <i class="fa fa-trash" />
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -547,6 +599,9 @@ export default {
         categories: []
       },
       datasetExports: [],
+      expandedExports: [],
+      downloadingExport: null,
+      EXPORT_TAGS_SHOWN: 6,
       tab: "images",
       order: "file_name",
       orderTypes: {
@@ -607,8 +662,51 @@ export default {
         this.users = response.data;
       });
     },
-    downloadExport(id) {
-      Export.download(id, this.dataset.name);
+    downloadExport(exp) {
+      this.downloadingExport = exp.id;
+      Export.download(exp.id, this.dataset.name)
+        .catch(error => {
+          const data = (error.response && error.response.data) || {};
+          this.$toastr.error(data.message || this.$t("exportList.downloadFailed"));
+        })
+        .finally(() => (this.downloadingExport = null));
+    },
+    deleteExport(exp) {
+      if (!confirm(this.$t("exportList.confirmDelete", { id: exp.id }))) return;
+      axios
+        .delete(`/api/export/${exp.id}`)
+        .then(() => {
+          this.datasetExports = this.datasetExports.filter(e => e.id !== exp.id);
+          this.$toastr.success(this.$t("exportList.deleted", { id: exp.id }));
+        })
+        .catch(error => {
+          const data = (error.response && error.response.data) || {};
+          this.$toastr.error(data.message || String(error));
+        });
+    },
+    shownCategories(exp) {
+      const names = exp.categories || [];
+      return this.expandedExports.includes(exp.id) ? names : names.slice(0, this.EXPORT_TAGS_SHOWN);
+    },
+    toggleExportTags(id) {
+      this.expandedExports = this.expandedExports.includes(id)
+        ? this.expandedExports.filter(x => x !== id)
+        : [...this.expandedExports, id];
+    },
+    /** Local date and time of an export (stored in UTC) */
+    exportTime(exp) {
+      const date = exp.created_at ? new Date(exp.created_at) : null;
+      if (!date || isNaN(date)) return "";
+      const pad = n => String(n).padStart(2, "0");
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+        `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    },
+    fileSize(bytes) {
+      if (bytes == null) return "";
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      if (bytes < 1024 ** 3) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+      return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
     },
     getExports() {
       Dataset.getExports(this.dataset.id).then(response => {

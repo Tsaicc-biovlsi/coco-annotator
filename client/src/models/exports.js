@@ -4,7 +4,7 @@ const baseURL = "/api/export";
 
 export default {
   download(id, dataset) {
-    axios({
+    return axios({
       url: `${baseURL}/${id}/download`,
       method: "GET",
       responseType: "blob"
@@ -20,6 +20,8 @@ export default {
       link.setAttribute("download", name);
       document.body.appendChild(link);
       link.click();
+      link.remove();
+      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
     });
   }
 };

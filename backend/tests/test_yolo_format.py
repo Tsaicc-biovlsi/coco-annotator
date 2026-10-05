@@ -216,3 +216,21 @@ def test_api_category_counts_and_export_order(yolo_world):
     with zipfile.ZipFile(export.path) as zf:
         assert zf.read("classes.txt").decode().split() == ["ship"]
         assert zf.read("labels/p1.txt").decode().count("\n") == 1
+
+
+def test_api_export_list_and_delete(yolo_world):
+    c, ds = yolo_world["client"], yolo_world["dataset"]["id"]
+    rows = c.get(f"/api/dataset/{ds}/exports").get_json()
+    assert rows, "earlier tests made exports"
+    yolo_row = next(r for r in rows if r["format"] == "YOLO")
+    assert yolo_row["yolo_task"] in ("detect", "obb", "segment", "pose")
+    assert "YOLO" not in yolo_row["categories"] and yolo_row["created_at"].endswith("Z")
+    assert yolo_row["exists"] and yolo_row["size"] > 0
+    coco_row = next(r for r in rows if r["format"] == "COCO")
+    assert "COCO" not in coco_row["categories"]
+
+    from database import ExportModel
+    path = ExportModel.objects(id=yolo_row["id"]).first().path
+    assert c.delete(f"/api/export/{yolo_row['id']}").status_code == 200
+    assert not os.path.exists(path)
+    assert yolo_row["id"] not in [r["id"] for r in c.get(f"/api/dataset/{ds}/exports").get_json()]

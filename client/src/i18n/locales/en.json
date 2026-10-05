@@ -550,5 +550,20 @@
     "pickOne": "Pick at least one category",
     "noMatch": "No matching category",
     "empty": "This dataset has no categories yet"
+  },
+  "exportList": {
+    "id": "ID",
+    "categories": "Exported categories",
+    "time": "Exported at",
+    "download": "Download",
+    "delete": "Delete",
+    "refresh": "Refresh",
+    "empty": "No exports yet. Use \"Export COCO / YOLO\" on the left to create one.",
+    "more": "{n} more",
+    "less": "Show less",
+    "missing": "File no longer exists",
+    "confirmDelete": "Delete export #{id}? The file on the server is deleted too and cannot be recovered.",
+    "deleted": "Export #{id} deleted",
+    "downloadFailed": "Download failed"
   }
 }

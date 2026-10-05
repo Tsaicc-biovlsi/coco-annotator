@@ -506,10 +506,23 @@ class DatasetExports(Resource):
         for export in exports:
 
             time_delta = datetime.datetime.utcnow() - export.created_at
+            tags = list(export.tags or [])
+            # tags: ["COCO", *categories] or ["YOLO", task, *categories]
+            if tags[:1] == ["YOLO"]:
+                fmt, task, names = "YOLO", (tags[1] if len(tags) > 1 else ""), tags[2:]
+            else:
+                fmt, task, names = "COCO", "", tags[1:] if tags[:1] == ["COCO"] else tags
+            exists = bool(export.path) and os.path.isfile(export.path)
             dict_export.append({
                 'id': export.id,
                 'ago': query_util.td_format(time_delta),
-                'tags': export.tags
+                'tags': tags,
+                'format': fmt,
+                'yolo_task': task,
+                'categories': names,
+                'created_at': export.created_at.replace(microsecond=0).isoformat() + 'Z',
+                'size': os.path.getsize(export.path) if exists else None,
+                'exists': exists,
             })
 
         return dict_export

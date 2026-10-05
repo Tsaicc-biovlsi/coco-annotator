@@ -45,7 +45,19 @@ class DatasetExports(Resource):
         dataset = current_user.datasets.filter(id=export.dataset_id).first()
         if dataset is None:
             return {"message": "Invalid dataset ID"}, 400
-        
+
+        if not current_user.can_download(dataset):
+            return {"message": "You do not have permission to manage this dataset's exports"}, 403
+
+        # remove the file too (only inside the dataset's .exports folder)
+        exports_dir = os.path.realpath(os.path.join(dataset.directory, ".exports"))
+        path = os.path.realpath(export.path or "")
+        if path.startswith(exports_dir + os.sep) and os.path.isfile(path):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+
         export.delete()
         return {'success': True}
 
@@ -67,6 +79,9 @@ class DatasetExports(Resource):
         
         if not current_user.can_download(dataset):
             return {"message": "You do not have permission to download the dataset's annotations"}, 403
+
+        if not export.path or not os.path.isfile(export.path):
+            return {"message": "The export file no longer exists"}, 404
 
         ext = os.path.splitext(export.path)[1] or ".json"
         kind = "-".join(export.tags[:2]) if export.tags and export.tags[0] == "YOLO" else "COCO"

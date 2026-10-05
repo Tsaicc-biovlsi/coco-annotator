@@ -678,5 +678,20 @@
     "pickOne": "請至少選一個類別",
     "noMatch": "找不到符合的類別",
     "empty": "這個資料集還沒有類別"
+  },
+  "exportList": {
+    "id": "系統序號",
+    "categories": "匯出類別",
+    "time": "匯出時間",
+    "download": "下載",
+    "delete": "刪除",
+    "refresh": "重新整理",
+    "empty": "還沒有匯出紀錄。按左邊的「匯出 COCO / YOLO」建立一份。",
+    "more": "還有 {n} 個",
+    "less": "收合",
+    "missing": "檔案已不存在",
+    "confirmDelete": "確定要刪除匯出 #{id} 嗎？伺服器上的檔案也會一起刪除，無法復原。",
+    "deleted": "已刪除匯出 #{id}",
+    "downloadFailed": "下載失敗"
   }
 }
