@@ -736,6 +736,12 @@
     "folder": "資料夾名稱",
     "folderRequired": "請輸入資料夾名稱",
     "folderCleaned": "會存成「{name}」（空白和 / \\ : * ? \" < > {'|'} 會換成底線）",
-    "folderSummary": "資料夾 {name}/（內含 train、val、test）"
+    "folderSummary": "資料夾 {name}/（內含 train、val、test）",
+    "review": "輸出確認",
+    "folderHint": "train、val、test 會放在這個資料夾裡，zip 最上層只有 data.yaml、classes.txt 和這個資料夾。",
+    "folderCoco": "COCO 匯出不需要設定資料夾，直接下一步。",
+    "edit": "修改",
+    "zipContents": "zip 內容",
+    "notReady": "還有步驟沒完成，請點上方的步驟修改。"
   }
 }

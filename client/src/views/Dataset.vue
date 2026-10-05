@@ -452,11 +452,17 @@
               <li
                 v-for="(name, i) in exportStepNames"
                 :key="name"
-                :class="{ active: exporting.step === i + 1, done: exporting.step > i + 1, disabled: !canGoToStep(i + 1) }"
+                :class="{
+                  active: exporting.step === i + 1,
+                  done: exporting.step > i + 1 && !stepSkipped(i + 1),
+                  skipped: stepSkipped(i + 1),
+                  disabled: !canGoToStep(i + 1)
+                }"
                 @click="goToStep(i + 1)"
               >
                 <span class="step-dot">
-                  <i v-if="exporting.step > i + 1" class="fa fa-check" />
+                  <i v-if="stepSkipped(i + 1)" class="fa fa-minus" />
+                  <i v-else-if="exporting.step > i + 1" class="fa fa-check" />
                   <template v-else>{{ i + 1 }}</template>
                 </span>
                 <span class="step-name">{{ $t('exportSteps.' + name) }}</span>
@@ -497,27 +503,33 @@
                     {{ $t('exportSteps.prefixExample', { image: exportExampleName.image, label: exportExampleName.label }) }}
                   </div>
 
-                  <div class="mt-3">
-                    <label class="form-label fw-semibold mb-1" for="exportFolder">{{ $t('exportSteps.folder') }}</label>
-                    <input
-                      id="exportFolder"
-                      v-model="exporting.folder"
-                      class="form-control"
-                      :class="{ 'is-invalid': !exportFolderName }"
-                      maxlength="100"
-                      :placeholder="defaultExportFolder"
-                    />
-                    <div v-if="!exportFolderName" class="invalid-feedback">{{ $t('exportSteps.folderRequired') }}</div>
-                    <div v-else-if="exportFolderName !== exporting.folder.trim()" class="form-text">
-                      {{ $t('exportSteps.folderCleaned', { name: exportFolderName }) }}
-                    </div>
-                    <pre class="zip-tree small mb-0 mt-2">{{ exportTree }}</pre>
-                  </div>
                 </template>
               </div>
 
-              <!-- step 2: categories -->
+              <!-- step 2: folder (YOLO) -->
               <div v-show="exporting.step === 2">
+                <template v-if="exporting.format === 'yolo'">
+                  <label class="form-label fw-semibold mb-1" for="exportFolder">{{ $t('exportSteps.folder') }}</label>
+                  <input
+                    id="exportFolder"
+                    v-model="exporting.folder"
+                    class="form-control"
+                    :class="{ 'is-invalid': !exportFolderName }"
+                    maxlength="100"
+                    :placeholder="defaultExportFolder"
+                  />
+                  <div v-if="!exportFolderName" class="invalid-feedback">{{ $t('exportSteps.folderRequired') }}</div>
+                  <div v-else-if="exportFolderName !== exporting.folder.trim()" class="form-text">
+                    {{ $t('exportSteps.folderCleaned', { name: exportFolderName }) }}
+                  </div>
+                  <div class="form-text">{{ $t('exportSteps.folderHint') }}</div>
+                  <pre class="zip-tree small mb-0 mt-2">{{ exportTree }}</pre>
+                </template>
+                <div v-else class="text-muted small">{{ $t('exportSteps.folderCoco') }}</div>
+              </div>
+
+              <!-- step 3: categories -->
+              <div v-show="exporting.step === 3">
                 <ExportCategories
                   v-model:order="exporting.order"
                   v-model:selected="exporting.categories"
@@ -531,8 +543,8 @@
                 </div>
               </div>
 
-              <!-- step 3: split + summary -->
-              <div v-show="exporting.step === 3">
+              <!-- step 4: split -->
+              <div v-show="exporting.step === 4">
                 <ExportSplit
                   v-model:enabled="exporting.split_on"
                   v-model:ratios="exporting.split"
@@ -540,8 +552,11 @@
                   :image-count="exportImageCount"
                   :yolo="exporting.format === 'yolo'"
                 />
-                <div class="export-summary mt-3">
-                  <div class="fw-semibold mb-1">{{ $t('exportSteps.summary') }}</div>
+              </div>
+
+              <!-- step 5: review -->
+              <div v-show="exporting.step === 5">
+                <div class="export-summary">
                   <dl class="row small mb-0">
                     <dt class="col-4">{{ $t('yolo.format') }}</dt>
                     <dd class="col-8">
@@ -552,12 +567,21 @@
                         <div class="text-muted">
                           {{ $t('exportSteps.prefixSummary', { image: exportExampleName.image }) }}
                         </div>
-                        <div class="text-muted">{{ $t('exportSteps.folderSummary', { name: exportFolderName }) }}</div>
                       </template>
+                      <a href="#" class="ms-1 small" @click.prevent="goToStep(1)">{{ $t('exportSteps.edit') }}</a>
                     </dd>
+                    <template v-if="exporting.format === 'yolo'">
+                      <dt class="col-4">{{ $t('exportSteps.folder') }}</dt>
+                      <dd class="col-8">
+                        {{ exportFolderName }}/
+                        <a href="#" class="ms-1 small" @click.prevent="goToStep(2)">{{ $t('exportSteps.edit') }}</a>
+                      </dd>
+                    </template>
                     <dt class="col-4">{{ $t('exportSteps.categories') }}</dt>
-                    <dd class="col-8 text-truncate" :title="exportSelectedNames.join(', ')">
+                    <dd class="col-8">
                       {{ $t('exportSteps.categoryCount', { n: exportSelectedNames.length, names: exportSelectedNames.join($t('exportSteps.separator')) }) }}
+                      <a href="#" class="ms-1 small" @click.prevent="goToStep(3)">{{ $t('exportSteps.edit') }}</a>
+                      <div v-if="exporting.with_empty_images" class="text-muted">{{ $t('dataset.exportWithNotAnnotatedImages') }}</div>
                     </dd>
                     <dt class="col-4">{{ $t('exportSteps.contents') }}</dt>
                     <dd class="col-8">
@@ -569,14 +593,22 @@
                     <dt class="col-4">{{ $t('exportSteps.split') }}</dt>
                     <dd class="col-8 mb-0">
                       <template v-if="exporting.split_on">
-                        {{ $t('exportSplit.train') }} {{ exporting.split.train }}% ·
-                        {{ $t('exportSplit.val') }} {{ exporting.split.val }}% ·
-                        {{ $t('exportSplit.test') }} {{ exporting.split.test }}%
+                        <span v-for="k in ['train', 'val', 'test']" :key="k" class="me-2">
+                          {{ $t('exportSplit.' + k) }} {{ exporting.split[k] }}%
+                          <span class="text-muted">({{ exportSplitSizes[k] }})</span>
+                        </span>
+                        <div class="text-muted">{{ $t('exportSplit.seed') }} {{ exporting.seed }}</div>
                       </template>
                       <template v-else>{{ $t('exportSteps.noSplit') }}</template>
+                      <a href="#" class="ms-1 small" @click.prevent="goToStep(4)">{{ $t('exportSteps.edit') }}</a>
                     </dd>
                   </dl>
                 </div>
+                <template v-if="exporting.format === 'yolo'">
+                  <div class="fw-semibold small mt-3 mb-1">{{ $t('exportSteps.zipContents') }}</div>
+                  <pre class="zip-tree small mb-0">{{ exportTree }}</pre>
+                </template>
+                <div v-if="!exportReady" class="small text-danger mt-2">{{ $t('exportSteps.notReady') }}</div>
               </div>
             </form>
           </div>
@@ -585,7 +617,7 @@
               v-if="exporting.step > 1"
               type="button"
               class="btn btn-outline-secondary me-auto"
-              @click="exporting.step -= 1"
+              @click="stepBy(-1)"
             >
               <i class="fa fa-chevron-left" /> {{ $t('exportSteps.back') }}
             </button>
@@ -593,11 +625,11 @@
               {{ $t('dataset.close') }}
             </button>
             <button
-              v-if="exporting.step < 3"
+              v-if="exporting.step < exportStepNames.length"
               type="button"
               class="btn btn-primary"
-              :disabled="!canGoToStep(exporting.step + 1)"
-              @click="exporting.step += 1"
+              :disabled="!canGoToStep(nextStep(1))"
+              @click="stepBy(1)"
             >
               {{ $t('exportSteps.next') }} <i class="fa fa-chevron-right" />
             </button>
@@ -640,7 +672,7 @@ import PanelDropdown from "@/components/PanelInputDropdown.vue"
 import TagsInput from "@/components/TagsInput.vue";
 import ModelRunModal from "@/components/ModelRunModal.vue";
 import ExportCategories from "@/components/ExportCategories.vue";
-import ExportSplit, { splitValid } from "@/components/ExportSplit.vue";
+import ExportSplit, { splitSizes, splitValid } from "@/components/ExportSplit.vue";
 import axios from "axios";
 
 import { mapMutations } from "vuex";
@@ -721,7 +753,7 @@ export default {
         id: null
       },
       yoloTasks: ["detect", "segment", "obb", "pose"],
-      exportStepNames: ["format", "categories", "split"],
+      exportStepNames: ["format", "folder", "categories", "split", "review"],
       importFile: null,
       importYoloTask: "auto",
       selected: {
@@ -896,10 +928,24 @@ export default {
     cleanFolderName(name) {
       return String(name || "").replace(/[\\/:*?"<>|\s]+/g, "_").replace(/^[_.]+|[_.]+$/g, "").slice(0, 100);
     },
+    /** Step 2 (folder) only applies to YOLO */
+    stepSkipped(step) {
+      return step === 2 && this.exporting.format !== "yolo";
+    },
+    nextStep(direction) {
+      let step = this.exporting.step + direction;
+      while (this.stepSkipped(step)) step += direction;
+      return Math.min(Math.max(step, 1), this.exportStepNames.length);
+    },
+    stepBy(direction) {
+      this.goToStep(this.nextStep(direction));
+    },
+    /** A step is open once every step before it is filled in */
     canGoToStep(step) {
-      if (step <= 1) return true;
-      if (this.exporting.format === "yolo" && !this.exportFolderName) return false;
-      if (step >= 3 && !this.exporting.categories.length) return false;
+      if (this.stepSkipped(step)) return false;
+      if (step > 2 && this.exporting.format === "yolo" && !this.exportFolderName) return false;
+      if (step > 3 && !this.exporting.categories.length) return false;
+      if (step > 4 && this.exporting.split_on && !this.exportSplitValid) return false;
       return true;
     },
     goToStep(step) {
@@ -1095,6 +1141,9 @@ export default {
       const cleaned = String(this.dataset.name || "").replace(/[\\/:*?"<>|\s]+/g, "_").replace(/^[_.]+|[_.]+$/g, "");
       const name = (cleaned ? `${cleaned}_` : "") + stem;
       return { image: name + ext, label: name + ".txt" };
+    },
+    exportSplitSizes() {
+      return splitSizes(this.exportImageCount || 0, this.exporting.split);
     },
     exportReady() {
       if (this.exporting.format === "yolo" && !this.exportFolderName) return false;
@@ -1447,5 +1496,12 @@ export default {
   padding: 0.5rem 0.75rem;
   white-space: pre;
   overflow-x: auto;
+}
+.export-steps li.skipped .step-dot {
+  border-style: dashed;
+  color: #adb5bd;
+}
+.export-steps li.skipped {
+  opacity: 0.5;
 }
 </style>

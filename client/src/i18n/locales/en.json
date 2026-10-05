@@ -608,6 +608,12 @@
     "folder": "Folder name",
     "folderRequired": "Enter a folder name",
     "folderCleaned": "Saved as \"{name}\" (spaces and / \\ : * ? \" < > {'|'} become underscores)",
-    "folderSummary": "folder {name}/ (with train, val, test)"
+    "folderSummary": "folder {name}/ (with train, val, test)",
+    "review": "Review",
+    "folderHint": "train, val and test go in this folder; the zip's top level only has data.yaml, classes.txt and this folder.",
+    "folderCoco": "COCO exports need no folder; go to the next step.",
+    "edit": "Edit",
+    "zipContents": "Zip contents",
+    "notReady": "A step is not finished yet; click it above to fix it."
   }
 }
