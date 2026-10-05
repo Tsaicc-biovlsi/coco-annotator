@@ -18,6 +18,8 @@ class DatasetModel(DynamicDocument):
 
     owner = StringField(required=True)
     users = ListField(default=[])
+    # members who may approve / reject images (the owner always can)
+    reviewers = ListField(default=[])
 
     annotate_url = StringField(default="")
 
@@ -66,7 +68,7 @@ class DatasetModel(DynamicDocument):
 
     def export_coco(self, categories=None, style="COCO", with_empty_images=False,
                     fmt="coco", yolo_task="detect", with_images=False, split=None, seed=42,
-                    folder=None):
+                    folder=None, only_approved=False):
 
         from workers.tasks import export_annotations
 
@@ -83,7 +85,8 @@ class DatasetModel(DynamicDocument):
         task.save()
 
         cel_task = export_annotations.delay(task.id, self.id, categories, with_empty_images,
-                                            fmt, yolo_task, with_images, split, seed, folder)
+                                            fmt, yolo_task, with_images, split, seed, folder,
+                                            only_approved)
 
         return {
             "celery_id": cel_task.id,
@@ -131,11 +134,15 @@ class DatasetModel(DynamicDocument):
 
     def can_edit(self, user):
         return user.username in self.users or self.is_owner(user)
+
+    def can_review(self, user):
+        return self.is_owner(user) or user.username in (self.reviewers or [])
     
     def permissions(self, user):
         return {
             'owner': self.is_owner(user),
             'edit': self.can_edit(user),
+            'review': self.can_review(user),
             'share': self.can_share(user),
             'generate': self.can_generate(user),
             'delete': self.can_delete(user),

@@ -197,6 +197,9 @@ class AnnotatorId(Resource):
             }
         }
 
+        from .review import image_review_info
+        data['review'] = image_review_info(image)
+
         data['image']['previous'] = pre.id if pre else None
         data['image']['next'] = nex.id if nex else None
 

@@ -37,8 +37,13 @@ class ImageModel(DynamicDocument):
             'path',
             ('dataset_id', 'deleted', 'file_name'),
             'regenerate_thumbnail',
+            ('dataset_id', 'deleted', 'status'),
+            ('dataset_id', 'deleted', 'assignee'),
         ]
     }
+
+    # Review workflow: unlabeled -> labeled (submitted) -> approved / rejected
+    STATUSES = ("unlabeled", "labeled", "approved", "rejected")
 
     COCO_PROPERTIES = ["id", "width", "height", "file_name", "path", "license",\
                        "flickr_url", "coco_url", "date_captured", "dataset_id"]
@@ -77,6 +82,15 @@ class ImageModel(DynamicDocument):
 
     metadata = DictField()
     license = IntField()
+
+    # -- Review workflow
+    status = StringField(default="unlabeled")
+    assignee = StringField()
+    labeled_by = StringField()
+    labeled_at = DateTimeField()
+    reviewed_by = StringField()
+    reviewed_at = DateTimeField()
+    review_note = StringField()
 
     deleted = BooleanField(default=False)
     deleted_date = DateTimeField()

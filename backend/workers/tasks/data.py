@@ -24,7 +24,7 @@ from mongoengine import Q
 @shared_task
 def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
                        fmt="coco", yolo_task="detect", with_images=False, split=None, seed=42,
-                       folder=None):
+                       folder=None, only_approved=False):
 
     task = TaskModel.objects.get(id=task_id)
     dataset = DatasetModel.objects.get(id=dataset_id)
@@ -39,6 +39,9 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
     db_images = ImageModel.objects(
         deleted=False, dataset_id=dataset.id).only(
         *ImageModel.COCO_PROPERTIES)
+    if only_approved:
+        db_images = db_images.filter(status='approved')
+        task.info(f"Only approved images: {db_images.count()}")
     db_annotations = AnnotationModel.objects(
         deleted=False, category_id__in=categories)
 
@@ -186,6 +189,8 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
     if fmt == "yolo":
         export.prefix_dataset = True
         export.folder = folder
+    if only_approved:
+        export.only_approved = True
     if subsets:
         export.split = split
         export.split_counts = split_counts

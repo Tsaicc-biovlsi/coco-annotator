@@ -1,0 +1,118 @@
+"""Review workflow: submit / approve / reject, reviewers, assignment, progress."""
+import os
+
+import pytest
+
+
+@pytest.fixture(scope="module")
+def review_world(world, dataset_directory):
+    from PIL import Image
+    from webserver import app
+    from webserver.util.passwords import hash_password
+    from database import UserModel
+
+    owner = world["client"]
+    UserModel.objects(username="smoke").update(set__is_admin=False)
+    r = owner.post("/api/dataset/", json={"name": "review_ds", "categories": ["ship"]})
+    assert r.status_code == 200, r.data
+    ds = r.get_json()["id"]
+    folder = os.path.join(dataset_directory, "review_ds")
+    os.makedirs(folder, exist_ok=True)
+    for i in range(4):
+        Image.new("RGB", (64, 48), (10 * i, 80, 120)).save(os.path.join(folder, f"r{i}.jpg"))
+    assert owner.get(f"/api/dataset/{ds}/scan").status_code == 200
+
+    clients = {}
+    for name in ("labeler1", "labeler2"):
+        if UserModel.objects(username=name).first() is None:
+            UserModel(username=name, password=hash_password("pw"), name=name, is_admin=False).save()
+        c = app.test_client()
+        assert c.post("/api/user/login", json={"username": name, "password": "pw"}).status_code == 200
+        clients[name] = c
+    assert owner.post(f"/api/dataset/{ds}/share", json={"users": ["labeler1", "labeler2"]}).status_code == 200
+    images = sorted(owner.get(f"/api/dataset/{ds}/data").get_json()["images"], key=lambda i: i["file_name"])
+    return {"owner": owner, "ds": ds, "images": images, **clients}
+
+
+def test_submit_approve_reject(review_world):
+    w = review_world
+    img = w["images"][0]["id"]
+    l1, owner = w["labeler1"], w["owner"]
+
+    assert owner.get(f"/api/review/image/{img}").get_json()["status"] == "unlabeled"
+    r = l1.post(f"/api/review/image/{img}", json={"action": "submit"})
+    assert r.status_code == 200 and r.get_json()["status"] == "labeled"
+    assert r.get_json()["labeled_by"] == "labeler1"
+
+    # a labeler cannot approve
+    assert l1.post(f"/api/review/image/{img}", json={"action": "approve"}).status_code == 403
+
+    r = owner.post(f"/api/review/image/{img}", json={"action": "reject", "note": "missed a boat"})
+    assert r.get_json()["status"] == "rejected" and r.get_json()["review_note"] == "missed a boat"
+    data = l1.get(f"/api/annotator/data/{img}").get_json()
+    assert data["review"]["status"] == "rejected" and data["review"]["review_note"] == "missed a boat"
+    assert data["permissions"]["dataset"]["review"] is False
+
+    l1.post(f"/api/review/image/{img}", json={"action": "submit"})
+    r = owner.post(f"/api/review/image/{img}", json={"action": "approve"})
+    assert r.get_json()["status"] == "approved" and r.get_json()["review_note"] == ""
+    # an approved image can only be reopened by a reviewer
+    l1.post(f"/api/review/image/{img}", json={"action": "reopen"})
+    assert owner.get(f"/api/review/image/{img}").get_json()["status"] == "approved"
+
+    # labeler2 becomes a reviewer
+    r = owner.post(f"/api/review/dataset/{w['ds']}/reviewers", json={"reviewers": ["labeler2", "nobody"]})
+    assert r.get_json()["reviewers"] == ["labeler2"]
+    img2 = w["images"][1]["id"]
+    l1.post(f"/api/review/image/{img2}", json={"action": "submit"})
+    assert w["labeler2"].post(f"/api/review/image/{img2}", json={"action": "approve"}).status_code == 200
+    assert l1.post(f"/api/review/dataset/{w['ds']}/reviewers", json={"reviewers": []}).status_code == 403
+
+
+def test_assign_filters_progress_and_export(review_world):
+    from database import ExportModel
+    w = review_world
+    owner, l1 = w["owner"], w["labeler1"]
+    ds = w["ds"]
+
+    assert l1.post(f"/api/review/dataset/{ds}/assign", json={"usernames": ["labeler1"]}).status_code == 403
+    assert owner.post(f"/api/review/dataset/{ds}/assign",
+                      json={"usernames": ["stranger_x"]}).status_code == 400
+    r = owner.post(f"/api/review/dataset/{ds}/assign", json={"usernames": ["labeler1", "labeler2"], "scope": "all"})
+    assert r.get_json()["assigned"] == {"labeler1": 2, "labeler2": 2}
+
+    mine = l1.get(f"/api/dataset/{ds}/data?assignee=me").get_json()["images"]
+    assert [i["file_name"] for i in mine] == ["r0.jpg", "r1.jpg"]   # a contiguous block
+    assert all(i["assignee"] == "labeler1" for i in mine)
+    approved = owner.get(f"/api/dataset/{ds}/data?status=approved").get_json()["images"]
+    assert {i["file_name"] for i in approved} == {"r0.jpg", "r1.jpg"}
+    assert len(owner.get(f"/api/dataset/{ds}/data?status=unlabeled").get_json()["images"]) == 2
+
+    # unassign one image, then "unassigned" scope only touches that one
+    owner.post(f"/api/review/dataset/{ds}/assign", json={"usernames": [], "image_ids": [w["images"][3]["id"]]})
+    assert len(owner.get(f"/api/dataset/{ds}/data?assignee=none").get_json()["images"]) == 1
+    r = owner.post(f"/api/review/dataset/{ds}/assign", json={"usernames": ["labeler1"]})
+    assert r.get_json()["assigned"] == {"labeler1": 1}
+
+    p = owner.get(f"/api/review/dataset/{ds}/progress").get_json()
+    assert p["images"] == 4 and p["total"]["approved"] == 2 and p["total"]["unlabeled"] == 2
+    people = {x["username"]: x for x in p["people"]}
+    assert people["labeler1"]["approved"] == 2 and people["labeler1"]["unlabeled"] == 1
+    assert p["reviewers"] == ["labeler2"] and p["can_review"]
+
+    # next image to work on / review
+    nxt = l1.get(f"/api/review/dataset/{ds}/next?mode=work").get_json()["id"]
+    assert nxt == w["images"][3]["id"]
+    l1.post(f"/api/review/image/{nxt}", json={"action": "submit"})
+    assert owner.get(f"/api/review/dataset/{ds}/next?mode=review").get_json()["id"] == nxt
+
+    # export only approved images
+    r = owner.get(f"/api/dataset/{ds}/export?only_approved=true&with_empty_images=true")
+    assert r.status_code == 200, r.data
+    export = ExportModel.objects(dataset_id=ds).order_by("-id").first()
+    import json
+    with open(export.path) as f:
+        coco = json.load(f)
+    assert sorted(i["file_name"] for i in coco["images"]) == ["r0.jpg", "r1.jpg"]
+    row = owner.get(f"/api/dataset/{ds}/exports").get_json()[0]
+    assert row["only_approved"] is True

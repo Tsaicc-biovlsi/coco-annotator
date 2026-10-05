@@ -112,6 +112,19 @@
         ref="filetitle"
       />
 
+      <ReviewBar
+        v-if="image.id != null"
+        :image-id="image.id"
+        :dataset-id="dataset && dataset.id"
+        :filename="image.filename"
+        :review="review"
+        :can-edit="!!(permissions.dataset && permissions.dataset.edit)"
+        :can-review="!!(permissions.dataset && permissions.dataset.review)"
+        @before-submit="done => save(done)"
+        @updated="review = $event"
+        @navigate="id => $refs.filetitle.route(id)"
+      />
+
       <div v-if="categories.length > 5">
         <div style="padding: 0px 5px">
           <input
@@ -249,6 +262,7 @@ import toastrs from "@/mixins/toastrs";
 import shortcuts from "@/mixins/shortcuts";
 
 import FileTitle from "@/components/annotator/FileTitle.vue";
+import ReviewBar from "@/components/annotator/ReviewBar.vue";
 import Category from "@/components/annotator/Category.vue";
 import Label from "@/components/annotator/Label.vue";
 import Annotations from "@/models/annotations";
@@ -294,6 +308,7 @@ export default {
   name: "Annotator",
   components: {
     FileTitle,
+    ReviewBar,
     CopyAnnotationsButton,
     Category,
     CLabel: Label,
@@ -361,6 +376,8 @@ export default {
         annotation: -1,
         keypoint: -1,
       },
+      review: {},
+      permissions: {},
       image: {
         raster: {},
         scale: 0,
@@ -698,6 +715,9 @@ export default {
           this.image.categoryIds = data.image.category_ids || [];
 
           this.annotating = data.image.annotating || [];
+
+          this.review = data.review || {};
+          this.permissions = data.permissions || {};
 
           // Set other data
           this.dataset = data.dataset;

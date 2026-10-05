@@ -71,6 +71,15 @@
           <p v-show="image.annotated == false">{{ $t('imageCard.noAnnotations') }}</p>
         </div>
 
+        <div class="d-flex flex-wrap align-items-center gap-1 small">
+          <span class="badge" :class="statusClass(image.status || 'unlabeled')" :title="image.review_note || ''">
+            {{ $t('review.status.' + (image.status || 'unlabeled')) }}
+          </span>
+          <span v-if="image.assignee" class="text-muted text-truncate" :title="$t('review.assignee')">
+            <i class="fa fa-user-o" /> {{ image.assignee }}
+          </span>
+        </div>
+
         <div class="row">
           <!--<span
             v-for="(category, index) in image.categories"
@@ -90,6 +99,7 @@
 import loaderImg from "@/assets/loader.gif";
 import notFoundImageImg from "@/assets/404-image.png";
 import axios from "axios";
+import { statusClass } from "@/components/annotator/ReviewBar.vue";
 
 export default {
   name: "ImageCard",
@@ -108,6 +118,7 @@ export default {
     };
   },
   methods: {
+    statusClass,
     downloadURI(uri, exportName) {
       let link = document.createElement("a");
       link.href = uri;

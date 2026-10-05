@@ -50,6 +50,7 @@ export.add_argument('yolo_task', default='detect', choices=('detect', 'segment',
 export.add_argument('with_images', type=inputs.boolean, default=False, help='YOLO: put the images in the zip too')
 export.add_argument('split', default='', help='train,val,test percentages, e.g. 80,10,10 (empty: no split)')
 export.add_argument('seed', type=int, default=42, help='Random seed for the split')
+export.add_argument('only_approved', type=inputs.boolean, default=False, help='Only images a reviewer approved')
 export.add_argument('folder', default='', help='YOLO: folder in the zip that holds train / val / test (default: dataset name)')
 
 yolo_upload = reqparse.RequestParser()
@@ -411,6 +412,10 @@ class DatasetDataId(Resource):
             if len(lower) != 0:
                 query[key] = value
 
+        # review workflow filters: assignee=me / none / <username>, status=<status>
+        assignee = query.pop('assignee', None)
+        status = query.pop('status', None)
+
         # Change category_ids__in to list
         if 'category_ids__in' in query.keys():
             query['category_ids__in'] = [int(x) for x in query['category_ids__in'].split(',')]
@@ -457,10 +462,22 @@ class DatasetDataId(Resource):
             query_dict_2['annotated'] = False
             query_build &= (Q(**query_dict_1) | Q(**query_dict_2))
 
+        if assignee == 'me':
+            query_build &= Q(assignee=current_user.username)
+        elif assignee == 'none':
+            query_build &= (Q(assignee=None) | Q(assignee=''))
+        elif assignee:
+            query_build &= Q(assignee=str(assignee))
+        if status == 'unlabeled':
+            query_build &= (Q(status=None) | Q(status='unlabeled'))
+        elif status in ImageModel.STATUSES:
+            query_build &= Q(status=status)
+
         # Perform mongodb query
         images = current_user.images \
             .filter(query_build) \
-            .order_by(order).only('id', 'file_name', 'annotating', 'annotated', 'num_annotations')
+            .order_by(order).only('id', 'file_name', 'annotating', 'annotated', 'num_annotations',
+                                  'status', 'assignee', 'review_note')
         
         total = images.count()
         pages = int(total/per_page) + 1
@@ -540,6 +557,7 @@ class DatasetExports(Resource):
                 'seed': getattr(export, 'seed', None),
                 'prefix_dataset': bool(getattr(export, 'prefix_dataset', False)),
                 'folder': getattr(export, 'folder', None),
+                'only_approved': bool(getattr(export, 'only_approved', False)),
                 'exists': exists,
             })
 
@@ -582,7 +600,8 @@ class DatasetExport(Resource):
                                    fmt=args.get('format') or 'coco',
                                    yolo_task=args.get('yolo_task') or 'detect',
                                    with_images=bool(args.get('with_images')),
-                                   folder=args.get('folder') or None)
+                                   folder=args.get('folder') or None,
+                                   only_approved=bool(args.get('only_approved')))
     
     @api.expect(coco_upload)
     @login_required

@@ -10,6 +10,9 @@
         <a class="btn tab" @click="tab = 'images'" :style="{'color': tab == 'images' ? 'white' : 'darkgray'}">
           <i class="fa fa-picture-o" aria-hidden="true"></i> {{ $t('dataset.images') }}
         </a>
+        <a class="btn tab" @click="tab = 'progress'" :style="{'color': tab == 'progress' ? 'white' : 'darkgray'}">
+          <i class="fa fa-tasks" aria-hidden="true"></i> {{ $t('review.tab') }}
+        </a>
         <a class="btn tab" @click="tab = 'exports'" :style="{'color': tab == 'exports' ? 'white' : 'darkgray'}">
           <i class="fa fa-share" aria-hidden="true"></i> {{ $t('dataset.exports') }}
         </a>
@@ -60,6 +63,9 @@
             <Pagination :pages="pages" @pagechange="updatePage" />
           </div>
 
+        </div>
+        <div class="container-fluid exports-tab" v-if="tab == 'progress'">
+          <ReviewPanel :dataset-id="dataset.id" @changed="updatePage()" />
         </div>
         <div class="container-fluid exports-tab" v-show="tab == 'exports'">
           <div class="card my-3 p-3 shadow-sm">
@@ -358,6 +364,8 @@
         <PanelToggle :name="$t('dataset.showAnnotated')" v-model:value="panel.showAnnotated" />
         <PanelToggle :name="$t('dataset.showNotAnnotated')" v-model:value="panel.showNotAnnotated" />
         <PanelDropdown :name="$t('dataset.order')" v-model:value="order" :values="orderTypes" />
+        <PanelDropdown :name="$t('review.filterStatus')" v-model:value="reviewFilter.status" :values="statusOptions" />
+        <PanelDropdown :name="$t('review.filterAssignee')" v-model:value="reviewFilter.assignee" :values="assigneeOptions" />
       </div>
         <div
           class="sidebar-section"
@@ -549,6 +557,10 @@
                   <input id="exportWithEmpty" v-model="exporting.with_empty_images" type="checkbox" class="form-check-input m-0" />
                   <label class="form-check-label mb-0" for="exportWithEmpty">{{ $t('dataset.exportWithNotAnnotatedImages') }}</label>
                 </div>
+                <div class="form-check d-flex align-items-center gap-2 ps-0 mt-2">
+                  <input id="exportOnlyApproved" v-model="exporting.only_approved" type="checkbox" class="form-check-input m-0" />
+                  <label class="form-check-label mb-0" for="exportOnlyApproved">{{ $t('review.onlyApproved') }}</label>
+                </div>
               </div>
 
               <!-- step 4: split -->
@@ -590,6 +602,7 @@
                       {{ $t('exportSteps.categoryCount', { n: exportSelectedNames.length, names: exportSelectedNames.join($t('exportSteps.separator')) }) }}
                       <a href="#" class="ms-1 small" @click.prevent="goToStep(3)">{{ $t('exportSteps.edit') }}</a>
                       <div v-if="exporting.with_empty_images" class="text-muted">{{ $t('dataset.exportWithNotAnnotatedImages') }}</div>
+                      <div v-if="exporting.only_approved" class="text-muted">{{ $t('review.onlyApproved') }}</div>
                     </dd>
                     <dt class="col-4">{{ $t('exportSteps.contents') }}</dt>
                     <dd class="col-8">
@@ -689,6 +702,7 @@ import PanelDropdown from "@/components/PanelInputDropdown.vue"
 import TagsInput from "@/components/TagsInput.vue";
 import ModelRunModal from "@/components/ModelRunModal.vue";
 import ExportCategories from "@/components/ExportCategories.vue";
+import ReviewPanel from "@/components/ReviewPanel.vue";
 import ExportSplit, { splitSizes, splitValid } from "@/components/ExportSplit.vue";
 import axios from "axios";
 
@@ -699,6 +713,7 @@ export default {
   name: "Dataset",
   components: {
     ImageCard,
+    ReviewPanel,
     ExportCategories,
     ExportSplit,
     Pagination,
@@ -760,6 +775,7 @@ export default {
         order: [],
         counts: null,
         step: 1,
+        only_approved: false,
         folder: "",
         split_on: false,
         split: { train: 80, val: 20, test: 0 },
@@ -793,6 +809,8 @@ export default {
         // query string filters (but not the import task id, see created)
         ...Object.fromEntries(Object.entries(this.$route.query).filter(([k]) => k !== "importTask"))
       },
+      reviewFilter: { status: "", assignee: "" },
+      memberNames: [],
       panel: {
         showAnnotated: true,
         showNotAnnotated: true
@@ -812,6 +830,8 @@ export default {
         folder: this.folders.join("/"),
         ...this.query,
         annotated: this.queryAnnotated,
+        status: this.reviewFilter.status,
+        assignee: this.reviewFilter.assignee,
         category_ids__in: encodeURI(this.selected.categories),
         order: this.order
       })
@@ -826,6 +846,7 @@ export default {
           this.pages = data.pages;
 
           this.subdirectories = data.subdirectories;
+          if (!this.memberNames.length) this.getUsers();
           // this.scan.id = data.scanId;
           // this.generate.id = data.generateId;
           // this.importing.id = data.importId;
@@ -839,6 +860,7 @@ export default {
     getUsers() {
       Dataset.getUsers(this.dataset.id).then(response => {
         this.users = response.data;
+        this.memberNames = (response.data || []).map(u => u.username).sort();
       });
     },
     downloadExport(exp) {
@@ -989,6 +1011,7 @@ export default {
     exportCOCO() {
       hideModal("#exportDataset");
       const options = { format: this.exporting.format };
+      if (this.exporting.only_approved) options.only_approved = true;
       if (this.exporting.format === "yolo") {
         options.yolo_task = this.exporting.yolo_task;
         options.with_images = this.exportWithImages;
@@ -1123,6 +1146,16 @@ export default {
     }
   },
   computed: {
+    statusOptions() {
+      const options = { "": this.$t("review.all") };
+      ["unlabeled", "labeled", "approved", "rejected"].forEach(s => (options[s] = this.$t("review.status." + s)));
+      return options;
+    },
+    assigneeOptions() {
+      const options = { "": this.$t("review.all"), me: this.$t("review.assignedToMe"), none: this.$t("review.unassigned") };
+      this.memberNames.forEach(name => (options[name] = name));
+      return options;
+    },
     exportSplitValid() {
       return splitValid(this.exporting.split);
     },
@@ -1289,6 +1322,12 @@ export default {
       if (tab == "members") this.getUsers();
       if (tab == "statistics") this.getStats();
       if (tab == "exports") this.getExports();
+    },
+    reviewFilter: {
+      deep: true,
+      handler() {
+        this.updatePage();
+      }
     },
     order(order) {
       localStorage.setItem("dataset/order", order);
