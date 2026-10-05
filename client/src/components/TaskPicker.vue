@@ -37,7 +37,7 @@ export const TASK_TOOLS = {
   semantic: "Polygon"
 };
 
-const ICONS = {
+export const TASK_ICONS = {
   "": "fa-th-large",
   detect: "fa-square-o",
   segment: "fa-pencil",
@@ -57,7 +57,7 @@ export default {
   },
   emits: ["update:modelValue"],
   data() {
-    return { TASKS, ICONS };
+    return { TASKS, ICONS: TASK_ICONS };
   }
 };
 </script>

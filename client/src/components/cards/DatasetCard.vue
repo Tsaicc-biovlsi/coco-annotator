@@ -2,14 +2,20 @@
   <div class="col-md-3">
     <!-- Dataset Card -->
     <div class="card mb-4 box-shadow">
-      <!-- Display Image -->
-      <img
-        @click="onImageClick"
-        :src="imageUrl"
-        class="card-img-top"
-        @error="imageError = true"
-        style="width: 100%; display: block;"
-      />
+      <!-- Display Image (with the planned task in the corner) -->
+      <div class="cover">
+        <img
+          @click="onImageClick"
+          :src="imageUrl"
+          class="card-img-top"
+          @error="imageError = true"
+          style="width: 100%; display: block;"
+        />
+        <span v-if="dataset.task" class="task-tag" :title="$t('datasetTask.label')">
+          <i class="fa fa-fw" :class="TASK_ICONS[dataset.task]" :style="dataset.task === 'obb' ? { transform: 'rotate(-30deg)' } : null" />
+          {{ $t('datasetTask.' + dataset.task + '.name') }}
+        </span>
+      </div>
 
       <!-- Card Body -->
       <div class="card-body">
@@ -44,9 +50,6 @@
           </div>
 
           <p v-else>{{ $t('datasetCard.noImagesInDataset') }}</p>
-          <span v-if="dataset.task" class="badge text-bg-dark me-1" :title="$t('datasetTask.label')">
-            {{ $t('datasetTask.' + dataset.task + '.name') }}
-          </span>
           <span
             v-for="(category, index) in listCategories"
             :key="index"
@@ -213,6 +216,7 @@
 import noImageImg from "@/assets/no-image.png";
 import notFoundImageImg from "@/assets/404-image.png";
 import axios from "axios";
+import { TASK_ICONS } from "@/components/TaskPicker.vue";
 import Metadata from "@/components/Metadata.vue";
 
 import TagsInput from "@/components/TagsInput.vue";
@@ -234,6 +238,7 @@ export default {
   },
   data() {
     return {
+      TASK_ICONS,
       imageError: false,
       selectedCategories: [],
       defaultMetadata: this.dataset.default_annotation_metadata,
@@ -365,6 +370,21 @@ export default {
 </script>
 
 <style scoped>
+.cover {
+  position: relative;
+}
+.task-tag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(17, 24, 39, 0.78);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 4px;
+  padding: 2px 8px 2px 4px;
+  pointer-events: none;
+}
 .card-img-overlay {
   padding: 0 10px 0 0;
 }
