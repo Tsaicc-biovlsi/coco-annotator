@@ -78,6 +78,7 @@
                 <thead>
                   <tr>
                     <th class="text-nowrap text-center">{{ $t('exportList.id') }}</th>
+                    <th class="text-nowrap text-center">{{ $t('exportList.format') }}</th>
                     <th class="text-center">{{ $t('exportList.categories') }}</th>
                     <th class="text-nowrap text-center">{{ $t('exportList.time') }}</th>
                     <th class="text-nowrap text-center">{{ $t('exportList.download') }}</th>
@@ -87,13 +88,13 @@
                 <tbody>
                   <tr v-for="exp in datasetExports" :key="exp.id">
                     <td class="text-nowrap fw-semibold text-center">#{{ exp.id }}</td>
-                    <td class="text-center">
-                      <span
-                        class="badge me-1"
-                        :class="exp.format === 'YOLO' ? 'text-bg-primary' : 'text-bg-dark'"
-                      >
-                        {{ exp.format }}<template v-if="exp.yolo_task"> · {{ $t('yolo.' + exp.yolo_task) }}</template>
+                    <td class="text-nowrap text-center">
+                      <span class="badge" :class="exp.format === 'YOLO' ? 'text-bg-primary' : 'text-bg-dark'">
+                        {{ exp.format }}
                       </span>
+                      <div v-if="exp.yolo_task" class="small text-muted">{{ $t('yolo.' + exp.yolo_task) }}</div>
+                    </td>
+                    <td class="text-center">
                       <span
                         v-for="name in shownCategories(exp)"
                         :key="name"

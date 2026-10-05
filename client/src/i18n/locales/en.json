@@ -553,6 +553,7 @@
   },
   "exportList": {
     "id": "ID",
+    "format": "Format",
     "categories": "Exported categories",
     "time": "Exported at",
     "download": "Download",

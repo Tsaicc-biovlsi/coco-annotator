@@ -681,6 +681,7 @@
   },
   "exportList": {
     "id": "系統序號",
+    "format": "格式",
     "categories": "匯出類別",
     "time": "匯出時間",
     "download": "下載",
