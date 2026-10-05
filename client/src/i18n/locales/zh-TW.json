@@ -239,7 +239,12 @@
     "onceYouHaveCreatedA": "建立資料集後，在伺服器執行時把圖片放進對應的資料夾即可。",
     "refresh": "重新整理",
     "whatIsADataset": "什麼是資料集？",
-    "youNeedToCreateA": "請先建立一個資料集！"
+    "youNeedToCreateA": "請先建立一個資料集！",
+    "created": "已建立資料集「{name}」",
+    "noCategoriesYet": "（沒有，之後可再加）",
+    "nameInvalid": "名稱不能包含 / 或 \\，也不能以 . 開頭",
+    "nameTaken": "已經有同名的資料集",
+    "confirmStep": "確認"
   },
   "eraserPanel": {
     "radius": "半徑",

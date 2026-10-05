@@ -30,8 +30,7 @@
             <button
               type="button"
               class="btn btn-success"
-              data-bs-toggle="modal"
-              data-bs-target="#createDataset"
+              @click="openCreate"
             >
               {{ $t('datasets.create') }}
             </button>
@@ -78,55 +77,104 @@
               aria-label="Close"
             ></button>
           </div>
-          <div class="modal-body">
-            <form>
-              <div
-                class="mb-3"
-                :class="{ 'was-validated': validDatasetName.length !== 0 }"
-              >
-                <label>{{ $t('datasets.datasetName2') }}</label>
-                <input
-                  v-model="create.name"
-                  class="form-control"
-                  :placeholder="$t('datasets.datasetName')"
-                  required
-                />
-                <div class="invalid-feedback">
-                  {{ validDatasetName }}
+          <div class="modal-body pt-2">
+            <WizardSteps
+              :labels="createStepLabels"
+              :current="create.step"
+              :can-go="canGoCreateStep"
+              @go="step => (create.step = step)"
+            />
+            <form @submit.prevent>
+              <!-- 1: name -->
+              <div v-show="create.step === 1">
+                <div class="mb-3" :class="{ 'was-validated': create.touched && validDatasetName.length !== 0 }">
+                  <label class="form-label" for="createName">{{ $t('datasets.datasetName2') }}</label>
+                  <input
+                    id="createName"
+                    ref="createName"
+                    v-model="create.name"
+                    class="form-control"
+                    :placeholder="$t('datasets.datasetName')"
+                    required
+                    @input="create.touched = true"
+                    @keydown.enter.prevent="nextCreateStep"
+                  />
+                  <div class="invalid-feedback">{{ validDatasetName }}</div>
+                </div>
+                <div class="mb-1">
+                  <label class="form-label">{{ $t('datasets.folderDirectory') }}</label>
+                  <input class="form-control" disabled :value="directory" />
                 </div>
               </div>
 
-              <div class="mb-3">
-                <label class="form-label">{{ $t('datasetTask.label') }}</label>
+              <!-- 2: planned task -->
+              <div v-show="create.step === 2">
                 <TaskPicker v-model="create.task" name="createTask" />
                 <div class="form-text">{{ $t('datasetTask.hint') }}</div>
               </div>
 
-              <div class="mb-3">
-                <label class="form-label">{{ $t('datasets.defaultCategories') }}</label>
+              <!-- 3: categories -->
+              <div v-show="create.step === 3">
                 <CategoryPicker ref="categoryPicker" v-model="create.categories" :categories="categories" />
               </div>
 
-              <div class="mb-3" required>
-                <label>{{ $t('datasets.folderDirectory') }}</label>
-                <input class="form-control" disabled :value="directory" />
+              <!-- 4: review -->
+              <div v-show="create.step === 4">
+                <dl class="row create-review mb-0">
+                  <dt class="col-4">{{ $t('datasets.datasetName2') }}</dt>
+                  <dd class="col-8">
+                    {{ create.name }}
+                    <a href="#" class="ms-1 small" @click.prevent="create.step = 1">{{ $t('exportSteps.edit') }}</a>
+                    <div class="small text-muted">{{ directory }}</div>
+                  </dd>
+                  <dt class="col-4">{{ $t('datasetTask.label') }}</dt>
+                  <dd class="col-8">
+                    {{ $t('datasetTask.' + (create.task || 'none') + '.name') }}
+                    <a href="#" class="ms-1 small" @click.prevent="create.step = 2">{{ $t('exportSteps.edit') }}</a>
+                  </dd>
+                  <dt class="col-4">{{ $t('datasets.defaultCategories') }}</dt>
+                  <dd class="col-8 mb-0">
+                    <template v-if="create.categories.length">
+                      <span v-for="(name, i) in create.categories" :key="name" class="badge text-bg-light border me-1">
+                        {{ i }}. {{ name }}
+                      </span>
+                    </template>
+                    <span v-else class="text-muted">{{ $t('datasets.noCategoriesYet') }}</span>
+                    <a href="#" class="ms-1 small" @click.prevent="create.step = 3">{{ $t('exportSteps.edit') }}</a>
+                  </dd>
+                </dl>
               </div>
             </form>
           </div>
           <div class="modal-footer">
             <button
+              v-if="create.step > 1"
               type="button"
-              class="btn btn-primary"
-              @click="createDataset"
+              class="btn btn-outline-secondary me-auto"
+              @click="create.step -= 1"
             >
-              {{ $t('datasets.createDataset') }}
+              <i class="fa fa-chevron-left" /> {{ $t('exportSteps.back') }}
+            </button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+              {{ $t('datasets.close') }}
             </button>
             <button
+              v-if="create.step < 4"
               type="button"
-              class="btn btn-secondary"
-              data-bs-dismiss="modal"
+              class="btn btn-primary"
+              :disabled="!canGoCreateStep(create.step + 1)"
+              @click="nextCreateStep"
             >
-              {{ $t('datasets.close') }}
+              {{ $t('exportSteps.next') }} <i class="fa fa-chevron-right" />
+            </button>
+            <button
+              v-else
+              type="button"
+              class="btn btn-success"
+              :disabled="creating || !!validDatasetName"
+              @click="createDataset"
+            >
+              <i class="fa" :class="creating ? 'fa-spinner fa-spin' : 'fa-plus'" /> {{ $t('datasets.createDataset') }}
             </button>
           </div>
         </div>
@@ -185,12 +233,14 @@ import Pagination from "@/components/Pagination.vue";
 import ImportDatasetModal from "@/components/ImportDatasetModal.vue";
 import TaskPicker from "@/components/TaskPicker.vue";
 import CategoryPicker from "@/components/CategoryPicker.vue";
+import WizardSteps from "@/components/WizardSteps.vue";
+import { showModal, hideModal } from "@/libs/modal";
 
 import { mapMutations } from "vuex";
 
 export default {
   name: "Datasets",
-  components: { DatasetCard, Pagination, ImportDatasetModal, TaskPicker, CategoryPicker },
+  components: { DatasetCard, Pagination, ImportDatasetModal, TaskPicker, CategoryPicker, WizardSteps },
   mixins: [toastrs],
   data() {
     return {
@@ -198,10 +248,13 @@ export default {
       limit: 52,
       page: 1,
       create: {
+        step: 1,
+        touched: false,
         name: "",
         categories: [],
         task: ""
       },
+      creating: false,
       datasets: [],
       subdirectories: [],
       categories: [],
@@ -237,15 +290,28 @@ export default {
       const query = importTask ? { importTask } : {};
       this.$router.push({ name: "dataset", params: { identifier: datasetId }, query });
     },
+    openCreate() {
+      this.create = { step: 1, touched: false, name: "", categories: [], task: "" };
+      if (this.$refs.categoryPicker) this.$refs.categoryPicker.reset();
+      showModal("#createDataset");
+      setTimeout(() => this.$refs.createName && this.$refs.createName.focus(), 400);
+    },
+    /** a step opens once the name is filled in */
+    canGoCreateStep(step) {
+      return step <= 1 || !this.validDatasetName;
+    },
+    nextCreateStep() {
+      this.create.touched = true;
+      if (this.create.step < 4 && this.canGoCreateStep(this.create.step + 1)) this.create.step += 1;
+    },
     createDataset() {
-      if (this.create.name.length < 1) return;
+      if (this.create.name.trim().length < 1 || this.creating) return;
       const categories = [...this.create.categories];
-      Datasets.create(this.create.name, categories, this.create.task)
+      this.creating = true;
+      Datasets.create(this.create.name.trim(), categories, this.create.task)
         .then(() => {
-          this.create.name = "";
-          this.create.categories = [];
-          this.create.task = "";
-          if (this.$refs.categoryPicker) this.$refs.categoryPicker.reset();
+          hideModal("#createDataset");
+          this.$toastr.success(this.$t("datasets.created", { name: this.create.name.trim() }));
           this.updatePage();
         })
         .catch(error => {
@@ -253,7 +319,8 @@ export default {
             "Creating Dataset",
             error.response.data.message
           );
-        });
+        })
+        .finally(() => (this.creating = false));
     }
   },
   watch: {
@@ -262,12 +329,20 @@ export default {
     }
   },
   computed: {
+    createStepLabels() {
+      return [this.$t("datasets.datasetName2"), this.$t("datasetTask.label"),
+        this.$t("datasets.defaultCategories"), this.$t("datasets.confirmStep")];
+    },
     directory() {
       let closing = this.create.name.length > 0 ? "/" : "";
       return "/datasets/" + this.create.name + closing;
     },
     validDatasetName() {
-      if (this.create.name.length === 0) return this.$t("datasets.nameRequired");
+      const name = this.create.name.trim();
+      if (name.length === 0) return this.$t("datasets.nameRequired");
+      // same rules as the server: the name is also a folder name
+      if (name.startsWith(".") || /[/\\]/.test(name)) return this.$t("datasets.nameInvalid");
+      if (this.datasets.some(d => d.name === name)) return this.$t("datasets.nameTaken");
       return "";
     },
     user() {

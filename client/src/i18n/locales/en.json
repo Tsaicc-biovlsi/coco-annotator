@@ -239,7 +239,12 @@
     "onceYouHaveCreatedA": "Once you have created a dataset you can add images by placing them in the create folder (while the server is running).",
     "refresh": "Refresh",
     "whatIsADataset": "What is a dataset?",
-    "youNeedToCreateA": "You need to create a dataset!"
+    "youNeedToCreateA": "You need to create a dataset!",
+    "created": "Dataset \"{name}\" created",
+    "noCategoriesYet": "(none, add them later)",
+    "nameInvalid": "The name cannot contain / or \\ or start with a dot",
+    "nameTaken": "A dataset with this name already exists",
+    "confirmStep": "Confirm"
   },
   "eraserPanel": {
     "radius": "Radius",
