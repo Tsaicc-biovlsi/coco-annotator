@@ -188,8 +188,9 @@ def _write_coco_split_zip(coco, subsets, file_path):
 
 
 def _write_yolo_zip(coco, yolo_task, with_images, file_path, task, subsets=None, split=None, prefix=""):
-    """COCO dict -> zip with labels/*.txt, data.yaml, classes.txt (+ images/).
-    With ``subsets`` ({image_id: train/val/test}) files go to labels/train/ etc."""
+    """COCO dict -> zip with <subset>/labels/*.txt (+ <subset>/images/),
+    data.yaml and classes.txt. ``subsets`` ({image_id: train/val/test})
+    picks the folder; without it everything goes to train/."""
     import zipfile
     from geometry.yolo_format import coco_to_yolo, data_yaml, stem
 
@@ -203,14 +204,14 @@ def _write_yolo_zip(coco, yolo_task, with_images, file_path, task, subsets=None,
                 name = f"{name}_{image['id']}"
             used.add(name)
             lines = result["labels"].get(image["id"], [])
-            folder = f"/{subsets[image['id']]}" if subsets else ""
-            zf.writestr(f"labels{folder}/{name}.txt", "\n".join(lines) + ("\n" if lines else ""))
+            folder = subsets[image['id']] if subsets else "train"
+            zf.writestr(f"{folder}/labels/{name}.txt", "\n".join(lines) + ("\n" if lines else ""))
             if with_images:
                 path = image.get("path")
                 if path and os.path.isfile(path):
                     ext = os.path.splitext(path)[1]
                     # images are already compressed
-                    zf.write(path, f"images{folder}/{name}{ext}", compress_type=zipfile.ZIP_STORED)
+                    zf.write(path, f"{folder}/images/{name}{ext}", compress_type=zipfile.ZIP_STORED)
                 else:
                     task.warning(f"Image file missing: {image.get('file_name')}")
         zf.writestr("data.yaml", data_yaml(result["names"], yolo_task, result["kpt_shape"], result["flip_idx"],

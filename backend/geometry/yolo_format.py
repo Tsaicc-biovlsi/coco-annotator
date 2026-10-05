@@ -255,28 +255,29 @@ def split_images(image_ids, ratios, seed=42):
     return assignment
 
 
-def data_yaml(names, task="detect", kpt_shape=None, flip_idx=None, images="images", split=None):
-    """Ultralytics dataset YAML.
+def data_yaml(names, task="detect", kpt_shape=None, flip_idx=None, split=None):
+    """Ultralytics dataset YAML for the train/images, train/labels layout.
 
-    Without ``split`` train and val both point at all images. With a split
-    ({"train": 80, "val": 10, "test": 10}) they point at images/train etc.
-    No ``path:`` key, so Ultralytics resolves the folders next to this file.
+    Without ``split`` every image is in train/ and val also points there.
+    With a split ({"train": 80, "val": 10, "test": 10}) val and test point
+    at val/images and test/images. No ``path:`` key, so Ultralytics
+    resolves the folders next to this file.
     """
     lines = [f"# YOLO {task} dataset exported from COCO Annotator"]
     if split:
         lines += [
             "# split " + " / ".join(f"{k} {split.get(k, 0)}%" for k in SUBSETS),
-            f"train: {images}/train",
-            f"val: {images}/val" if split.get("val") else f"val: {images}/train  # no validation split",
+            "train: train/images",
+            "val: val/images" if split.get("val") else "val: train/images  # no validation split",
         ]
         if split.get("test"):
-            lines.append(f"test: {images}/test")
+            lines.append("test: test/images")
         lines.append("")
     else:
         lines += [
-            "# train and val both use all images: split them before training for real",
-            f"train: {images}",
-            f"val: {images}",
+            "# not split: val also uses all images, split them before training for real",
+            "train: train/images",
+            "val: train/images",
             "",
         ]
     if kpt_shape:

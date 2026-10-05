@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Convert between COCO JSON and YOLO (Ultralytics) labels, outside the web UI.
 
-COCO -> YOLO (writes out_dir/labels/*.txt, data.yaml, classes.txt):
+COCO -> YOLO (writes out_dir/train/labels/*.txt, data.yaml, classes.txt):
 
     python scripts/coco_yolo.py coco2yolo export.json out_dir --task detect
     python scripts/coco_yolo.py coco2yolo export.json out_dir --task obb --images /data/my_dataset
 
   --task     detect | segment | obb | pose
-  --images   also copy the images (looked up by file_name in this folder) to out_dir/images
+  --images   also copy the images (looked up by file_name in this folder) to out_dir/train/images
 
 YOLO -> COCO (image sizes are read from the image files):
 
@@ -47,11 +47,11 @@ def coco2yolo(args):
         coco = json.load(f)
     result = coco_to_yolo(coco, args.task, only_rbbox=args.only_rbbox)
 
-    labels_dir = os.path.join(args.out_dir, "labels")
+    labels_dir = os.path.join(args.out_dir, "train", "labels")
     os.makedirs(labels_dir, exist_ok=True)
     found = {stem(p): p for p in walk(args.images, IMAGE_EXT)} if args.images else {}
     if args.images:
-        os.makedirs(os.path.join(args.out_dir, "images"), exist_ok=True)
+        os.makedirs(os.path.join(args.out_dir, "train", "images"), exist_ok=True)
 
     used, missing = set(), 0
     for image in coco.get("images", []):
@@ -65,7 +65,7 @@ def coco2yolo(args):
         if args.images:
             source = found.get(stem(image["file_name"]))
             if source:
-                shutil.copy2(source, os.path.join(args.out_dir, "images", name + os.path.splitext(source)[1]))
+                shutil.copy2(source, os.path.join(args.out_dir, "train", "images", name + os.path.splitext(source)[1]))
             else:
                 missing += 1
 
@@ -139,7 +139,7 @@ def main():
     a.add_argument("coco_json")
     a.add_argument("out_dir")
     a.add_argument("--task", choices=TASKS, default="detect")
-    a.add_argument("--images", help="folder with the images, to copy them into out_dir/images")
+    a.add_argument("--images", help="folder with the images, to copy them into out_dir/train/images")
     a.add_argument("--only-rbbox", action="store_true", help="obb: skip annotations that are not rotated boxes")
     a.set_defaults(func=coco2yolo)
 

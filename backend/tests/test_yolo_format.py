@@ -180,10 +180,10 @@ def test_api_yolo_import_then_export(yolo_world):
     assert ".zip" in d.headers["Content-Disposition"]
     with zipfile.ZipFile(io.BytesIO(d.data)) as zf:
         names = set(zf.namelist())
-        assert {"data.yaml", "classes.txt", "labels/yolo_conv_p1.txt", "labels/yolo_conv_p2.txt", "images/yolo_conv_p1.jpg"} <= names
-        lines = zf.read("labels/yolo_conv_p1.txt").decode().split("\n")
+        assert {"data.yaml", "classes.txt", "train/labels/yolo_conv_p1.txt", "train/labels/yolo_conv_p2.txt", "train/images/yolo_conv_p1.jpg"} <= names
+        lines = zf.read("train/labels/yolo_conv_p1.txt").decode().split("\n")
         classes = zf.read("classes.txt").decode().split()
-        assert zf.read("labels/yolo_conv_p2.txt") == b""
+        assert zf.read("train/labels/yolo_conv_p2.txt") == b""
     kayak_lines = [l for l in lines if l and classes[int(l.split()[0])] == "kayak"]
     assert _values(kayak_lines[0])[1:] == pytest.approx([0.5, 0.5, 0.2, 0.4])
 
@@ -217,7 +217,7 @@ def test_api_category_counts_and_export_order(yolo_world):
     export = ExportModel.objects(dataset_id=ds).order_by("-id").first()
     with zipfile.ZipFile(export.path) as zf:
         assert zf.read("classes.txt").decode().split() == ["ship"]
-        assert zf.read("labels/yolo_conv_p1.txt").decode().count("\n") == 1
+        assert zf.read("train/labels/yolo_conv_p1.txt").decode().count("\n") == 1
 
 
 def test_api_export_list_and_delete(yolo_world):
@@ -271,10 +271,10 @@ def test_api_export_with_split(yolo_world):
     with zipfile.ZipFile(export.path) as zf:
         names = zf.namelist()
         yaml_text = zf.read("data.yaml").decode()
-    assert sum(n.startswith("labels/train/") for n in names) == 1
-    assert sum(n.startswith("labels/val/") for n in names) == 1
-    assert sum(n.startswith("images/val/") for n in names) == 1
-    assert "train: images/train" in yaml_text and "val: images/val" in yaml_text and "test:" not in yaml_text
+    assert sum(n.startswith("train/labels/") for n in names) == 1
+    assert sum(n.startswith("val/labels/") for n in names) == 1
+    assert sum(n.startswith("val/images/") for n in names) == 1
+    assert "train: train/images" in yaml_text and "val: val/images" in yaml_text and "test:" not in yaml_text
     row = next(x for x in c.get(f"/api/dataset/{ds}/exports").get_json() if x["id"] == export.id)
     assert row["split"] == {"train": 50, "val": 50, "test": 0}
     assert row["split_counts"] == {"train": 1, "val": 1, "test": 0} and row["seed"] == 3
@@ -310,7 +310,7 @@ def test_dataset_name_prefix(yolo_world):
     with zipfile.ZipFile(export.path) as zf:
         names = set(zf.namelist())
         data = {n: zf.read(n) for n in names}
-    assert {"labels/yolo_conv_p1.txt", "images/yolo_conv_p1.jpg", "images/yolo_conv_p2.jpg"} <= names
+    assert {"train/labels/yolo_conv_p1.txt", "train/images/yolo_conv_p1.jpg", "train/images/yolo_conv_p2.jpg"} <= names
     row = next(x for x in c.get(f"/api/dataset/{ds}/exports").get_json() if x["id"] == export.id)
     assert row["prefix_dataset"] is True
 
@@ -318,7 +318,7 @@ def test_dataset_name_prefix(yolo_world):
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
         for n, b in data.items():
-            if n.startswith("labels/") or n == "data.yaml":
+            if "/labels/" in n or n == "data.yaml":
                 zf.writestr(n, b)
     buf.seek(0)
     r = c.post(f"/api/dataset/{ds}/yolo", data={"yolo": (buf, "x.zip")}, content_type="multipart/form-data")

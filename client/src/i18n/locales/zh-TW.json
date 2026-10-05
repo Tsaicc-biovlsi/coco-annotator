@@ -637,7 +637,7 @@
   "yolo": {
     "format": "格式",
     "formatCoco": "COCO（.json）",
-    "formatYolo": "YOLO（.zip：labels/*.txt + data.yaml）",
+    "formatYolo": "YOLO（.zip：train/images、train/labels + data.yaml）",
     "task": "YOLO 標註類型",
     "auto": "自動判斷",
     "detect": "偵測框 detect",
@@ -699,7 +699,7 @@
   },
   "exportSplit": {
     "title": "切分成訓練 / 驗證 / 測試集",
-    "offYolo": "不切分時，data.yaml 的 train 和 val 都指向全部圖片。",
+    "offYolo": "不切分時，全部放在 train/images、train/labels，data.yaml 的 train 和 val 都指向它。",
     "offCoco": "不切分時匯出一個 json；切分後會是內含 train.json、val.json、test.json 的 zip。",
     "presets": "常用：",
     "train": "訓練",
@@ -711,7 +711,7 @@
     "seed": "亂數種子",
     "newSeed": "換一個",
     "seedHint": "同樣的種子和圖片，每次切出來的結果都一樣；想重新洗牌就換一個種子。",
-    "layoutYolo": "zip 內會是 images/train、labels/train、images/val… 的結構，data.yaml 已設定好路徑。",
+    "layoutYolo": "zip 內會是 train/images、train/labels、val/images、val/labels… 的結構，data.yaml 已設定好路徑。",
     "layoutCoco": "zip 內有 train.json、val.json（和 test.json），各自只含該組的圖片和標註。"
   },
   "exportSteps": {
@@ -720,7 +720,7 @@
     "split": "切分",
     "formatHint": {
       "coco": "一個 .json（切分時為 zip），適合 Detectron2、MMDetection 等",
-      "yolo": "zip：labels/*.txt + data.yaml，給 Ultralytics YOLO 訓練"
+      "yolo": "zip：train/images、train/labels + data.yaml，給 Ultralytics YOLO 訓練"
     },
     "back": "上一步",
     "next": "下一步",

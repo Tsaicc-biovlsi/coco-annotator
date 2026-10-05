@@ -509,7 +509,7 @@
   "yolo": {
     "format": "Format",
     "formatCoco": "COCO (.json)",
-    "formatYolo": "YOLO (.zip: labels/*.txt + data.yaml)",
+    "formatYolo": "YOLO (.zip: train/images, train/labels + data.yaml)",
     "task": "YOLO label type",
     "auto": "Detect automatically",
     "detect": "Boxes (detect)",
@@ -571,7 +571,7 @@
   },
   "exportSplit": {
     "title": "Split into train / val / test",
-    "offYolo": "Without a split, train and val in data.yaml both point at all images.",
+    "offYolo": "Without a split everything goes to train/images and train/labels; train and val in data.yaml both point there.",
     "offCoco": "Without a split you get one json; with a split, a zip with train.json, val.json and test.json.",
     "presets": "Presets:",
     "train": "Train",
@@ -583,7 +583,7 @@
     "seed": "Random seed",
     "newSeed": "New seed",
     "seedHint": "The same seed and images always give the same split; change the seed to reshuffle.",
-    "layoutYolo": "The zip uses images/train, labels/train, images/val, …; data.yaml already points at them.",
+    "layoutYolo": "The zip uses train/images, train/labels, val/images, val/labels, …; data.yaml already points at them.",
     "layoutCoco": "The zip has train.json, val.json (and test.json), each with only its own images and annotations."
   },
   "exportSteps": {
@@ -592,7 +592,7 @@
     "split": "Split",
     "formatHint": {
       "coco": "One .json (a zip when split), for Detectron2, MMDetection, …",
-      "yolo": "Zip: labels/*.txt + data.yaml, for Ultralytics YOLO training"
+      "yolo": "Zip: train/images, train/labels + data.yaml, for Ultralytics YOLO training"
     },
     "back": "Back",
     "next": "Next",
