@@ -83,9 +83,10 @@
     </ul>
 
     <div class="d-flex flex-wrap gap-2 small mt-1">
-      <span v-if="counts" :class="totalAnnotations ? 'text-muted' : 'text-danger'">
+      <span v-if="counts && yoloTask !== 'classify'" :class="totalAnnotations ? 'text-muted' : 'text-danger'">
         {{ $t('exportCategories.total', { n: totalAnnotations }) }}
       </span>
+      <span v-else-if="counts" class="text-muted">{{ $t('exportCategories.classifyHint') }}</span>
       <a v-if="!filter && categories.length > 1" href="#" class="ms-auto" @click.prevent="sortByName">
         {{ $t('exportCategories.sortByName') }}
       </a>
@@ -117,8 +118,9 @@ export default {
     return { filter: "" };
   },
   computed: {
+    /** Class index badges and reordering only matter where the order is the class id */
     yolo() {
-      return !!this.yoloTask;
+      return !!this.yoloTask && this.yoloTask !== "classify";
     },
     all() {
       return this.rows.map(c => c.id);
@@ -152,7 +154,11 @@ export default {
     /** Annotations of this category that the chosen format can export */
     usable(id) {
       const s = this.stat(id);
-      return this.yoloTask === "pose" ? s.keypoints : s.annotations;
+      if (this.yoloTask === "pose") return s.keypoints;
+      if (this.yoloTask === "classify") return s.images;
+      // semantic masks need a shape (box, rotated box or polygon)
+      if (this.yoloTask === "semantic") return (s.boxes || 0) + (s.rotated || 0) + (s.polygons || 0);
+      return s.annotations;
     },
     countText(id) {
       const s = this.stat(id);
@@ -162,6 +168,8 @@ export default {
           : this.$t("exportCategories.noKeypoints");
       }
       if (!s.annotations) return this.$t("exportCategories.noAnnotations");
+      if (this.yoloTask === "classify") return this.$t("exportCategories.imageCount", { n: s.images });
+      if (this.yoloTask === "semantic" && !this.usable(id)) return this.$t("exportCategories.noShapes");
       return this.$t("exportCategories.count", { n: s.annotations, images: s.images });
     },
     select(ids) {

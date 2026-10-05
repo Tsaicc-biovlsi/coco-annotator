@@ -486,7 +486,7 @@
                 <template v-if="exporting.format === 'yolo'">
                   <div class="form-label fw-semibold">{{ $t('yolo.task') }}</div>
                   <div class="row g-2">
-                    <div v-for="t in yoloTasks" :key="t" class="col-6">
+                    <div v-for="t in exportYoloTasks" :key="t" class="col-6">
                       <label class="choice-card" :class="{ selected: exporting.yolo_task === t }">
                         <input v-model="exporting.yolo_task" type="radio" name="exportYoloTask" :value="t" class="d-none" />
                         <span class="fw-semibold">{{ $t('yolo.' + t) }}</span>
@@ -495,9 +495,17 @@
                     </div>
                   </div>
                   <div class="form-check d-flex align-items-center gap-2 ps-0 mt-3">
-                    <input id="exportWithImages" v-model="exporting.with_images" type="checkbox" class="form-check-input m-0" />
+                    <input
+                      id="exportWithImages"
+                      type="checkbox"
+                      class="form-check-input m-0"
+                      :checked="exportWithImages"
+                      :disabled="exporting.yolo_task === 'classify'"
+                      @change="exporting.with_images = $event.target.checked"
+                    />
                     <label class="form-check-label mb-0" for="exportWithImages">{{ $t('yolo.withImages') }}</label>
                   </div>
+                  <div v-if="exporting.yolo_task === 'classify'" class="form-text mt-0 ms-4">{{ $t('yolo.classifyImages') }}</div>
                   <div class="form-text mt-2">
                     <i class="fa fa-info-circle" />
                     {{ $t('exportSteps.prefixExample', { image: exportExampleName.image, label: exportExampleName.label }) }}
@@ -587,7 +595,12 @@
                     <dd class="col-8">
                       <template v-if="exportImageCount == null"><i class="fa fa-spinner fa-spin" /></template>
                       <template v-else>
-                        {{ $t('exportSteps.contentCount', { images: exportImageCount, annotations: exportAnnotationCount }) }}
+                        <template v-if="exporting.format === 'yolo' && exporting.yolo_task === 'classify'">
+                          {{ $t('exportSteps.classifyCount', { images: exportImageCount }) }}
+                        </template>
+                        <template v-else>
+                          {{ $t('exportSteps.contentCount', { images: exportImageCount, annotations: exportAnnotationCount }) }}
+                        </template>
                       </template>
                     </dd>
                     <dt class="col-4">{{ $t('exportSteps.split') }}</dt>
@@ -607,6 +620,10 @@
                 <template v-if="exporting.format === 'yolo'">
                   <div class="fw-semibold small mt-3 mb-1">{{ $t('exportSteps.zipContents') }}</div>
                   <pre class="zip-tree small mb-0">{{ exportTree }}</pre>
+                  <div class="form-text">
+                    {{ $t('exportSteps.trainWith') }}
+                    <code>{{ exportTrainCommand }}</code>
+                  </div>
                 </template>
                 <div v-if="!exportReady" class="small text-danger mt-2">{{ $t('exportSteps.notReady') }}</div>
               </div>
@@ -753,6 +770,7 @@ export default {
         id: null
       },
       yoloTasks: ["detect", "segment", "obb", "pose"],
+      exportYoloTasks: ["detect", "segment", "obb", "pose", "classify", "semantic"],
       exportStepNames: ["format", "folder", "categories", "split", "review"],
       importFile: null,
       importYoloTask: "auto",
@@ -973,7 +991,7 @@ export default {
       const options = { format: this.exporting.format };
       if (this.exporting.format === "yolo") {
         options.yolo_task = this.exporting.yolo_task;
-        options.with_images = this.exporting.with_images;
+        options.with_images = this.exportWithImages;
         options.folder = this.exportFolderName;
       }
       if (this.exporting.split_on) {
@@ -1115,20 +1133,50 @@ export default {
     exportFolderName() {
       return this.cleanFolderName(this.exporting.folder);
     },
+    exportTrainCommand() {
+      const task = this.exporting.yolo_task;
+      const data = task === "classify" ? this.exportFolderName : "data.yaml";
+      const model = { detect: "yolo26n.pt", segment: "yolo26n-seg.pt", obb: "yolo26n-obb.pt", pose: "yolo26n-pose.pt",
+        classify: "yolo26n-cls.pt", semantic: "yolo26n-sem.pt" }[task];
+      return `yolo ${task} train data=${data} model=${model}`;
+    },
+    /** classify always ships the images (they are the dataset) */
+    exportWithImages() {
+      return this.exporting.yolo_task === "classify" || this.exporting.with_images;
+    },
     /** What the zip will contain */
     exportTree() {
       const root = this.exportFolderName || "…";
+      const task = this.exporting.yolo_task;
       const split = this.exporting.split_on ? this.exporting.split : null;
       const subsets = split ? ["train", "val", "test"].filter(k => Number(split[k]) > 0) : ["train"];
-      const lines = ["data.yaml", "classes.txt", `${root}/`];
-      subsets.forEach((name, i) => {
-        const last = i === subsets.length - 1;
-        const branch = last ? "└─ " : "├─ ";
-        const pipe = last ? "   " : "│  ";
-        lines.push(`${branch}${name}/`);
-        if (this.exporting.with_images) lines.push(`${pipe}├─ images/   ${this.exportExampleName.image}`);
-        lines.push(`${pipe}└─ labels/   ${this.exportExampleName.label}`);
-      });
+      const { image, label } = this.exportExampleName;
+      const mask = label.replace(/\.txt$/, ".png");
+      const lines = task === "classify" ? ["classes.txt", `${root}/`] : ["data.yaml", "classes.txt", `${root}/`];
+      const classNames = this.exportSelectedNames.slice(0, 2).map(n => this.cleanFolderName(n) || "class");
+      if (this.exportSelectedNames.length > 2) classNames.push("…");
+      const children = (pipe, inner) => {
+        if (task === "classify") {
+          classNames.forEach((name, j) => {
+            const end = j === classNames.length - 1;
+            lines.push(`${pipe}${end ? "└─ " : "├─ "}${name}/${name === "…" ? "" : "   " + image}`);
+          });
+          return;
+        }
+        const leaf = task === "semantic" ? ["masks/", mask] : ["labels/", label];
+        if (this.exportWithImages) lines.push(`${pipe}├─ images/   ${image}`);
+        lines.push(`${pipe}└─ ${leaf[0].padEnd(9)} ${leaf[1]}`);
+        return inner;
+      };
+      if (task === "classify" && !split) {
+        children("");  // class folders directly in the folder; Ultralytics splits 80/20
+      } else {
+        subsets.forEach((name, i) => {
+          const last = i === subsets.length - 1;
+          lines.push(`${last ? "└─ " : "├─ "}${name}/`);
+          children(last ? "   " : "│  ");
+        });
+      }
       return lines.join("\n");
     },
     /** e.g. ships_IMG_0001.jpg / .txt, as the server names them */
@@ -1157,10 +1205,13 @@ export default {
     /** Annotations the export will contain (pose: only those with keypoints) */
     exportAnnotationCount() {
       const counts = (this.exporting.counts && this.exporting.counts.categories) || {};
-      const pose = this.exporting.format === "yolo" && this.exporting.yolo_task === "pose";
+      const task = this.exporting.format === "yolo" ? this.exporting.yolo_task : null;
       return this.exporting.categories.reduce((n, id) => {
         const c = counts[id];
-        return n + (c ? (pose ? c.keypoints : c.annotations) : 0);
+        if (!c) return n;
+        if (task === "pose") return n + c.keypoints;
+        if (task === "semantic") return n + (c.boxes || 0) + (c.rotated || 0) + (c.polygons || 0);
+        return n + c.annotations;
       }, 0);
     },
     /** Images the export will contain (for the split estimate) */
@@ -1169,6 +1220,10 @@ export default {
       if (!counts || counts.total_images == null) return null;
       const chosen = new Set(this.exporting.categories);
       const images = counts.image_categories || [];
+      if (this.exporting.format === "yolo" && this.exporting.yolo_task === "classify") {
+        // classify keeps only images whose annotations are all one category
+        return images.filter(cats => new Set(cats.filter(id => chosen.has(id))).size === 1).length;
+      }
       const matched = images.filter(cats => cats.some(id => chosen.has(id))).length;
       return this.exporting.with_empty_images ? counts.total_images - images.length + matched : matched;
     },

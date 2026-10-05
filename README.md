@@ -192,6 +192,8 @@ sudo docker compose up -d --build
     | segment | `class x1 y1 … xn yn` | 多邊形；分成好幾塊的會接成一個多邊形 |
     | obb | `class x1 y1 … x4 y4` | 旋轉框照原本的 4 個角；其他標註用最小外接旋轉矩形 |
     | pose | `class xc yc w h px py v …` | 只輸出有關鍵點的標註，`data.yaml` 含 `kpt_shape`、`flip_idx` |
+    | classify | `資料夾/train/<類別>/圖片` | 整張圖一個類別，依圖上的標註決定（只有一種類別的圖才會匯出）；一定附圖片；不切分時 Ultralytics 會自動切 80/20；類別編號依資料夾名稱字母排序 |
+    | semantic | `資料夾/train/masks/*.png` | 把框和多邊形畫成遮罩（像素值＝類別編號），0 是 background，你的類別從 1 開始；data.yaml 含 `masks_dir: masks` |
 
   - **檔名含資料集名稱：** YOLO 匯出的圖片和標註檔一律命名為「資料集名稱_原檔名」（例如 `ships_IMG_0001.jpg`、`ships_IMG_0001.txt`），合併多個資料集訓練時不會撞名；匯入回本系統時一樣對得到原圖。
   - **切分訓練 / 驗證 / 測試集：** 匯出時勾選「切分成訓練 / 驗證 / 測試集」，設定比例（例如 70 / 20 / 10，有常用比例可點）和亂數種子。以圖片為單位隨機分配，同樣的種子每次切出來都一樣。YOLO 的自訂資料夾裡會是 `train/images`、`train/labels`、`val/images`、`val/labels`、`test/…`，沒分到圖片的組不會寫進 data.yaml，`data.yaml` 自動指到各組；COCO 會變成內含 `train.json`、`val.json`、`test.json` 的 zip。不切分時，YOLO 全部放在 `資料夾/train/`，data.yaml 的 train 和 val 都指向它。

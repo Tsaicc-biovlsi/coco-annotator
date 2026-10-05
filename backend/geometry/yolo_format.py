@@ -21,6 +21,9 @@ import numpy as np
 from . import polygon_to_rbbox, rbbox_to_polygon
 
 TASKS = ("detect", "segment", "obb", "pose")
+# tasks that can only be exported (no label files to import back)
+EXPORT_TASKS = TASKS + ("classify", "semantic")
+SEMANTIC_BACKGROUND = "background"
 
 # COCO person keypoints (for 17-keypoint data without labels). Skeleton
 # edges are 1-based, as in COCO.
@@ -261,7 +264,7 @@ def split_images(image_ids, ratios, seed=42):
     return assignment
 
 
-def data_yaml(names, task="detect", kpt_shape=None, flip_idx=None, split=None, root=""):
+def data_yaml(names, task="detect", kpt_shape=None, flip_idx=None, split=None, root="", masks_dir=None):
     """Ultralytics dataset YAML for the train/images, train/labels layout.
 
     Without ``split`` every image is in train/ and val also points there.
@@ -288,6 +291,9 @@ def data_yaml(names, task="detect", kpt_shape=None, flip_idx=None, split=None, r
             f"val: {base}train/images",
             "",
         ]
+    if masks_dir:
+        lines.append(f"masks_dir: {masks_dir}  # PNG masks: pixel value = class index")
+        lines.append("")
     if kpt_shape:
         lines.append(f"kpt_shape: [{kpt_shape[0]}, {kpt_shape[1]}]")
         if flip_idx is not None:
@@ -298,6 +304,57 @@ def data_yaml(names, task="detect", kpt_shape=None, flip_idx=None, split=None, r
         quoted = "'" + str(name).replace("'", "''") + "'"
         lines.append(f"  {i}: {quoted}")
     return "\n".join(lines) + "\n"
+
+
+# ------------------------------------------------- classify / semantic export
+
+def image_classes(coco):
+    """classify: each image's class from its annotations.
+
+    Returns ``(single, mixed, empty)``: ``single`` maps image id -> class
+    index for images whose annotations are all one category; ``mixed`` and
+    ``empty`` list the images with several categories / no annotations.
+    """
+    index = {c["id"]: i for i, c in enumerate(coco.get("categories", []))}
+    per_image = {}
+    for a in coco.get("annotations", []):
+        if a.get("category_id") in index:
+            per_image.setdefault(a.get("image_id"), set()).add(index[a["category_id"]])
+    single, mixed, empty = {}, [], []
+    for image in coco.get("images", []):
+        classes = per_image.get(image["id"], set())
+        if len(classes) == 1:
+            single[image["id"]] = next(iter(classes))
+        elif classes:
+            mixed.append(image)
+        else:
+            empty.append(image)
+    return single, mixed, empty
+
+
+def semantic_mask(image, annotations, category_index):
+    """Single-channel mask: 0 = background, category index + 1 elsewhere.
+
+    Larger shapes are drawn first so small objects on top of them stay
+    visible. Boxes, rotated boxes and polygons all count; keypoint-only
+    annotations do not.
+    """
+    import cv2
+    mask = np.zeros((int(image["height"]), int(image["width"])), dtype=np.uint8)
+    shapes = []
+    for a in annotations:
+        cls = category_index.get(a.get("category_id"))
+        polys = _polygons(a)
+        if cls is None or not polys:
+            continue
+        area = a.get("area") or sum(
+            abs(np.dot(p[0::2], np.roll(p[1::2], 1)) - np.dot(p[1::2], np.roll(p[0::2], 1))) / 2
+            for p in (np.asarray(q, dtype=float) for q in polys))
+        shapes.append((float(area), cls, polys))
+    for _, cls, polys in sorted(shapes, key=lambda s: -s[0]):
+        pts = [np.round(np.asarray(p, dtype=float).reshape(-1, 2)).astype(np.int32) for p in polys]
+        cv2.fillPoly(mask, pts, int(cls) + 1)
+    return mask
 
 
 # ------------------------------------------------------------- YOLO -> COCO

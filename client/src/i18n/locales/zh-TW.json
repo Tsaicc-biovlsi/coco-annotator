@@ -648,7 +648,9 @@
       "detect": "每個標註輸出外接矩形（多邊形、旋轉框也會轉成水平框）。",
       "segment": "輸出多邊形；只有框的標註會輸出成四邊形，分成好幾塊的會接成一個多邊形。",
       "obb": "旋轉框照原本的四個角輸出；一般框和多邊形會用最小外接旋轉矩形。",
-      "pose": "只輸出有關鍵點的標註（框 + 關鍵點），data.yaml 會寫入 kpt_shape 和 flip_idx。"
+      "pose": "只輸出有關鍵點的標註（框 + 關鍵點），data.yaml 會寫入 kpt_shape 和 flip_idx。",
+      "classify": "整張圖一個類別：依圖上的標註決定，圖上只有一種類別才會匯出，圖片放進以類別命名的資料夾。",
+      "semantic": "每個像素一個類別：把框和多邊形畫成 PNG 遮罩，0 是背景（background），你的類別從 1 開始。"
     },
     "withImages": "zip 裡附上圖片（檔案較大，解壓後可直接拿去訓練）",
     "importHint": "zip 內放 YOLO 標註 .txt（資料夾結構不拘）和 data.yaml 或 classes.txt。依檔名（不含副檔名）對應資料集裡的圖片，所以圖片要先在資料集裡。",
@@ -656,7 +658,10 @@
     "unmatched": "{n} 個標註檔找不到對應的圖片（例如 {names}）",
     "noNames": "沒有 data.yaml / classes.txt，類別會命名為 class_0、class_1…",
     "folderFound": "在資料夾裡找到 {n} 個 YOLO 標註檔，會在圖片上傳後一起匯入。",
-    "folderUsed": "會匯入所選資料夾裡的 YOLO 標註；也可以改選一個 COCO .json 或 YOLO .zip。"
+    "folderUsed": "會匯入所選資料夾裡的 YOLO 標註；也可以改選一個 COCO .json 或 YOLO .zip。",
+    "classify": "分類 classify",
+    "semantic": "語意分割 semantic",
+    "classifyImages": "分類的資料就是圖片本身，一定會附上。"
   },
   "exportCategories": {
     "title": "要匯出的類別",
@@ -677,7 +682,10 @@
     "yoloOrder": "藍色數字是 YOLO 的類別編號，照上面的順序從 0 開始。要配合已訓練好的模型時，用箭頭調整成跟模型相同的順序。",
     "pickOne": "請至少選一個類別",
     "noMatch": "找不到符合的類別",
-    "empty": "這個資料集還沒有類別"
+    "empty": "這個資料集還沒有類別",
+    "imageCount": "{n} 張圖有這個類別",
+    "noShapes": "沒有框或多邊形，不會畫進遮罩",
+    "classifyHint": "圖上只有一種（勾選的）類別才會匯出；有多種類別的圖會跳過。分類的類別編號由 Ultralytics 依資料夾名稱的字母順序決定，跟這裡的順序無關。"
   },
   "exportList": {
     "id": "系統序號",
@@ -742,6 +750,8 @@
     "folderCoco": "COCO 匯出不需要設定資料夾，直接下一步。",
     "edit": "修改",
     "zipContents": "zip 內容",
-    "notReady": "還有步驟沒完成，請點上方的步驟修改。"
+    "notReady": "還有步驟沒完成，請點上方的步驟修改。",
+    "classifyCount": "約 {images} 張圖（只含單一類別的圖）",
+    "trainWith": "解壓後的訓練指令範例："
   }
 }

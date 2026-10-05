@@ -334,3 +334,68 @@ def test_dataset_name_prefix(yolo_world):
     r = c.post(f"/api/dataset/{ds}/yolo", data={"yolo": (buf, "x.zip")}, content_type="multipart/form-data")
     assert r.status_code == 200, r.data
     assert r.get_json()["stats"]["matched"] == 2 and r.get_json()["stats"]["unmatched"] == 0
+
+
+def test_image_classes_and_semantic_mask():
+    from geometry.yolo_format import image_classes, semantic_mask
+    coco = _coco([
+        {"id": 1, "image_id": 1, "category_id": 10, "segmentation": [[0, 0, 100, 0, 100, 100, 0, 100]]},
+        {"id": 2, "image_id": 1, "category_id": 10, "segmentation": [[10, 10, 20, 10, 20, 20]]},
+        {"id": 3, "image_id": 2, "category_id": 10, "segmentation": [[0, 0, 5, 0, 5, 5]]},
+        {"id": 4, "image_id": 2, "category_id": 20, "segmentation": [[0, 0, 5, 0, 5, 5]]},
+    ])
+    single, mixed, empty = image_classes(coco)
+    assert single == {1: 0} and [i["id"] for i in mixed] == [2] and empty == []
+
+    # big ship box with a small car on top: the car stays visible
+    anns = [{"category_id": 10, "segmentation": [[0, 0, 100, 0, 100, 80, 0, 80]], "area": 8000},
+            {"category_id": 20, "segmentation": [[40, 30, 60, 30, 60, 50, 40, 50]], "area": 400}]
+    mask = semantic_mask(IMAGES[0], anns, {10: 0, 20: 1})
+    assert mask.shape == (H, W)
+    assert mask[10, 10] == 1 and mask[40, 50] == 2 and mask[95, 150] == 0
+
+
+def test_api_export_classify_and_semantic(yolo_world):
+    from database import AnnotationModel, CategoryModel, ExportModel
+    import numpy as np
+    import cv2
+    c, ds = yolo_world["client"], yolo_world["dataset"]["id"]
+    images = yolo_world["images"]
+    ship = CategoryModel.objects(name="ship").first().id
+    # p2 gets one ship box, so it has a single class; p1 has ship + kayak (mixed)
+    c.post("/api/annotation/", json={"image_id": images["p2.jpg"]["id"], "category_id": ship,
+                                     "segmentation": [[10, 10, 60, 10, 60, 40, 10, 40]]})
+    AnnotationModel.objects(image_id=images["p2.jpg"]["id"]).update(set__area=1500, set__bbox=[10, 10, 50, 30])
+
+    def latest():
+        return ExportModel.objects(dataset_id=ds).order_by("-id").first()
+
+    r = c.get(f"/api/dataset/{ds}/export?format=yolo&yolo_task=classify&folder=cls")
+    assert r.status_code == 200, r.data
+    with zipfile.ZipFile(latest().path) as zf:
+        names = zf.namelist()
+    assert "cls/ship/yolo_conv_p2.jpg" in names           # no split: class folders at the top
+    assert not any("yolo_conv_p1" in n for n in names)     # mixed image skipped
+    assert "cls/kayak/" in names and "classes.txt" in names and "data.yaml" not in names
+    with zipfile.ZipFile(latest().path) as zf:
+        assert zf.read("classes.txt").decode().split() == sorted(zf.read("classes.txt").decode().split())
+
+    c.get(f"/api/dataset/{ds}/export?format=yolo&yolo_task=classify&folder=cls&split=50,50,0")
+    with zipfile.ZipFile(latest().path) as zf:
+        names = zf.namelist()
+    assert "cls/train/ship/yolo_conv_p2.jpg" in names
+    assert "cls/train/kayak/" in names
+
+    r = c.get(f"/api/dataset/{ds}/export?format=yolo&yolo_task=semantic&folder=sem&with_images=true"
+              "&with_empty_images=true")
+    assert r.status_code == 200, r.data
+    with zipfile.ZipFile(latest().path) as zf:
+        names = set(zf.namelist())
+        yaml_text = zf.read("data.yaml").decode()
+        mask = cv2.imdecode(np.frombuffer(zf.read("sem/train/masks/yolo_conv_p2.png"), np.uint8), cv2.IMREAD_UNCHANGED)
+        classes = zf.read("classes.txt").decode().split()
+    assert {"sem/train/images/yolo_conv_p2.jpg", "sem/train/masks/yolo_conv_p1.png"} <= names
+    assert "masks_dir: masks" in yaml_text and "0: 'background'" in yaml_text
+    assert classes[0] == "background"
+    assert mask.shape == (H, W) and mask.dtype == np.uint8
+    assert mask[20, 30] == classes.index("ship") and mask[90, 190] == 0

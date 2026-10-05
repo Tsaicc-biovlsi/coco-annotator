@@ -520,7 +520,9 @@
       "detect": "Every annotation is written as its bounding box (polygons and rotated boxes too).",
       "segment": "Polygons; box-only annotations become 4-point polygons and multi-part ones are joined into one polygon.",
       "obb": "Rotated boxes keep their 4 corners; other boxes and polygons use the minimum-area rotated rectangle.",
-      "pose": "Only annotations with keypoints (box + keypoints); data.yaml gets kpt_shape and flip_idx."
+      "pose": "Only annotations with keypoints (box + keypoints); data.yaml gets kpt_shape and flip_idx.",
+      "classify": "One class per image, taken from its annotations: only images with a single category are exported, into a folder per class.",
+      "semantic": "One class per pixel: boxes and polygons become PNG masks; 0 is background and your categories start at 1."
     },
     "withImages": "Include the images in the zip (larger, ready to train after unzipping)",
     "importHint": "A zip with YOLO label .txt files (any folder layout) and data.yaml or classes.txt. Labels are matched to the dataset's images by file name without the extension, so the images must be in the dataset first.",
@@ -528,7 +530,10 @@
     "unmatched": "{n} label files have no matching image (e.g. {names})",
     "noNames": "No data.yaml / classes.txt: classes will be named class_0, class_1, …",
     "folderFound": "Found {n} YOLO label files in the folder; they are imported after the images.",
-    "folderUsed": "The YOLO labels in the picked folder will be imported; or choose a COCO .json or YOLO .zip instead."
+    "folderUsed": "The YOLO labels in the picked folder will be imported; or choose a COCO .json or YOLO .zip instead.",
+    "classify": "Classification (classify)",
+    "semantic": "Semantic segmentation (semantic)",
+    "classifyImages": "For classification the images are the data, so they are always included."
   },
   "exportCategories": {
     "title": "Categories to export",
@@ -549,7 +554,10 @@
     "yoloOrder": "The blue numbers are the YOLO class indices, from 0 in the order above. To match a model you already trained, use the arrows to put them in the model's order.",
     "pickOne": "Pick at least one category",
     "noMatch": "No matching category",
-    "empty": "This dataset has no categories yet"
+    "empty": "This dataset has no categories yet",
+    "imageCount": "{n} images",
+    "noShapes": "no boxes or polygons, not in the masks",
+    "classifyHint": "Only images with a single (ticked) category are exported; images with several are skipped. Ultralytics numbers classification classes by folder name, alphabetically, not by this order."
   },
   "exportList": {
     "id": "ID",
@@ -614,6 +622,8 @@
     "folderCoco": "COCO exports need no folder; go to the next step.",
     "edit": "Edit",
     "zipContents": "Zip contents",
-    "notReady": "A step is not finished yet; click it above to fix it."
+    "notReady": "A step is not finished yet; click it above to fix it.",
+    "classifyCount": "about {images} images (single-category images only)",
+    "trainWith": "After unzipping, train with e.g.:"
   }
 }

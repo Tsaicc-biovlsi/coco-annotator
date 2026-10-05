@@ -127,6 +127,19 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
     if not os.path.exists(directory):
         os.makedirs(directory)
 
+    classes = None
+    if fmt == "yolo" and yolo_task == "classify":
+        # one class per image, taken from its annotations
+        from geometry.yolo_format import image_classes
+        classes, mixed, empty = image_classes(coco)
+        if mixed:
+            task.warning(f"{len(mixed)} images have annotations of several categories and are skipped "
+                         "(classification needs one class per image): "
+                         + ", ".join(img['file_name'] for img in mixed[:10]))
+        if empty:
+            task.info(f"{len(empty)} images without annotations are skipped")
+        coco['images'] = [img for img in coco['images'] if img['id'] in classes]
+
     subsets = None
     if split:
         from geometry.yolo_format import split_images
@@ -145,10 +158,17 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
         task.info(f"Folder in the zip: {folder}/ (train, val, test)")
         if prefix:
             task.info(f"File names start with the dataset name: {prefix}<image name>")
-        result = _write_yolo_zip(coco, yolo_task, with_images, file_path, task, subsets, split, prefix, folder)
+        if yolo_task == "classify":
+            result = _write_classify_zip(coco, classes, file_path, task, subsets, prefix, folder)
+            task.info(f"Wrote {result['written']} images into class folders")
+        elif yolo_task == "semantic":
+            result = _write_semantic_zip(coco, with_images, file_path, task, subsets, split, prefix, folder)
+            task.info(f"Wrote {result['written']} masks ({result['skipped']} annotations without a shape skipped)")
+        else:
+            result = _write_yolo_zip(coco, yolo_task, with_images, file_path, task, subsets, split, prefix, folder)
+            task.info(f"Wrote {result['written']} labels ({result['skipped']} annotations "
+                      f"could not be converted to {yolo_task})")
         tags = ["YOLO", yolo_task, *category_names]
-        task.info(f"Wrote {result['written']} labels ({result['skipped']} annotations "
-                  f"could not be converted to {yolo_task})")
     elif subsets:
         file_path = f"{directory}coco-split-{timestamp}.zip"
         task.info(f"Writing COCO train / val / test files to {file_path}")
@@ -189,6 +209,101 @@ def _write_coco_split_zip(coco, subsets, file_path):
                         annotations=[a for a in coco["annotations"] if a.get("image_id") in ids])
             zf.writestr(f"{name}.json", json.dumps(part))
     os.replace(tmp_path, file_path)
+
+
+def _unique_names(coco, prefix):
+    """image id -> <prefix><file stem>, made unique (same name in two folders)."""
+    from geometry.yolo_format import stem
+    names, used = {}, set()
+    for image in coco["images"]:
+        name = prefix + stem(image["file_name"])
+        if name in used:
+            name = f"{name}_{image['id']}"
+        used.add(name)
+        names[image["id"]] = name
+    return names
+
+
+def _add_image(zf, image, arcname_no_ext, task):
+    """Copy the image file into the zip (uncompressed: images are already)."""
+    import zipfile
+    path = image.get("path")
+    if path and os.path.isfile(path):
+        zf.write(path, arcname_no_ext + os.path.splitext(path)[1], compress_type=zipfile.ZIP_STORED)
+        return True
+    task.warning(f"Image file missing: {image.get('file_name')}")
+    return False
+
+
+def _write_classify_zip(coco, classes, file_path, task, subsets=None, prefix="", root="dataset"):
+    """classify: <root>/<subset>/<class name>/<image> (images only, no labels).
+    Without a split: <root>/<class name>/<image>, which Ultralytics splits
+    80/20 by itself."""
+    import zipfile
+    from geometry.yolo_format import safe_folder
+
+    names = [c["name"] for c in coco["categories"]]
+    folders, seen = [], set()
+    for i, name in enumerate(names):
+        folder = safe_folder(name, f"class_{i}")
+        if folder in seen:
+            folder = f"{folder}_{i}"
+        seen.add(folder)
+        folders.append(folder)
+    file_names = _unique_names(coco, prefix)
+    subset_names = sorted(set(subsets.values()), key=("train", "val", "test").index) if subsets else [None]
+
+    written = 0
+    tmp_path = file_path + ".tmp"
+    with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        # every class folder in every subset, so they all list the same classes
+        for subset in subset_names:
+            for folder in folders:
+                zf.writestr(f"{root}/{subset + '/' if subset else ''}{folder}/", "")
+        for image in coco["images"]:
+            subset = subsets[image["id"]] if subsets else None
+            base = f"{root}/{subset + '/' if subset else ''}{folders[classes[image['id']]]}/{file_names[image['id']]}"
+            written += _add_image(zf, image, base, task)
+        # Ultralytics numbers classify classes by folder name, alphabetically
+        zf.writestr("classes.txt", "\n".join(sorted(folders)) + "\n")
+    os.replace(tmp_path, file_path)
+    return {"written": written, "skipped": 0, "names": sorted(folders)}
+
+
+def _write_semantic_zip(coco, with_images, file_path, task, subsets=None, split=None, prefix="", root="dataset"):
+    """semantic: <root>/<subset>/masks/<image>.png (+ images/), class 0 is
+    background and the categories start at 1."""
+    import zipfile
+    import cv2
+    from geometry.yolo_format import SEMANTIC_BACKGROUND, data_yaml, semantic_mask
+
+    names = [SEMANTIC_BACKGROUND] + [c["name"] for c in coco["categories"]]
+    index = {c["id"]: i for i, c in enumerate(coco["categories"])}
+    by_image = {}
+    for a in coco["annotations"]:
+        by_image.setdefault(a.get("image_id"), []).append(a)
+    file_names = _unique_names(coco, prefix)
+    used_split = None
+    if subsets:
+        present = set(subsets.values())
+        used_split = {k: (v if k in present else 0) for k, v in split.items()}
+
+    written = skipped = 0
+    tmp_path = file_path + ".tmp"
+    with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for image in coco["images"]:
+            folder = f"{root}/" + (subsets[image["id"]] if subsets else "train")
+            annotations = by_image.get(image["id"], [])
+            skipped += sum(1 for a in annotations if not a.get("segmentation"))
+            ok, png = cv2.imencode(".png", semantic_mask(image, annotations, index))
+            zf.writestr(f"{folder}/masks/{file_names[image['id']]}.png", png.tobytes())
+            written += 1
+            if with_images:
+                _add_image(zf, image, f"{folder}/images/{file_names[image['id']]}", task)
+        zf.writestr("data.yaml", data_yaml(names, "semantic", split=used_split, root=root, masks_dir="masks"))
+        zf.writestr("classes.txt", "\n".join(names) + "\n")
+    os.replace(tmp_path, file_path)
+    return {"written": written, "skipped": skipped, "names": names}
 
 
 def _write_yolo_zip(coco, yolo_task, with_images, file_path, task, subsets=None, split=None, prefix="",
