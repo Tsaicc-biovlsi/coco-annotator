@@ -61,8 +61,8 @@
           </div>
 
         </div>
-        <div class="container" v-show="tab == 'exports'">
-          <div class="card my-3 p-3 shadow-sm me-2">
+        <div class="container-fluid exports-tab" v-show="tab == 'exports'">
+          <div class="card my-3 p-3 shadow-sm">
             <div class="d-flex align-items-center border-bottom border-gray pb-2">
               <h6 class="mb-0 me-auto"><b>{{ $t('dataset.exports') }}</b></h6>
               <button type="button" class="btn btn-sm btn-outline-secondary" @click="getExports">
@@ -77,17 +77,17 @@
               <table class="table table-sm table-hover align-middle mb-0 export-table">
                 <thead>
                   <tr>
-                    <th class="text-nowrap">{{ $t('exportList.id') }}</th>
-                    <th>{{ $t('exportList.categories') }}</th>
-                    <th class="text-nowrap">{{ $t('exportList.time') }}</th>
+                    <th class="text-nowrap text-center">{{ $t('exportList.id') }}</th>
+                    <th class="text-center">{{ $t('exportList.categories') }}</th>
+                    <th class="text-nowrap text-center">{{ $t('exportList.time') }}</th>
                     <th class="text-nowrap text-center">{{ $t('exportList.download') }}</th>
                     <th class="text-nowrap text-center">{{ $t('exportList.delete') }}</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="exp in datasetExports" :key="exp.id">
-                    <td class="text-nowrap fw-semibold">#{{ exp.id }}</td>
-                    <td>
+                    <td class="text-nowrap fw-semibold text-center">#{{ exp.id }}</td>
+                    <td class="text-center">
                       <span
                         class="badge me-1"
                         :class="exp.format === 'YOLO' ? 'text-bg-primary' : 'text-bg-dark'"
@@ -108,7 +108,7 @@
                         ? $t('exportList.less')
                         : $t('exportList.more', { n: exp.categories.length - EXPORT_TAGS_SHOWN }) }}</a>
                     </td>
-                    <td class="text-nowrap">
+                    <td class="text-nowrap text-center">
                       {{ exportTime(exp) }}
                       <div class="small text-muted">{{ $t('dataset.exportedAgo', { time: $ago(exp.ago) }) }}</div>
                     </td>
@@ -1123,5 +1123,15 @@ export default {
   background-color: #383c4a;
   padding: 0 5px 2px 5px;
   overflow: auto;
+}
+
+.exports-tab {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.export-table td,
+.export-table th {
+  padding: 0.6rem 0.75rem;
 }
 </style>
