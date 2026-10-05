@@ -20,9 +20,11 @@ export default class UndoAction {
  * @param {Array<{category: Object, data: Object}>} snapshots
  */
 export function restoreAnnotations(snapshots) {
-  return Promise.all(
-    snapshots.map(({ data }) => axios.post(`/api/undo/?id=${data.id}&instance=annotation`))
-  ).then(() => {
+  const ids = snapshots.map(({ data }) => data.id);
+  return axios.post("/api/trash/restore", {
+    items: [{ type: "annotation", ids }],
+    include_parents: true
+  }).then(() => {
     snapshots.forEach(({ category, data }) => {
       if (!category.annotations.some(a => a.id === data.id)) {
         category.annotations.push(data);

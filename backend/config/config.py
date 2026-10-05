@@ -117,6 +117,9 @@ class Config:
     # image embeddings kept in memory (SAM 1 ~4 MB, SAM 2.1 ~16 MB of RAM each)
     SAM_CACHE_SIZE = int(os.getenv("SAM_CACHE_SIZE", 64))
 
+    ### Trash: deleted items are permanently removed after this many days (0 = never)
+    TRASH_DAYS = int(os.getenv("TRASH_DAYS", 90))
+
     ### Your own models (Ultralytics YOLO .pt files) for pre-annotation
     MODELS_DIRECTORY = os.getenv("MODELS_DIRECTORY", "/models")
     YOLO_DEVICE = os.getenv("YOLO_DEVICE", "auto")

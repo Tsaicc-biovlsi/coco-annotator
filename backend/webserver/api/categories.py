@@ -97,8 +97,8 @@ class Category(Resource):
         if not current_user.can_delete(category):
             return {"message": "You do not have permission to delete this category"}, 403
 
-        category.update(set__deleted=True,
-                        set__deleted_date=datetime.datetime.now())
+        from ..util.trash import soft_delete
+        soft_delete(category, current_user)
         return {'success': True}
 
     @api.expect(update_category)

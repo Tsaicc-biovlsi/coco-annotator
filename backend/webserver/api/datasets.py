@@ -305,7 +305,8 @@ class DatasetId(Resource):
         if not current_user.can_delete(dataset):
             return {"message": "You do not have permission to delete the dataset"}, 403
 
-        dataset.update(set__deleted=True, set__deleted_date=datetime.datetime.now())
+        from ..util.trash import soft_delete
+        soft_delete(dataset, current_user)
         return {"success": True}
 
     @api.expect(update_dataset)

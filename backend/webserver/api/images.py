@@ -181,7 +181,8 @@ class ImageId(Resource):
         if not current_user.can_delete(image):
             return {"message": "You do not have permission to download the image"}, 403
 
-        image.update(set__deleted=True, set__deleted_date=datetime.datetime.now())
+        from ..util.trash import soft_delete
+        soft_delete(image, current_user)
         return {"success": True}
 
 
@@ -255,8 +256,10 @@ class ImageAnnotations(Resource):
         if not current_user.can_edit(image.dataset):
             return {'success': False, 'message': 'You do not have permission to edit this dataset'}, 403
 
-        deleted = AnnotationModel.objects(image_id=image.id, deleted=False).update(
-            set__deleted=True, set__deleted_date=datetime.datetime.now())
+        from ..util.trash import soft_delete
+        query = AnnotationModel.objects(image_id=image.id, deleted=False)
+        deleted = query.count()
+        soft_delete(query, current_user)
         image.update(set__annotated=False, set__num_annotations=0, set__category_ids=[])
         image.flag_thumbnail()
 

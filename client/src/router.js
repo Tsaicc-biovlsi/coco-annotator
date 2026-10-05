@@ -6,7 +6,7 @@ import Annotator from "@/views/Annotator.vue";
 import AdminPanel from "@/views/AdminPanel.vue";
 import Datasets from "@/views/Datasets.vue";
 import Categories from "@/views/Categories.vue";
-import Undo from "@/views/Undo.vue";
+import Trash from "@/views/Trash.vue";
 import Dataset from "@/views/Dataset.vue";
 import Auth from "@/views/Auth.vue";
 import User from "@/views/User.vue";
@@ -33,9 +33,13 @@ export default createRouter({
       component: Categories
     },
     {
+      path: "/trash",
+      name: "trash",
+      component: Trash
+    },
+    {
       path: "/undo",
-      name: "undo",
-      component: Undo
+      redirect: "/trash"
     },
     {
       path: "/annotate/:identifier",

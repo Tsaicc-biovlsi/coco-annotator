@@ -7,6 +7,7 @@
 x-backend-env: &backend-env
   SECRET_KEY: ${SECRET_KEY:-}
   ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
+  TRASH_DAYS: ${TRASH_DAYS:-90}
   MONGODB_HOST: mongodb://database/flask
   CELERY_BROKER_URL: amqp://user:password@messageq:5672//
   CELERY_RESULT_BACKEND: mongodb://database/flask

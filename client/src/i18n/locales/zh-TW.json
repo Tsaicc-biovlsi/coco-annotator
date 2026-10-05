@@ -362,7 +362,8 @@
     "datasets": "資料集",
     "help": "說明",
     "tasks": "任務",
-    "undo": "復原"
+    "undo": "復原",
+    "trash": "垃圾桶"
   },
   "option": {
     "fileName": "檔名",
@@ -958,5 +959,50 @@
     "remove": "移除",
     "empty": "還沒有任何類別，請在上面輸入新類別",
     "hint": "勾選要用的類別；藍色數字是順序，也是之後匯出 YOLO 時的預設類別編號，可以用箭頭調整。"
+  },
+  "trash": {
+    "title": "垃圾桶",
+    "keepDays": "刪除的項目保留 {days} 天，之後自動永久刪除",
+    "keepForever": "刪除的項目會一直保留，直到手動永久刪除",
+    "refresh": "重新整理",
+    "empty": "清空垃圾桶",
+    "type": {
+      "all": "全部",
+      "annotation": "標註",
+      "image": "圖片",
+      "category": "類別",
+      "dataset": "資料集"
+    },
+    "allDatasets": "所有資料集",
+    "anyone": "所有刪除者",
+    "unknownDeleter": "未記錄",
+    "search": "搜尋檔名、類別、資料集…",
+    "selectPage": "全選本頁",
+    "selectedN": "已選 {n} 項",
+    "restoreSelected": "還原所選",
+    "purgeSelected": "永久刪除所選",
+    "noMatch": "沒有符合條件的項目",
+    "isEmpty": "垃圾桶是空的",
+    "annotationTitle": "{file} 的 {n} 個標註",
+    "datasetTitle": "{name}（{n} 張圖片）",
+    "daysLeft": "{n} 天後永久刪除",
+    "justNow": "剛剛",
+    "minutesAgo": "{n} 分鐘前",
+    "hoursAgo": "{n} 小時前",
+    "daysAgo": "{n} 天前",
+    "parentImage": "所屬圖片也已刪除，還原時會一起還原",
+    "parentDataset": "所屬資料集也已刪除，還原時會一起還原",
+    "hideItems": "收合",
+    "showItems": "展開 {n} 個標註",
+    "restore": "還原",
+    "purge": "永久刪除",
+    "restored": "已還原 {n} 項",
+    "purged": "已永久刪除 {n} 項",
+    "nImages": "{n} 張圖片",
+    "nDatasets": "{n} 個資料集",
+    "confirmParents": "要還原的項目所屬的 {what} 也在垃圾桶裡，要一起還原嗎？",
+    "confirmPurge": "確定要永久刪除 {n} 項嗎？此動作無法復原。",
+    "filesToo": "圖片檔案也會從伺服器上刪除。",
+    "confirmEmpty": "確定要清空垃圾桶（共 {n} 項）嗎？"
   }
 }

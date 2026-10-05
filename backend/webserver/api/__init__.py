@@ -14,6 +14,7 @@ from .tasks import api as ns_tasks
 from .undo import api as ns_undo
 from .info import api as ns_info
 from .review import api as ns_review
+from .trash import api as ns_trash
 
 from config import Config
 
@@ -43,4 +44,5 @@ api.add_namespace(ns_models)
 api.add_namespace(ns_admin)
 api.add_namespace(ns_annotator)
 api.add_namespace(ns_review)
+api.add_namespace(ns_trash)
 

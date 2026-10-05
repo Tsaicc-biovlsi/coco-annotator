@@ -48,7 +48,7 @@ def test_copy_restored_annotations(world):
     AnnotationModel.objects(id=ann).update(set__area=1925, set__width=320, set__height=200)
     c.delete(f"/api/annotation/{ann}")
     c.post(f"/api/undo/?id={ann}&instance=annotation")
-    assert AnnotationModel.objects(id=ann).first().deleted_date is not None
+    assert AnnotationModel.objects(id=ann).first().deleted is False   # restored (and no stale deleted_date)
 
     before = AnnotationModel.objects(image_id=dst, deleted=False).count()
     r = c.post(f"/api/image/copy/{src}/{dst}/annotations", json={"category_ids": [category]})

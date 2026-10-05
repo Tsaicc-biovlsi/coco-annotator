@@ -362,7 +362,8 @@
     "datasets": "Datasets",
     "help": "Help",
     "tasks": "Tasks",
-    "undo": "Undo"
+    "undo": "Undo",
+    "trash": "Trash"
   },
   "pageNotFound": {
     "couldNotFindThePage": "Could not find the page you are looking for.",
@@ -830,5 +831,50 @@
     "remove": "Remove",
     "empty": "No categories yet: type a new one above",
     "hint": "Tick the categories to use; the blue numbers are their order, also the default YOLO class index in exports. Use the arrows to change it."
+  },
+  "trash": {
+    "title": "Trash",
+    "keepDays": "Deleted items are kept for {days} days, then removed for good",
+    "keepForever": "Deleted items are kept until removed by hand",
+    "refresh": "Refresh",
+    "empty": "Empty trash",
+    "type": {
+      "all": "All",
+      "annotation": "Annotations",
+      "image": "Images",
+      "category": "Categories",
+      "dataset": "Datasets"
+    },
+    "allDatasets": "All datasets",
+    "anyone": "Anyone",
+    "unknownDeleter": "Not recorded",
+    "search": "Search file, category, dataset…",
+    "selectPage": "Select page",
+    "selectedN": "{n} selected",
+    "restoreSelected": "Restore selected",
+    "purgeSelected": "Delete selected forever",
+    "noMatch": "Nothing matches these filters",
+    "isEmpty": "The trash is empty",
+    "annotationTitle": "{n} annotation(s) on {file}",
+    "datasetTitle": "{name} ({n} images)",
+    "daysLeft": "deleted for good in {n} days",
+    "justNow": "just now",
+    "minutesAgo": "{n} min ago",
+    "hoursAgo": "{n} h ago",
+    "daysAgo": "{n} days ago",
+    "parentImage": "Its image is in the trash too and will be restored with it",
+    "parentDataset": "Its dataset is in the trash too and will be restored with it",
+    "hideItems": "Hide",
+    "showItems": "Show {n} annotations",
+    "restore": "Restore",
+    "purge": "Delete forever",
+    "restored": "Restored {n} item(s)",
+    "purged": "Deleted {n} item(s) for good",
+    "nImages": "{n} image(s)",
+    "nDatasets": "{n} dataset(s)",
+    "confirmParents": "The {what} these belong to are in the trash too. Restore them as well?",
+    "confirmPurge": "Delete {n} item(s) for good? This cannot be undone.",
+    "filesToo": "Image files are removed from the server too.",
+    "confirmEmpty": "Empty the trash ({n} items)?"
   }
 }

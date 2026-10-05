@@ -1,18 +1,11 @@
+"""Older undo endpoints, kept for compatibility (the annotator's undo uses
+POST /api/undo/). They use the same logic as the trash (/api/trash)."""
 from flask_restx import Namespace, Resource, reqparse
 from flask_login import login_required, current_user
-from mongoengine import Q
 
-import os
-import shutil
-import datetime
-from database import (
-    ImageModel,
-    DatasetModel,
-    CategoryModel,
-    AnnotationModel
-)
+from ..util import trash
 
-api = Namespace('undo', description='Undo related operations')
+api = Namespace('undo', description='Undo related operations (see /api/trash)')
 
 model_list = reqparse.RequestParser()
 model_list.add_argument('type', type=str, location='args', default="all")
@@ -23,40 +16,29 @@ model_data.add_argument('id', type=int, required=True)
 model_data.add_argument('instance', required=True)
 
 
-models = [
-    (CategoryModel, "category"),
-    (AnnotationModel, "annotation"),
-    (ImageModel, "image"),
-    (DatasetModel, "dataset")
-]
-
-
 @api.route('/list/')
-class Undo(Resource):
+class UndoList(Resource):
 
     @api.expect(model_list)
     @login_required
     def get(self):
-        """ Returns all partially delete models """
+        """ Trashed items, newest first (one row per item) """
         args = model_list.parse_args()
-        model_type = args['type']
         n = max(1, min(args['limit'], 1000))
-
         data = []
-
-        for model in models:
-            if model_type == "all" or model_type == model[1]:
-                data.extend(model_undo(model[0], model[1], limit=n))
-
+        for name, model in trash.TYPES.items():
+            if args['type'] not in ("all", name):
+                continue
+            for doc in trash.visible(model, current_user).order_by('-deleted_date').limit(n):
+                if doc.deleted_date is None:
+                    continue
+                label = getattr(doc, 'name', None) or getattr(doc, 'file_name', None) or '-'
+                data.append({'id': doc.id, 'name': label, 'instance': name,
+                             'date': doc.deleted_date, 'deleted_by': getattr(doc, 'deleted_by', None)})
         data.sort(key=lambda item: item['date'], reverse=True)
-
-        for model in data:
-            model['date'] = str(model['date'])
-
-        if len(data) > n:
-            data = data[:n]
-
-        return data
+        for item in data:
+            item['date'] = str(item['date'])
+        return data[:n]
 
 
 @api.route('/')
@@ -65,118 +47,22 @@ class Undo(Resource):
     @api.expect(model_data)
     @login_required
     def post(self):
-        """ Undo a partial delete give id and instance """
+        """ Restore an item (and its trashed image / dataset) """
         args = model_data.parse_args()
-        model_id = args['id']
-        instance = args['instance']
-
-        model_instance = None
-        for model in models:
-            if model[1].lower() == instance:
-                model_instance = model[0]
-
-        if model_instance is None:
+        if args['instance'] not in trash.TYPES:
             return {"message": "Instance not found"}, 400
-
-        model_object = _visible(model_instance, current_user).filter(id=model_id).first()
-
-        if model_object is None:
+        n = trash.restore(current_user, [{"type": args['instance'], "ids": [args['id']]}], include_parents=True)
+        if not n:
             return {"message": "Invalid id"}, 400
-
-        model_object.update(set__deleted=False)
-
         return {"success": True}
 
     @api.expect(model_data)
     @login_required
     def delete(self):
-        """ Undo a partial delete give id and instance """
+        """ Permanently delete an item """
         args = model_data.parse_args()
-        model_id = args['id']
-        instance = args['instance']
-
-        model_instance = None
-        for model in models:
-            if model[1].lower() == instance:
-                model_instance = model[0]
-
-        if model_instance is None:
+        if args['instance'] not in trash.TYPES:
             return {"message": "Instance not found"}, 400
-
-        model_object = _visible(model_instance, current_user).filter(id=model_id).first()
-
-        if model_object is None:
+        if not trash.purge(current_user, [{"type": args['instance'], "ids": [args['id']]}]):
             return {"message": "Invalid id"}, 400
-
-        if isinstance(model_object, ImageModel):
-            if os.path.isfile(model_object.path):
-                os.remove(model_object.path)
-
-        if isinstance(model_object, DatasetModel):
-            if os.path.isdir(model_object.directory):
-                shutil.rmtree(model_object.directory)
-
-        model_object.delete()
-
         return {"success": True}
-
-
-def _visible(model_instance, user):
-    """Deleted objects of this type that the user may see, restore or purge."""
-    query = model_instance.objects(deleted=True)
-    if user.is_admin:
-        return query
-    dataset_ids = [d.id for d in DatasetModel.objects(Q(owner=user.username) | Q(users__contains=user.username)).only('id')]
-    if model_instance is DatasetModel:
-        return query.filter(owner=user.username)
-    if model_instance is CategoryModel:
-        return query.filter(creator=user.username)
-    return query.filter(dataset_id__in=dataset_ids)
-
-
-def model_undo(model_instance, instance_name, limit=50):
-    models = _visible(model_instance, current_user).order_by('-deleted_date').limit(limit)
-    new_models = []
-
-    for model in models:
-
-        if model.deleted_date is None:
-            continue
-
-        name = model.name if hasattr(model, 'name') else '-'
-        name = model.file_name if hasattr(model, 'file_name') and name == '-' else name
-
-        time_delta = datetime.datetime.now() - model.deleted_date
-
-        new_model = {
-            'id': model.id,
-            'name': '-' if name is None else name,
-            'instance': instance_name,
-            'ago': td_format(time_delta),
-            'date': model.deleted_date
-        }
-        new_models.append(new_model)
-
-    return new_models
-
-
-def td_format(td_object):
-    seconds = int(td_object.total_seconds())
-    periods = [
-        ('year',        60*60*24*365),
-        ('month',       60*60*24*30),
-        ('day',         60*60*24),
-        ('hour',        60*60),
-        ('minute',      60),
-        ('second',      1)
-    ]
-
-    strings = []
-    for period_name, period_seconds in periods:
-        if seconds > period_seconds:
-            period_value, seconds = divmod(seconds, period_seconds)
-            has_s = 's' if period_value > 1 else ''
-            strings.append("%s %s%s" % (period_value, period_name, has_s))
-            break
-
-    return ", ".join(strings)

@@ -89,12 +89,9 @@ class AnnotationId(Resource):
         if annotation is None:
             return {"message": "Invalid annotation id"}, 400
 
-        image = current_user.images.filter(
-            id=annotation.image_id, deleted=False).first()
-        image.flag_thumbnail()
-
-        annotation.update(set__deleted=True,
-                          set__deleted_date=datetime.datetime.now())
+        from ..util.trash import soft_delete, refresh_image
+        soft_delete(annotation, current_user)
+        refresh_image(annotation.image_id)
         return {'success': True}
 
     @api.expect(update_annotation)
