@@ -16,7 +16,7 @@
           @change="$emit('update:modelValue', t)"
         />
         <span class="d-flex align-items-center gap-2">
-          <i class="fa fa-fw" :class="ICONS[t]" />
+          <i class="fa fa-fw" :class="ICONS[t]" :style="t === 'obb' ? { transform: 'rotate(-30deg)' } : null" />
           <span class="fw-semibold">{{ $t('datasetTask.' + (t || 'none') + '.name') }}</span>
         </span>
         <span class="small text-muted">{{ $t('datasetTask.' + (t || 'none') + '.desc') }}</span>
@@ -41,7 +41,7 @@ const ICONS = {
   "": "fa-th-large",
   detect: "fa-square-o",
   segment: "fa-pencil",
-  obb: "fa-repeat",
+  obb: "fa-square-o", // tilted, like the rotated box tool
   pose: "fa-child",
   classify: "fa-tags",
   semantic: "fa-paint-brush"
