@@ -943,7 +943,24 @@
       "reviewOne": "{verb} {file}",
       "reviewMany": "{verb} {n} images",
       "assign": "assigned {n} images: {people}",
-      "unassign": "unassigned {n} images"
+      "unassign": "unassigned {n} images",
+      "parentsChanged": "parents: {names}",
+      "parentsCleared": "parents cleared"
     }
+  },
+  "parents": {
+    "placeholder": "Type a parent and press Enter (several allowed)",
+    "remove": "Remove",
+    "hint": "A category can have several parents; COCO export writes the first one as supercategory.",
+    "quick": "Add by parent:",
+    "none": "No parent",
+    "others": "Other categories",
+    "selectedInOrder": "Selected (in order)",
+    "alsoIn": "also in: {names}",
+    "searchCategories": "Search categories or parents…",
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all",
+    "addHere": "New category under {name}",
+    "addHereShort": "Add"
   }
 }

@@ -23,6 +23,8 @@
       </button>
     </div>
 
+    <ParentChips class="mb-1" :categories="categories" :selected="selected" @update:selected="select" />
+
     <input
       v-if="categories.length > 8"
       v-model="filter"
@@ -53,6 +55,7 @@
         <span class="color-dot flex-shrink-0" :style="{ backgroundColor: category.color || '#999' }" />
         <label :for="'exportCat' + category.id" class="flex-grow-1 mb-0 text-truncate" :title="category.name">
           {{ category.name }}
+          <span v-if="parentsOf(category).length" class="parent-hint">{{ parentsOf(category).join('、') }}</span>
         </label>
         <span class="small text-nowrap" :class="usable(category.id) ? 'text-muted' : 'text-warning-emphasis'">
           <template v-if="!counts"><i class="fa fa-spinner fa-spin" /></template>
@@ -102,8 +105,12 @@
  * set their order (the order is the YOLO class index and the order of
  * "categories" in COCO). Counts come from /api/dataset/<id>/category_counts.
  */
+import ParentChips from "@/components/ParentChips.vue";
+import { matchesSearch, parentsOf } from "@/libs/parents";
+
 export default {
   name: "ExportCategories",
+  components: { ParentChips },
   props: {
     categories: { type: Array, required: true },
     /** { [categoryId]: { annotations, images, boxes, rotated, polygons, keypoints } } or null while loading */
@@ -131,7 +138,7 @@ export default {
     },
     visibleRows() {
       const q = this.filter.trim().toLowerCase();
-      return q ? this.rows.filter(c => c.name.toLowerCase().includes(q)) : this.rows;
+      return q ? this.rows.filter(c => matchesSearch(c, q)) : this.rows;
     },
     selectedInOrder() {
       const chosen = new Set(this.selected);
@@ -142,6 +149,7 @@ export default {
     }
   },
   methods: {
+    parentsOf,
     isSelected(id) {
       return this.selected.includes(id);
     },
@@ -198,6 +206,11 @@ export default {
 </script>
 
 <style scoped>
+.parent-hint {
+  font-size: 0.75rem;
+  color: #6c757d;
+  margin-left: 4px;
+}
 .category-list {
   max-height: 260px;
   overflow-y: auto;

@@ -160,9 +160,11 @@
           v-show="mode == 'segment'"
           style="overflow: auto; max-height: 100%"
         >
+          <template v-for="(category, index) in categories" :key="category.id + '-category'">
+          <div v-if="groupTitle(index) !== null && !search" class="parent-title">
+            <i class="fa fa-folder-open-o" /> {{ groupTitle(index) || $t('parents.none') }}
+          </div>
           <Category
-            v-for="(category, index) in categories"
-            :key="category.id + '-category'"
             :simplify="simplify"
             :categorysearch="search"
             :category="category"
@@ -177,16 +179,20 @@
             :scale="image.scale"
             ref="category"
           />
+          </template>
         </div>
 
         <div v-show="mode == 'label'" style="overflow: auto; max-height: 100%">
-          <CLabel
-            v-for="category in categories"
-            v-model:categoryIds="image.categoryIds"
-            :key="category.id + '-label'"
-            :category="category"
-            :search="search"
-          />
+          <template v-for="(category, index) in categories" :key="category.id + '-label'">
+            <div v-if="groupTitle(index) !== null && !search" class="parent-title">
+              <i class="fa fa-folder-open-o" /> {{ groupTitle(index) || $t('parents.none') }}
+            </div>
+            <CLabel
+              v-model:categoryIds="image.categoryIds"
+              :category="category"
+              :search="search"
+            />
+          </template>
         </div>
       </div>
 
@@ -263,6 +269,7 @@ import paper from "paper";
 import axios from "axios";
 import { hideModal } from "@/libs/modal";
 import UndoAction, { restoreAnnotations } from "@/undo";
+import { groupByParent, parentsOf } from "@/libs/parents";
 
 // save automatically this long after the last change (ms)
 const AUTOSAVE_DELAY = 2000;
@@ -737,7 +744,8 @@ export default {
 
           // Set other data
           this.dataset = data.dataset;
-          this.categories = data.categories;
+          // grouped by (first) parent category, keeping the dataset order inside a group
+          this.categories = groupByParent(data.categories, { firstOnly: true }).flatMap(g => g.items);
 
           // Update status
 
@@ -796,6 +804,14 @@ export default {
       if (this.currentAnnotation == null) return;
       this.currentAnnotation.keypoint.next.label = -1;
       this.$refs.select.click();
+    },
+    /** parent name to show above the category at ``index`` ("" = no parent), or null for no title */
+    groupTitle(index) {
+      if (!this.categories.some(c => parentsOf(c).length)) return null;
+      const first = c => parentsOf(c)[0] || "";
+      const here = first(this.categories[index]);
+      if (index > 0 && first(this.categories[index - 1]) === here) return null;
+      return here;
     },
     getCategory(index) {
       if (index == null) return null;
@@ -1418,6 +1434,16 @@ export default {
 
 #image {
   position: absolute;
+}
+
+.parent-title {
+  color: #9ec5fe;
+  font-size: 11px;
+  text-align: left;
+  padding: 6px 4px 2px;
+  text-transform: none;
+  border-bottom: 1px solid #495057;
+  margin-bottom: 2px;
 }
 
 .sidebar-section {

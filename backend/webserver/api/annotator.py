@@ -74,6 +74,10 @@ class AnnotatorData(Resource):
                 category_update['keypoint_edges'] = category.get('keypoint_edges', [])
                 category_update['keypoint_labels'] = category.get('keypoint_labels', [])
                 category_update['keypoint_colors'] = category.get('keypoint_colors', [])
+                if category.get('supercategories') is not None:
+                    parents = db_category.set_parents(category.get('supercategories'))
+                    if parents['supercategories'] != db_category.parents():
+                        category_update.update(parents)
             
             db_category.update(**category_update)
 

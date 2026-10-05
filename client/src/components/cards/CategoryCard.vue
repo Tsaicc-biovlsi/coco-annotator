@@ -9,7 +9,7 @@
 
         <i
           class="card-text fa fa-ellipsis-v fa-x icon-more"
-          :id="'dropdownCategory' + category.id"
+          :id="'dropdownCategory' + category.id + uid"
           data-bs-toggle="dropdown"
           aria-haspopup="true"
           aria-expanded="false"
@@ -25,7 +25,11 @@
           <p v-else>{{ $t('categoryCard.noAnnotationsUseThisCategory') }}</p>
         </div>
 
-        <div class="dropdown-menu" :aria-labelledby="'dropdownCategory' + category.id">
+        <div v-if="otherParents.length" class="parent-line text-truncate" :title="parents.join('、')">
+          <i class="fa fa-folder-o" /> {{ $t('parents.alsoIn', { names: otherParents.join('、') }) }}
+        </div>
+
+        <div class="dropdown-menu" :aria-labelledby="'dropdownCategory' + category.id + uid">
           <a class="dropdown-item" @click="onDeleteClick">{{ $t('categoryCard.delete') }}</a>
           <!--<a class="dropdown-item" @click="onDownloadClick"
             >{{ $t('categoryCard.downloadCocoImages') }}</a
@@ -33,7 +37,7 @@
           <button
             class="dropdown-item"
             data-bs-toggle="modal"
-            :data-bs-target="'#categoryEdit' + category.id"
+            :data-bs-target="'#categoryEdit' + category.id + uid"
           >{{ $t('categoryCard.edit') }}</button>
         </div>
       </div>
@@ -45,7 +49,7 @@
     </div>
 
     <div class="modal fade" role="dialog" ref="category_settings"
-        :id="'categoryEdit' + category.id" >
+        :id="'categoryEdit' + category.id + uid" >
       <div class="modal-dialog" role="document">
         <div class="modal-content">
           <div class="modal-header">
@@ -68,12 +72,8 @@
 
               <div class="mb-3">
                 <label>{{ $t('categoryCard.supercategory') }}</label>
-                <input
-                  type="text"
-                  class="form-control"
-                  :value="category.supercategory"
-                  @input="supercategory = $event.target.value"
-                />
+                <ParentInput v-model="parents" :known="knownParents" />
+                <div class="form-text">{{ $t('parents.hint') }}</div>
               </div>
 
               <div class="mb-3 row">
@@ -116,16 +116,19 @@ import axios from "axios";
 import toastrs from "@/mixins/toastrs";
 // import TagsInput from "@/components/TagsInput.vue";
 import KeypointsDefinition from "@/components/KeypointsDefinition.vue";
+import ParentInput from "@/components/ParentInput.vue";
+import { parentsOf } from "@/libs/parents";
 
 
 export default {
   name: "CategoryCard",
   mixins: [toastrs],
-  components: { KeypointsDefinition },
+  components: { KeypointsDefinition, ParentInput },
+  emits: ["changed"],
   data() {
     return {
       group: null,
-      supercategory: this.category.supercategory,
+      parents: parentsOf(this.category),
       color: this.category.color,
       metadata: [],
       keypoint: {
@@ -141,9 +144,17 @@ export default {
     category: {
       type: Object,
       required: true
-    }
+    },
+    /** makes element ids unique when a card is shown in several groups */
+    uid: { type: String, default: "" },
+    /** the group this card is shown in (its other parents are listed) */
+    groupParent: { type: String, default: null },
+    knownParents: { type: Array, default: () => [] }
   },
   computed: {
+    otherParents() {
+      return parentsOf(this.category).filter(p => p !== this.groupParent);
+    },
     isFormValid() {
       return (
         this.isMounted &&
@@ -160,7 +171,7 @@ export default {
   methods: {
     resetCategorySettings() {
       this.name = this.category.name;
-      this.supercategory = this.category.supercategory;
+      this.parents = parentsOf(this.category);
       this.color = this.category.color;
       this.keypoint = {
         labels: [...this.category.keypoint_labels],
@@ -172,7 +183,7 @@ export default {
     onDownloadClick() {},
     onDeleteClick() {
       axios.delete("/api/category/" + this.category.id).then(() => {
-        this.$parent.updatePage();
+        this.$emit("changed");
       });
     },
     onUpdateClick() {
@@ -180,7 +191,7 @@ export default {
         .put("/api/category/" + this.category.id, {
           name: this.name,
           color: this.color,
-          supercategory: this.supercategory,
+          supercategories: this.parents,
           metadata: this.metadata,
           keypoint_edges: this.keypoint.edges,
           keypoint_labels: this.keypoint.labels,
@@ -192,20 +203,21 @@ export default {
             "Category successfully updated"
           );
           this.category.name = this.name;
-          this.category.supercategory = this.supercategory;
+          this.category.supercategories = [...this.parents];
+          this.category.supercategory = this.parents[0] || "";
           this.category.color = this.color;
           this.category.metadata = { ...this.metadata };
           this.category.keypoint_edges = [...this.keypoint.edges];
           this.category.keypoint_labels = [...this.keypoint.labels];
           this.category.keypoint_colors = [...this.keypoint.colors];
-          this.$parent.updatePage();
+          this.$emit("changed");
         })
         .catch(error => {
           this.axiosReqestError(
             "Updating Category",
             error.response.data.message
           );
-          this.$parent.updatePage();
+          this.$emit("changed");
         });
     }
   },
@@ -233,6 +245,12 @@ export default {
   display: inline;
   margin: 0;
   padding-right: 10px;
+}
+
+.parent-line {
+  clear: both;
+  font-size: 0.75rem;
+  color: #1d5ea8;
 }
 
 .card-footer {

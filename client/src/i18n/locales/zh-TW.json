@@ -1071,7 +1071,24 @@
       "reviewOne": "{verb} {file}",
       "reviewMany": "{verb} {n} 張圖片",
       "assign": "分配 {n} 張圖片：{people}",
-      "unassign": "取消分配 {n} 張圖片"
+      "unassign": "取消分配 {n} 張圖片",
+      "parentsChanged": "上層類別改為 {names}",
+      "parentsCleared": "清除上層類別"
     }
+  },
+  "parents": {
+    "placeholder": "輸入上層類別後按 Enter，可加多個",
+    "remove": "移除",
+    "hint": "一個類別可以屬於多個上層類別；COCO 匯出時第一個會寫在 supercategory。",
+    "quick": "依上層類別帶入：",
+    "none": "沒有上層類別",
+    "others": "其他類別",
+    "selectedInOrder": "已選（依序）",
+    "alsoIn": "也在：{names}",
+    "searchCategories": "搜尋類別或上層類別…",
+    "expandAll": "全部展開",
+    "collapseAll": "全部收合",
+    "addHere": "在「{name}」下新增類別",
+    "addHereShort": "新增"
   }
 }

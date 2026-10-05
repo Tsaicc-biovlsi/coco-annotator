@@ -434,10 +434,14 @@ def import_annotations(task_id, dataset_id, coco_json):
             # expected when importing new classes, not a problem
             task.info(f"{category_name} category not found (creating a new one)")
 
+            parents = CategoryModel.parse_parents(
+                category.get('supercategories') or category.get('supercategory'))
             new_category = CategoryModel(
                 name=category_name,
                 keypoint_edges=category.get('skeleton', []),
-                keypoint_labels=category.get('keypoints', [])
+                keypoint_labels=category.get('keypoints', []),
+                supercategory=parents[0] if parents else '',
+                supercategories=parents
             )
             new_category.save()
             created_categories.append(category_name)
@@ -448,6 +452,11 @@ def import_annotations(task_id, dataset_id, coco_json):
         elif category_model.id not in dataset.categories:
             # the category exists (e.g. used by another dataset): add it here
             dataset.categories.append(category_model.id)
+
+        if not category_model.parents() and (category.get('supercategories') or category.get('supercategory')):
+            # an existing category without parents takes them from the file
+            category_model.update(**category_model.set_parents(
+                category.get('supercategories') or category.get('supercategory')))
 
         if category.get('keypoints') and not category_model.keypoint_labels:
             # e.g. a YOLO pose import into a category without keypoints yet

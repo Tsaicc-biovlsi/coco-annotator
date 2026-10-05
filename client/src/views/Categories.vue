@@ -46,15 +46,49 @@
           {{ $t('categories.youNeedToCreateA') }}
         </p>
         <div v-else>
-          <Pagination :pages="pages" @pagechange="updatePage" />
-
-          <div class="row">
-            <CategoryCard
-              v-for="category in categories"
-              :key="category.id"
-              :category="category"
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+            <input
+              v-model="search"
+              class="form-control form-control-sm search-box"
+              :placeholder="$t('parents.searchCategories')"
             />
+            <div v-if="grouped" class="btn-group btn-group-sm ms-auto">
+              <button type="button" class="btn btn-outline-secondary" @click="collapsed = {}">
+                <i class="fa fa-plus-square-o" /> {{ $t('parents.expandAll') }}
+              </button>
+              <button type="button" class="btn btn-outline-secondary" @click="collapseAll">
+                <i class="fa fa-minus-square-o" /> {{ $t('parents.collapseAll') }}
+              </button>
+            </div>
           </div>
+
+          <div v-for="g in groups" :key="g.key" class="mb-2">
+            <div v-if="grouped" class="group-title d-flex align-items-center gap-2" @click="toggleGroup(g.key)">
+              <i class="fa fa-fw" :class="collapsed[g.key] ? 'fa-caret-right' : 'fa-caret-down'" />
+              <i class="fa" :class="g.parent ? 'fa-folder-open-o' : 'fa-file-o'" />
+              <strong>{{ g.parent || $t('parents.none') }}</strong>
+              <span class="badge rounded-pill text-bg-secondary">{{ g.items.length }}</span>
+              <button
+                v-if="g.parent"
+                type="button"
+                class="btn btn-link btn-sm p-0 ms-1"
+                :title="$t('parents.addHere', { name: g.parent })"
+                @click.stop="openCreate([g.parent])"
+              ><i class="fa fa-plus" /> {{ $t('parents.addHereShort') }}</button>
+            </div>
+            <div v-show="!collapsed[g.key]" class="row mt-2">
+              <CategoryCard
+                v-for="category in g.items"
+                :key="g.key + '-' + category.id"
+                :category="category"
+                :uid="grouped ? '-' + g.index : ''"
+                :group-parent="g.parent"
+                :known-parents="knownParents"
+                @changed="updatePage"
+              />
+            </div>
+          </div>
+          <p v-if="!groups.length" class="text-center text-muted">{{ $t('exportCategories.noMatch') }}</p>
         </div>
       </div>
     </div>
@@ -86,11 +120,8 @@
 
               <div class="mb-3">
                 <label>{{ $t('categories.supercategory2') }}</label>
-                <input
-                  v-model="newCategorySupercategory"
-                  class="form-control"
-                  :placeholder="$t('categories.supercategory')"
-                />
+                <ParentInput v-model="newCategoryParents" :known="knownParents" />
+                <div class="form-text">{{ $t('parents.hint') }}</div>
               </div>
 
               <div class="mb-3 row">
@@ -176,25 +207,25 @@ import { docsSection } from "@/links";
 
 import Category from "@/models/categories";
 import CategoryCard from "@/components/cards/CategoryCard.vue";
-import Pagination from "@/components/Pagination.vue";
 import KeypointsDefinition from "@/components/KeypointsDefinition.vue";
+import ParentInput from "@/components/ParentInput.vue";
+import { allParents, groupByParent, matchesSearch } from "@/libs/parents";
+import { Modal } from "bootstrap";
 
 import { mapMutations } from "vuex";
 
 export default {
   name: "Categories",
-  components: { CategoryCard, Pagination, KeypointsDefinition },
+  components: { CategoryCard, KeypointsDefinition, ParentInput },
   mixins: [toastrs],
   data() {
     return {
       docsUrl: docsSection("第一次使用"),
       categoryCount: 0,
-      pages: 1,
-      page: 1,
-      limit: 50,
-      range: 11,
+      search: "",
+      collapsed: {},
       newCategoryName: "",
-      newCategorySupercategory: "",
+      newCategoryParents: [],
       newCategoryColor: null,
       newCategoryKeypoint: {
         labels: [],
@@ -208,6 +239,18 @@ export default {
     };
   },
   computed: {
+    knownParents() {
+      return allParents(this.categories);
+    },
+    /** with no parents at all the page is one plain list */
+    grouped() {
+      return this.knownParents.length > 0;
+    },
+    groups() {
+      const q = this.search.trim();
+      const shown = this.categories.filter(c => matchesSearch(c, q));
+      return groupByParent(shown).map((g, index) => ({ ...g, index, key: g.parent === null ? "-" : "p:" + g.parent }));
+    },
     isFormValid() {
       return (
         this.newCategoryName.length !== 0 &&
@@ -219,31 +262,36 @@ export default {
   },
   methods: {
     ...mapMutations(["addProcess", "removeProcess"]),
-    updatePage(page) {
+    updatePage() {
       let process = "Loading categories";
       this.addProcess(process);
 
-      page = page || this.page;
-      this.page = page;
-
-      Category.allData({
-        page: page,
-        limit: this.limit
-      })
+      // all of them: they are shown grouped by parent
+      Category.allData({ page: 1, limit: 100000 })
         .then(response => {
           this.categories = response.data.categories;
-          this.page = response.data.pagination.page;
-          this.pages = response.data.pagination.pages;
           this.categoryCount = response.data.pagination.total;
         })
         .finally(() => this.removeProcess(process));
+    },
+    toggleGroup(key) {
+      this.collapsed = { ...this.collapsed, [key]: !this.collapsed[key] };
+    },
+    collapseAll() {
+      const next = {};
+      this.groups.forEach(g => (next[g.key] = true));
+      this.collapsed = next;
+    },
+    openCreate(parents) {
+      this.newCategoryParents = [...parents];
+      Modal.getOrCreateInstance(document.getElementById("createCategories")).show();
     },
     createCategory() {
       if (this.newCategoryName.length < 1) return;
 
       Category.create({
         name: this.newCategoryName,
-        supercategory: this.newCategorySupercategory,
+        supercategories: this.newCategoryParents,
         color: this.newCategoryColor,
         keypoint_labels: this.newCategoryKeypoint.labels,
         keypoint_edges: this.newCategoryKeypoint.edges,
@@ -251,7 +299,7 @@ export default {
       })
         .then(() => {
           this.newCategoryName = "";
-          this.newCategorySupercategory = "";
+          this.newCategoryParents = [];
           this.newCategoryColor = null;
           this.newCategoryKeypoint = {};
           this.updatePage();
@@ -263,18 +311,6 @@ export default {
           );
         });
     },
-    previousPage() {
-      this.page -= 1;
-      if (this.page < 1) {
-        this.page = 1;
-      }
-    },
-    nextPage: function() {
-      this.page += 1;
-      if (this.page > this.pages) {
-        this.page = this.pages;
-      }
-    }
   },
   created() {
     this.updatePage();
@@ -293,6 +329,17 @@ export default {
   padding: 0;
   float: right;
   color: black;
+}
+
+.search-box {
+  max-width: 320px;
+}
+
+.group-title {
+  cursor: pointer;
+  border-bottom: 1px solid #dee2e6;
+  padding: 4px 2px;
+  user-select: none;
 }
 
 .help-icon {

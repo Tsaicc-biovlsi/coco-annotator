@@ -106,12 +106,8 @@
             <form>
               <div class="mb-3">
                 <label>{{ $t('category.supercategory') }}</label>
-                <input
-                  type="text"
-                  class="form-control"
-                  :value="supercategory"
-                  @input="supercategory = $event.target.value"
-                />
+                <ParentInput v-model="parents" :known="knownParents" />
+                <div class="form-text">{{ $t('parents.hint') }}</div>
               </div>
 
               <div class="mb-3 row">
@@ -159,12 +155,14 @@ import paper from "paper";
 import Annotations from "@/models/annotations";
 import Annotation from "@/components/annotator/Annotation.vue";
 import KeypointsDefinition from "@/components/KeypointsDefinition.vue";
+import ParentInput from "@/components/ParentInput.vue";
+import { allParents, parentsOf } from "@/libs/parents";
 
 
 export default {
   name: "Category",
   emits: ["click", "keypoints-complete"],
-  components: { Annotation, KeypointsDefinition },
+  components: { Annotation, KeypointsDefinition, ParentInput },
   props: {
     category: {
       type: Object,
@@ -210,7 +208,7 @@ export default {
   data: function() {
     return {
       group: null,
-      supercategory: this.category.supercategory,
+      parents: parentsOf(this.category),
       color: this.category.color,
       keypoint: {
         labels: [...this.category.keypoint_labels],
@@ -234,7 +232,7 @@ export default {
       return this.filterFound.indexOf(index) > -1;
     },
     resetCategorySettings() {
-      this.supercategory = this.category.supercategory;
+      this.parents = parentsOf(this.category);
       this.color = this.category.color;
       this.keypoint = {
         labels: [...this.category.keypoint_labels],
@@ -290,7 +288,8 @@ export default {
       this.category.keypoint_labels = [...this.keypoint.labels];
       this.category.keypoint_edges = [...this.keypoint.edges];
       this.category.keypoint_colors = [...this.keypoint.colors];
-      this.category.supercategory = this.supercategory;
+      this.category.supercategories = [...this.parents];
+      this.category.supercategory = this.parents[0] || "";
     },
     /**
      * Exports data for send to backend
@@ -310,6 +309,7 @@ export default {
         metadata: [],
         annotations: [],
         supercategory: this.category.supercategory,
+        supercategories: parentsOf(this.category),
         keypoint_labels: this.category.keypoint_labels,
         keypoint_edges: this.category.keypoint_edges,
         keypoint_colors: this.category.keypoint_colors,
@@ -473,6 +473,9 @@ export default {
     }
   },
   computed: {
+    knownParents() {
+      return allParents(this.allCategories);
+    },
     showCategory() {
       let search = this.categorysearch.toLowerCase();
       if (search.length === 0) return true;

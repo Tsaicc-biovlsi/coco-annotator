@@ -7,12 +7,15 @@ from .colors import random_color
 
 class CategoryModel(DynamicDocument):
 
-    COCO_PROPERTIES = ["id", "name", "supercategory", "color", "metadata",\
+    COCO_PROPERTIES = ["id", "name", "supercategory", "supercategories", "color", "metadata",\
                        "keypoint_edges", "keypoint_labels", "keypoint_colors"]
 
     id = SequenceField(primary_key=True)
     name = StringField(required=True, unique_with=['creator'])
+    #: COCO's single parent: the first of ``supercategories``
     supercategory = StringField(default='')
+    #: all parent categories (a category can be in several groups)
+    supercategories = ListField(StringField(), default=[])
     color = StringField(default=None)
     metadata = DictField(default={})
 
@@ -23,6 +26,28 @@ class CategoryModel(DynamicDocument):
     keypoint_edges = ListField(default=[])
     keypoint_labels = ListField(default=[])
     keypoint_colors = ListField(default=[])
+
+    @staticmethod
+    def parse_parents(value):
+        """A list or "a, b、c" -> unique, trimmed parent names (in order)."""
+        import re
+        if value is None:
+            return []
+        items = value if isinstance(value, (list, tuple)) else re.split(r"[,，、;；\n]+", str(value))
+        out = []
+        for item in items:
+            name = str(item or '').strip()
+            if name and name not in out:
+                out.append(name)
+        return out[:20]
+
+    def parents(self):
+        return list(self.supercategories or []) or self.parse_parents(self.supercategory)
+
+    def set_parents(self, parents):
+        """Fields to update for these parents (supercategory = the first one)."""
+        parents = self.parse_parents(parents)
+        return {'supercategories': parents, 'supercategory': parents[0] if parents else ''}
 
     @classmethod
     def bulk_create(cls, categories):

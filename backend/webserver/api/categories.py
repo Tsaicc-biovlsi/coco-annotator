@@ -13,6 +13,8 @@ api = Namespace('category', description='Category related operations')
 create_category = reqparse.RequestParser()
 create_category.add_argument('name', required=True, location='json')
 create_category.add_argument('supercategory', location='json')
+create_category.add_argument('supercategories', type=list, location='json',
+                             help='Parent categories (a category can have several)')
 create_category.add_argument('color', location='json')
 create_category.add_argument('metadata', type=dict, location='json')
 create_category.add_argument(
@@ -25,6 +27,7 @@ create_category.add_argument(
 update_category = reqparse.RequestParser()
 update_category.add_argument('name', required=True, location='json')
 update_category.add_argument('supercategory', location='json')
+update_category.add_argument('supercategories', type=list, location='json')
 update_category.add_argument('color', location='json')
 update_category.add_argument('metadata', type=dict, location='json')
 update_category.add_argument('keypoint_edges', type=list, location='json')
@@ -50,7 +53,8 @@ class Category(Resource):
         """ Creates a category """
         args = create_category.parse_args()
         name = args.get('name')
-        supercategory = args.get('supercategory')
+        parents = CategoryModel.parse_parents(
+            args['supercategories'] if args.get('supercategories') is not None else args.get('supercategory'))
         metadata = args.get('metadata', {})
         color = args.get('color')
         keypoint_edges = args.get('keypoint_edges')
@@ -60,7 +64,8 @@ class Category(Resource):
         try:
             category = CategoryModel(
                 name=name,
-                supercategory=supercategory,
+                supercategory=parents[0] if parents else '',
+                supercategories=parents,
                 color=color,
                 metadata=metadata,
                 keypoint_edges=keypoint_edges,
@@ -117,7 +122,13 @@ class Category(Resource):
 
         args = update_category.parse_args()
         name = args.get('name')
-        supercategory = args.get('supercategory', category.supercategory)
+        if args.get('supercategories') is not None:
+            parents = CategoryModel.parse_parents(args['supercategories'])
+        elif args.get('supercategory') is not None:
+            parents = CategoryModel.parse_parents(args['supercategory'])
+        else:
+            parents = category.parents()
+        supercategory = parents[0] if parents else ''
         color = args.get('color', category.color)
         metadata = args.get('metadata', category.metadata)
         keypoint_edges = args.get('keypoint_edges', category.keypoint_edges)
@@ -126,7 +137,7 @@ class Category(Resource):
 
         # check if there is anything to update
         if category.name == name \
-                and category.supercategory == supercategory \
+                and category.parents() == parents \
                 and category.color == color \
                 and category.keypoint_edges == keypoint_edges \
                 and category.keypoint_labels == keypoint_labels \
@@ -137,7 +148,7 @@ class Category(Resource):
         if not name:
             return {"message": "Invalid category name to update"}, 400
 
-        old_name, old_color = category.name, category.color
+        old_name, old_color, old_parents = category.name, category.color, category.parents()
         # update name of the category
         # check if the name to update exits already in db
         # @ToDo: Is it necessary to allow equal category names among different creators?
@@ -152,6 +163,7 @@ class Category(Resource):
             category.update(
                 name=category.name,
                 supercategory=category.supercategory,
+                supercategories=parents,
                 color=category.color,
                 metadata=category.metadata,
                 keypoint_edges=category.keypoint_edges,
@@ -165,7 +177,8 @@ class Category(Resource):
         from ..util import activity
         activity.record('category_update', current_user, category_id=category.id,
                         detail={'name': name, 'old_name': old_name if old_name != name else None,
-                                'color': color, 'old_color': old_color if old_color != color else None},
+                                'color': color, 'old_color': old_color if old_color != color else None,
+                                'parents': parents if parents != old_parents else None},
                         text=f"{name} {old_name}")
         return {"success": True}
 

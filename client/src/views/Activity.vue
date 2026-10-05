@@ -440,8 +440,11 @@ export default {
         }
         case "category_create":
           return t("categoryCreate", { name: d.name });
-        case "category_update":
-          return d.old_name ? t("categoryRename", { old: d.old_name, name: d.name }) : t("categoryUpdate", { name: d.name });
+        case "category_update": {
+          let text = d.old_name ? t("categoryRename", { old: d.old_name, name: d.name }) : t("categoryUpdate", { name: d.name });
+          if (d.parents) text += "：" + (d.parents.length ? t("parentsChanged", { names: this.names(d.parents) }) : t("parentsCleared"));
+          return text;
+        }
         case "reviewers":
           return d.reviewers && d.reviewers.length ? t("reviewers", { names: this.names(d.reviewers) }) : t("reviewersCleared");
         case "review": {

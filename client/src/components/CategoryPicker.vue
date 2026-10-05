@@ -26,6 +26,14 @@
       </button>
     </div>
 
+    <ParentChips
+      class="mb-1"
+      :categories="categories"
+      :selected="modelValue"
+      :key-of="c => c.name"
+      @update:selected="select"
+    />
+
     <input
       v-if="rows.length > 8"
       v-model="filter"
@@ -34,52 +42,62 @@
     />
 
     <ul class="list-group picker-list">
-      <li
-        v-for="(row, position) in visibleRows"
-        :key="row.name"
-        class="list-group-item d-flex align-items-center gap-2 py-1 px-2"
-        :class="{ 'text-muted': !isSelected(row.name) }"
-      >
-        <input
-          :id="'catpick-' + position"
-          type="checkbox"
-          class="form-check-input m-0 flex-shrink-0"
-          :checked="isSelected(row.name)"
-          @change="toggle(row.name)"
-        />
-        <span
-          class="badge class-index"
-          :class="isSelected(row.name) ? 'text-bg-primary' : 'text-bg-light text-muted'"
-          :title="$t('categoryPicker.order')"
-        >{{ isSelected(row.name) ? modelValue.indexOf(row.name) : '–' }}</span>
-        <span class="color-dot flex-shrink-0" :style="{ backgroundColor: row.color || '#adb5bd' }" />
-        <label :for="'catpick-' + position" class="flex-grow-1 mb-0 text-truncate" :title="row.name">{{ row.name }}</label>
-        <span v-if="row.isNew" class="badge text-bg-success">{{ $t('categoryPicker.new') }}</span>
-        <span v-if="isSelected(row.name) && !filter" class="btn-group btn-group-sm flex-shrink-0">
+      <template v-for="section in sections" :key="section.key">
+        <li v-if="section.label" class="list-group-item group-header py-0 px-2 small">
+          <i class="fa" :class="section.key === 'selected' ? 'fa-check' : section.parent ? 'fa-folder-o' : 'fa-file-o'" />
+          {{ section.label }}
+          <span class="text-muted">({{ section.rows.length }})</span>
+        </li>
+        <li
+          v-for="row in section.rows"
+          :key="section.key + '/' + row.name"
+          class="list-group-item d-flex align-items-center gap-2 py-1 px-2"
+          :class="{ 'text-muted': !isSelected(row.name) }"
+        >
+          <input
+            :id="'catpick-' + section.key + '-' + row.name"
+            type="checkbox"
+            class="form-check-input m-0 flex-shrink-0"
+            :checked="isSelected(row.name)"
+            @change="toggle(row.name)"
+          />
+          <span
+            class="badge class-index"
+            :class="isSelected(row.name) ? 'text-bg-primary' : 'text-bg-light text-muted'"
+            :title="$t('categoryPicker.order')"
+          >{{ isSelected(row.name) ? modelValue.indexOf(row.name) : '–' }}</span>
+          <span class="color-dot flex-shrink-0" :style="{ backgroundColor: row.color || '#adb5bd' }" />
+          <label :for="'catpick-' + section.key + '-' + row.name" class="flex-grow-1 mb-0 text-truncate" :title="row.name">
+            {{ row.name }}
+            <span v-if="section.key === 'selected'" class="parent-hint">{{ row.parents.join('、') }}</span>
+          </label>
+          <span v-if="row.isNew" class="badge text-bg-success">{{ $t('categoryPicker.new') }}</span>
+          <span v-if="isSelected(row.name) && !filter" class="btn-group btn-group-sm flex-shrink-0">
+            <button
+              type="button"
+              class="btn btn-link btn-sm p-0 px-1"
+              :disabled="modelValue.indexOf(row.name) === 0"
+              :title="$t('exportCategories.moveUp')"
+              @click="move(row.name, -1)"
+            ><i class="fa fa-chevron-up" /></button>
+            <button
+              type="button"
+              class="btn btn-link btn-sm p-0 px-1"
+              :disabled="modelValue.indexOf(row.name) === modelValue.length - 1"
+              :title="$t('exportCategories.moveDown')"
+              @click="move(row.name, 1)"
+            ><i class="fa fa-chevron-down" /></button>
+          </span>
           <button
+            v-if="row.isNew"
             type="button"
-            class="btn btn-link btn-sm p-0 px-1"
-            :disabled="modelValue.indexOf(row.name) === 0"
-            :title="$t('exportCategories.moveUp')"
-            @click="move(row.name, -1)"
-          ><i class="fa fa-chevron-up" /></button>
-          <button
-            type="button"
-            class="btn btn-link btn-sm p-0 px-1"
-            :disabled="modelValue.indexOf(row.name) === modelValue.length - 1"
-            :title="$t('exportCategories.moveDown')"
-            @click="move(row.name, 1)"
-          ><i class="fa fa-chevron-down" /></button>
-        </span>
-        <button
-          v-if="row.isNew"
-          type="button"
-          class="btn btn-link btn-sm p-0 text-danger"
-          :title="$t('categoryPicker.remove')"
-          @click="removeNew(row.name)"
-        ><i class="fa fa-times" /></button>
-      </li>
-      <li v-if="!visibleRows.length" class="list-group-item small text-muted">
+            class="btn btn-link btn-sm p-0 text-danger"
+            :title="$t('categoryPicker.remove')"
+            @click="removeNew(row.name)"
+          ><i class="fa fa-times" /></button>
+        </li>
+      </template>
+      <li v-if="!sections.length" class="list-group-item small text-muted">
         {{ rows.length ? $t('exportCategories.noMatch') : $t('categoryPicker.empty') }}
       </li>
     </ul>
@@ -93,8 +111,12 @@
  * (comma / line separated, pasting a list works), set their order.
  * v-model is the ordered list of selected names.
  */
+import ParentChips from "@/components/ParentChips.vue";
+import { groupByParent, matchesSearch, parentsOf } from "@/libs/parents";
+
 export default {
   name: "CategoryPicker",
+  components: { ParentChips },
   props: {
     /** existing categories [{ name, color }] */
     categories: { type: Array, default: () => [] },
@@ -109,8 +131,9 @@ export default {
     rows() {
       const existing = new Map(this.categories.map(c => [c.name, c]));
       const all = [
-        ...this.added.filter(n => !existing.has(n)).map(name => ({ name, isNew: true })),
-        ...this.categories.map(c => ({ name: c.name, color: c.color, isNew: false }))
+        ...this.added.filter(n => !existing.has(n)).map(name => ({ name, isNew: true, parents: [] })),
+        ...this.categories.map(c => ({ name: c.name, color: c.color, isNew: false, parents: parentsOf(c),
+          supercategories: parentsOf(c) }))
       ];
       const byName = new Map(all.map(r => [r.name, r]));
       const selected = this.modelValue.filter(n => byName.has(n)).map(n => byName.get(n));
@@ -120,7 +143,26 @@ export default {
     },
     visibleRows() {
       const q = this.filter.trim().toLowerCase();
-      return q ? this.rows.filter(r => r.name.toLowerCase().includes(q)) : this.rows;
+      return q ? this.rows.filter(r => matchesSearch(r, q)) : this.rows;
+    },
+    /** the selected ones (in order) first, then the rest grouped by parent */
+    sections() {
+      const rows = this.visibleRows;
+      const selected = rows.filter(r => this.isSelected(r.name));
+      const rest = rows.filter(r => !this.isSelected(r.name));
+      const groups = groupByParent(rest);
+      const grouped = groups.some(g => g.parent !== null);
+      const out = [];
+      if (selected.length) {
+        out.push({ key: "selected", label: grouped || rest.length ? this.$t("parents.selectedInOrder") : "", rows: selected });
+      }
+      groups.forEach(g => out.push({
+        key: "p:" + (g.parent || ""),
+        parent: g.parent,
+        label: grouped ? (g.parent || this.$t("parents.none")) : (selected.length ? this.$t("parents.others") : ""),
+        rows: g.items
+      }));
+      return out;
     }
   },
   methods: {
@@ -179,7 +221,7 @@ export default {
 
 <style scoped>
 .picker-list {
-  max-height: 240px;
+  max-height: 300px;
   overflow-y: auto;
 }
 .color-dot {
@@ -190,5 +232,18 @@ export default {
 }
 .class-index {
   min-width: 26px;
+}
+.group-header {
+  background: #f1f3f5;
+  font-weight: 600;
+  color: #495057;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.parent-hint {
+  font-size: 0.75rem;
+  color: #6c757d;
+  margin-left: 4px;
 }
 </style>
