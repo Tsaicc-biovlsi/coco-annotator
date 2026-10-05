@@ -713,5 +713,23 @@
     "seedHint": "同樣的種子和圖片，每次切出來的結果都一樣；想重新洗牌就換一個種子。",
     "layoutYolo": "zip 內會是 images/train、labels/train、images/val… 的結構，data.yaml 已設定好路徑。",
     "layoutCoco": "zip 內有 train.json、val.json（和 test.json），各自只含該組的圖片和標註。"
+  },
+  "exportSteps": {
+    "format": "格式",
+    "categories": "類別",
+    "split": "切分",
+    "formatHint": {
+      "coco": "一個 .json（切分時為 zip），適合 Detectron2、MMDetection 等",
+      "yolo": "zip：labels/*.txt + data.yaml，給 Ultralytics YOLO 訓練"
+    },
+    "back": "上一步",
+    "next": "下一步",
+    "summary": "匯出內容確認",
+    "withImages": "附圖片",
+    "categoryCount": "{n} 個：{names}",
+    "contents": "內容",
+    "contentCount": "約 {images} 張圖、{annotations} 個標註",
+    "noSplit": "不切分",
+    "separator": "、"
   }
 }

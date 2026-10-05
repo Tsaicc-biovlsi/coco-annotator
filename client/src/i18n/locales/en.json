@@ -585,5 +585,23 @@
     "seedHint": "The same seed and images always give the same split; change the seed to reshuffle.",
     "layoutYolo": "The zip uses images/train, labels/train, images/val, …; data.yaml already points at them.",
     "layoutCoco": "The zip has train.json, val.json (and test.json), each with only its own images and annotations."
+  },
+  "exportSteps": {
+    "format": "Format",
+    "categories": "Categories",
+    "split": "Split",
+    "formatHint": {
+      "coco": "One .json (a zip when split), for Detectron2, MMDetection, …",
+      "yolo": "Zip: labels/*.txt + data.yaml, for Ultralytics YOLO training"
+    },
+    "back": "Back",
+    "next": "Next",
+    "summary": "Review",
+    "withImages": "with images",
+    "categoryCount": "{n}: {names}",
+    "contents": "Contents",
+    "contentCount": "about {images} images, {annotations} annotations",
+    "noSplit": "No split",
+    "separator": ", "
   }
 }

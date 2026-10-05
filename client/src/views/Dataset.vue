@@ -443,28 +443,57 @@
               aria-label="Close"
             ></button>
           </div>
-          <div class="modal-body">
-            <form>
-              <div class="mb-3">
-                <label class="form-label" for="exportFormat">{{ $t('yolo.format') }}</label>
-                <select id="exportFormat" v-model="exporting.format" class="form-select">
-                  <option value="coco">{{ $t('yolo.formatCoco') }}</option>
-                  <option value="yolo">{{ $t('yolo.formatYolo') }}</option>
-                </select>
-              </div>
-              <div v-if="exporting.format === 'yolo'" class="mb-3">
-                <label class="form-label" for="exportYoloTask">{{ $t('yolo.task') }}</label>
-                <select id="exportYoloTask" v-model="exporting.yolo_task" class="form-select">
-                  <option v-for="t in yoloTasks" :key="t" :value="t">{{ $t('yolo.' + t) }}</option>
-                </select>
-                <div class="form-text">{{ $t('yolo.exportHint.' + exporting.yolo_task) }}</div>
-                <div class="form-check d-inline-flex align-items-center gap-2 ps-0 mt-2">
-                  <input type="checkbox" class="form-check-input m-0" id="exportWithImages"
-                    v-model="exporting.with_images">
-                  <label class="form-check-label mb-0" for="exportWithImages">{{ $t('yolo.withImages') }}</label>
+          <div class="modal-body pt-2">
+            <!-- step indicator -->
+            <ol class="export-steps">
+              <li
+                v-for="(name, i) in exportStepNames"
+                :key="name"
+                :class="{ active: exporting.step === i + 1, done: exporting.step > i + 1, disabled: !canGoToStep(i + 1) }"
+                @click="goToStep(i + 1)"
+              >
+                <span class="step-dot">
+                  <i v-if="exporting.step > i + 1" class="fa fa-check" />
+                  <template v-else>{{ i + 1 }}</template>
+                </span>
+                <span class="step-name">{{ $t('exportSteps.' + name) }}</span>
+              </li>
+            </ol>
+
+            <form @submit.prevent>
+              <!-- step 1: format -->
+              <div v-show="exporting.step === 1">
+                <div class="form-label fw-semibold">{{ $t('yolo.format') }}</div>
+                <div class="row g-2 mb-3">
+                  <div v-for="f in ['coco', 'yolo']" :key="f" class="col-6">
+                    <label class="choice-card" :class="{ selected: exporting.format === f }">
+                      <input v-model="exporting.format" type="radio" name="exportFormat" :value="f" class="d-none" />
+                      <span class="fw-semibold">{{ f.toUpperCase() }}</span>
+                      <span class="small text-muted">{{ $t('exportSteps.formatHint.' + f) }}</span>
+                    </label>
+                  </div>
                 </div>
+
+                <template v-if="exporting.format === 'yolo'">
+                  <div class="form-label fw-semibold">{{ $t('yolo.task') }}</div>
+                  <div class="row g-2">
+                    <div v-for="t in yoloTasks" :key="t" class="col-6">
+                      <label class="choice-card" :class="{ selected: exporting.yolo_task === t }">
+                        <input v-model="exporting.yolo_task" type="radio" name="exportYoloTask" :value="t" class="d-none" />
+                        <span class="fw-semibold">{{ $t('yolo.' + t) }}</span>
+                        <span class="small text-muted">{{ $t('yolo.exportHint.' + t) }}</span>
+                      </label>
+                    </div>
+                  </div>
+                  <div class="form-check d-flex align-items-center gap-2 ps-0 mt-3">
+                    <input id="exportWithImages" v-model="exporting.with_images" type="checkbox" class="form-check-input m-0" />
+                    <label class="form-check-label mb-0" for="exportWithImages">{{ $t('yolo.withImages') }}</label>
+                  </div>
+                </template>
               </div>
-              <div class="mb-3">
+
+              <!-- step 2: categories -->
+              <div v-show="exporting.step === 2">
                 <ExportCategories
                   v-model:order="exporting.order"
                   v-model:selected="exporting.categories"
@@ -472,37 +501,86 @@
                   :counts="exporting.counts && exporting.counts.categories"
                   :yolo-task="exporting.format === 'yolo' ? exporting.yolo_task : null"
                 />
+                <div class="form-check d-flex align-items-center gap-2 ps-0 mt-3">
+                  <input id="exportWithEmpty" v-model="exporting.with_empty_images" type="checkbox" class="form-check-input m-0" />
+                  <label class="form-check-label mb-0" for="exportWithEmpty">{{ $t('dataset.exportWithNotAnnotatedImages') }}</label>
+                </div>
               </div>
-              <div class="form-check d-inline-flex align-items-center gap-2 ps-0">
-                <input type="checkbox" class="form-check-input m-0" id="exportWithEmpty"
-                  v-model="exporting.with_empty_images">
-                <label class="form-check-label mb-0" for="exportWithEmpty">{{ $t('dataset.exportWithNotAnnotatedImages') }}</label>
+
+              <!-- step 3: split + summary -->
+              <div v-show="exporting.step === 3">
+                <ExportSplit
+                  v-model:enabled="exporting.split_on"
+                  v-model:ratios="exporting.split"
+                  v-model:seed="exporting.seed"
+                  :image-count="exportImageCount"
+                  :yolo="exporting.format === 'yolo'"
+                />
+                <div class="export-summary mt-3">
+                  <div class="fw-semibold mb-1">{{ $t('exportSteps.summary') }}</div>
+                  <dl class="row small mb-0">
+                    <dt class="col-4">{{ $t('yolo.format') }}</dt>
+                    <dd class="col-8">
+                      {{ exporting.format.toUpperCase() }}
+                      <template v-if="exporting.format === 'yolo'">
+                        · {{ $t('yolo.' + exporting.yolo_task) }}
+                        <template v-if="exporting.with_images"> · {{ $t('exportSteps.withImages') }}</template>
+                      </template>
+                    </dd>
+                    <dt class="col-4">{{ $t('exportSteps.categories') }}</dt>
+                    <dd class="col-8 text-truncate" :title="exportSelectedNames.join(', ')">
+                      {{ $t('exportSteps.categoryCount', { n: exportSelectedNames.length, names: exportSelectedNames.join($t('exportSteps.separator')) }) }}
+                    </dd>
+                    <dt class="col-4">{{ $t('exportSteps.contents') }}</dt>
+                    <dd class="col-8">
+                      <template v-if="exportImageCount == null"><i class="fa fa-spinner fa-spin" /></template>
+                      <template v-else>
+                        {{ $t('exportSteps.contentCount', { images: exportImageCount, annotations: exportAnnotationCount }) }}
+                      </template>
+                    </dd>
+                    <dt class="col-4">{{ $t('exportSteps.split') }}</dt>
+                    <dd class="col-8 mb-0">
+                      <template v-if="exporting.split_on">
+                        {{ $t('exportSplit.train') }} {{ exporting.split.train }}% ·
+                        {{ $t('exportSplit.val') }} {{ exporting.split.val }}% ·
+                        {{ $t('exportSplit.test') }} {{ exporting.split.test }}%
+                      </template>
+                      <template v-else>{{ $t('exportSteps.noSplit') }}</template>
+                    </dd>
+                  </dl>
+                </div>
               </div>
-              <hr class="my-3" />
-              <ExportSplit
-                v-model:enabled="exporting.split_on"
-                v-model:ratios="exporting.split"
-                v-model:seed="exporting.seed"
-                :image-count="exportImageCount"
-                :yolo="exporting.format === 'yolo'"
-              />
             </form>
           </div>
           <div class="modal-footer">
             <button
+              v-if="exporting.step > 1"
               type="button"
-              class="btn btn-primary"
-              :disabled="!exporting.categories.length || (exporting.split_on && !exportSplitValid)"
-              @click="exportCOCO"
+              class="btn btn-outline-secondary me-auto"
+              @click="exporting.step -= 1"
             >
-              {{ $t('dataset.export') }}
+              <i class="fa fa-chevron-left" /> {{ $t('exportSteps.back') }}
+            </button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+              {{ $t('dataset.close') }}
             </button>
             <button
+              v-if="exporting.step < 3"
               type="button"
-              class="btn btn-secondary"
-              data-bs-dismiss="modal"
+              class="btn btn-primary"
+              :disabled="!canGoToStep(exporting.step + 1)"
+              @click="exporting.step += 1"
             >
-              {{ $t('dataset.close') }}
+              {{ $t('exportSteps.next') }} <i class="fa fa-chevron-right" />
+            </button>
+            <button
+              v-else
+              type="button"
+              class="btn btn-primary"
+              :disabled="!exportReady"
+              @click="exportCOCO"
+            >
+              <i class="fa fa-download" /> {{ $t('dataset.export') }}
             </button>
           </div>
         </div>
@@ -604,6 +682,7 @@ export default {
         with_empty_images: false,
         order: [],
         counts: null,
+        step: 1,
         split_on: false,
         split: { train: 80, val: 20, test: 0 },
         seed: 42,
@@ -613,6 +692,7 @@ export default {
         id: null
       },
       yoloTasks: ["detect", "segment", "obb", "pose"],
+      exportStepNames: ["format", "categories", "split"],
       importFile: null,
       importYoloTask: "auto",
       selected: {
@@ -778,7 +858,17 @@ export default {
         return;
       }
       this.prepareExportCategories();
+      this.exporting.step = 1;
       showModal("#exportDataset");
+    },
+    /** Steps can be visited in any order once the earlier ones are valid */
+    canGoToStep(step) {
+      if (step <= 1) return true;
+      if (step >= 3 && !this.exporting.categories.length) return false;
+      return true;
+    },
+    goToStep(step) {
+      if (this.canGoToStep(step)) this.exporting.step = step;
     },
     /** Keep the order / ticks from last time; new categories go last, ticked */
     prepareExportCategories() {
@@ -935,6 +1025,23 @@ export default {
   computed: {
     exportSplitValid() {
       return splitValid(this.exporting.split);
+    },
+    exportReady() {
+      return this.exporting.categories.length > 0 && (!this.exporting.split_on || this.exportSplitValid);
+    },
+    exportSelectedNames() {
+      const byId = new Map(this.categories.map(c => [c.id, c.name]));
+      const chosen = new Set(this.exporting.categories);
+      return this.exporting.order.filter(id => chosen.has(id) && byId.has(id)).map(id => byId.get(id));
+    },
+    /** Annotations the export will contain (pose: only those with keypoints) */
+    exportAnnotationCount() {
+      const counts = (this.exporting.counts && this.exporting.counts.categories) || {};
+      const pose = this.exporting.format === "yolo" && this.exporting.yolo_task === "pose";
+      return this.exporting.categories.reduce((n, id) => {
+        const c = counts[id];
+        return n + (c ? (pose ? c.keypoints : c.annotations) : 0);
+      }, 0);
     },
     /** Images the export will contain (for the split estimate) */
     exportImageCount() {
@@ -1176,6 +1283,90 @@ export default {
 }
 .export-table td,
 .export-table th {
+  padding: 0.6rem 0.75rem;
+}
+
+.export-steps {
+  display: flex;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+  counter-reset: step;
+}
+.export-steps li {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+  cursor: pointer;
+  color: #6c757d;
+  font-size: 0.85rem;
+}
+.export-steps li.disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.export-steps li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 15px;
+  left: calc(50% + 20px);
+  right: calc(-50% + 20px);
+  height: 2px;
+  background: #dee2e6;
+}
+.export-steps li.done:not(:last-child)::after {
+  background: #198754;
+}
+.export-steps .step-dot {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid #ced4da;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+.export-steps li.active {
+  color: #0d6efd;
+  font-weight: 600;
+}
+.export-steps li.active .step-dot {
+  border-color: #0d6efd;
+  background: #0d6efd;
+  color: #fff;
+}
+.export-steps li.done .step-dot {
+  border-color: #198754;
+  background: #198754;
+  color: #fff;
+}
+.choice-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  height: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #dee2e6;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  margin: 0;
+}
+.choice-card:hover {
+  border-color: #86b7fe;
+}
+.choice-card.selected {
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 1px #0d6efd;
+  background: rgba(13, 110, 253, 0.05);
+}
+.export-summary {
+  background: #f8f9fa;
+  border-radius: 0.5rem;
   padding: 0.6rem 0.75rem;
 }
 </style>
