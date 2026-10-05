@@ -48,18 +48,43 @@
         </div>
 
         <hr />
-        <p v-if="datasets.length < 1" class="text-center">
+        <p v-if="loaded && total < 1 && !search" class="text-center">
           {{ $t('datasets.youNeedToCreateA') }}
         </p>
-        <div v-else style="background-color: gray">
-          <Pagination :pages="pages" @pagechange="updatePage" />
-          <div class="row bg-light">
+        <div v-else-if="loaded">
+          <!-- one tab per parent category used by the datasets' categories -->
+          <ul v-if="parents.length" class="nav nav-tabs mb-3 parent-tabs">
+            <li v-for="t in tabs" :key="t.key" class="nav-item">
+              <a href="#" class="nav-link" :class="{ active: t.key === parent }" @click.prevent="selectTab(t.key)">
+                <i class="fa" :class="t.icon" />
+                {{ t.label }}
+                <span class="badge rounded-pill text-bg-secondary ms-1">{{ t.count }}</span>
+              </a>
+            </li>
+          </ul>
+
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+            <input
+              v-model="search"
+              class="form-control form-control-sm search-box"
+              :placeholder="$t('datasets.searchName')"
+            />
+            <span v-if="shownTotal" class="small text-muted ms-auto">
+              {{ $t('parents.showing', { from: (page - 1) * limit + 1, to: Math.min(page * limit, shownTotal), n: shownTotal }) }}
+            </span>
+          </div>
+
+          <div class="row">
             <DatasetCard
               v-for="dataset in datasets"
               :key="dataset.id"
               :dataset="dataset"
               :categories="categories"
             />
+          </div>
+          <p v-if="!datasets.length" class="text-center text-muted">{{ $t('exportCategories.noMatch') }}</p>
+          <div v-if="pages > 1" class="d-flex justify-content-center">
+            <Pagination :key="parent + '|' + search + '|' + pages" :pages="pages" @pagechange="updatePage" />
           </div>
         </div>
       </div>
@@ -238,6 +263,14 @@ import { showModal, hideModal } from "@/libs/modal";
 
 import { mapMutations } from "vuex";
 
+function readTab() {
+  try {
+    return localStorage.getItem("datasets.tab") || "";
+  } catch {
+    return "";
+  }
+}
+
 export default {
   name: "Datasets",
   components: { DatasetCard, Pagination, ImportDatasetModal, TaskPicker, CategoryPicker, WizardSteps },
@@ -245,8 +278,17 @@ export default {
   data() {
     return {
       pages: 1,
-      limit: 52,
+      limit: 8,
       page: 1,
+      loaded: false,
+      parent: readTab(),
+      search: "",
+      searchTimer: null,
+      parents: [],
+      noParent: 0,
+      total: 0,
+      shownTotal: 0,
+      allNames: [],
       create: {
         step: 1,
         touched: false,
@@ -263,6 +305,15 @@ export default {
   },
   methods: {
     ...mapMutations(["addProcess", "removeProcess"]),
+    selectTab(key) {
+      this.parent = key;
+      try {
+        localStorage.setItem("datasets.tab", key);
+      } catch {
+        // not remembered
+      }
+      this.updatePage(1);
+    },
     updatePage(page) {
       let process = "Loading datasets";
       this.addProcess(process);
@@ -272,8 +323,21 @@ export default {
 
       Datasets.allData({
         limit: this.limit,
-        page: page
+        page: page,
+        parent: this.parent,
+        q: this.search.trim()
       }).then(response => {
+        this.loaded = true;
+        this.parents = response.data.parents || [];
+        this.noParent = response.data.no_parent || 0;
+        this.total = response.data.total || 0;
+        this.shownTotal = response.data.pagination.total;
+        this.allNames = response.data.names || [];
+        // a remembered tab that no longer exists: back to all
+        if (this.parent && this.parent !== "-" && !this.parents.some(p => p.name === this.parent)) {
+          this.selectTab("");
+          return;
+        }
         this.datasets = response.data.datasets;
         this.categories = response.data.categories;
         this.subdirectories = response.data.subdirectories;
@@ -326,9 +390,19 @@ export default {
   watch: {
     user() {
       this.updatePage();
+    },
+    search() {
+      clearTimeout(this.searchTimer);
+      this.searchTimer = setTimeout(() => this.updatePage(1), 300);
     }
   },
   computed: {
+    tabs() {
+      const tabs = [{ key: "", label: this.$t("parents.all"), icon: "fa-th", count: this.total }];
+      this.parents.forEach(p => tabs.push({ key: p.name, label: p.name, icon: "fa-folder-o", count: p.count }));
+      if (this.noParent) tabs.push({ key: "-", label: this.$t("parents.none"), icon: "fa-file-o", count: this.noParent });
+      return tabs;
+    },
     createStepLabels() {
       return [this.$t("datasets.datasetName2"), this.$t("datasetTask.label"),
         this.$t("datasets.defaultCategories"), this.$t("datasets.confirmStep")];
@@ -342,7 +416,7 @@ export default {
       if (name.length === 0) return this.$t("datasets.nameRequired");
       // same rules as the server: the name is also a folder name
       if (name.startsWith(".") || /[/\\]/.test(name)) return this.$t("datasets.nameInvalid");
-      if (this.datasets.some(d => d.name === name)) return this.$t("datasets.nameTaken");
+      if (this.allNames.includes(name)) return this.$t("datasets.nameTaken");
       return "";
     },
     user() {
@@ -356,6 +430,15 @@ export default {
 </script>
 
 <style scoped>
+.search-box {
+  max-width: 320px;
+}
+.parent-tabs {
+  flex-wrap: wrap;
+}
+.parent-tabs .nav-link {
+  padding: 6px 12px;
+}
 .help-icon {
   color: darkblue;
   font-size: 20px;

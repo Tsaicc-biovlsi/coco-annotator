@@ -39,3 +39,20 @@ def test_parents_create_update_import_export(world):
     out = coco_util.get_dataset_coco(DatasetModel.objects(id=d).first())
     kayak = next(x for x in out["categories"] if x["name"] == "kayak")
     assert kayak["supercategory"] == "boat" and kayak["supercategories"] == ["boat", "small"]
+
+
+def test_datasets_grouped_by_parent(world):
+    c = world["client"]
+    c.post("/api/category/", json={"name": "lion", "supercategories": ["beast"]})
+    c.post("/api/category/", json={"name": "rock", "supercategories": []})
+    c.post("/api/dataset/", json={"name": "safari", "categories": ["lion"]})
+    c.post("/api/dataset/", json={"name": "quarry", "categories": ["rock"]})
+    body = c.get("/api/dataset/data", query_string={"limit": 50}).get_json()
+    assert {"name": "beast", "count": 1} in body["parents"] and body["no_parent"] >= 1
+    assert "safari" in body["names"]
+    names = [d["name"] for d in c.get("/api/dataset/data", query_string={"parent": "beast"}).get_json()["datasets"]]
+    assert names == ["safari"]
+    none = [d["name"] for d in c.get("/api/dataset/data", query_string={"parent": "-", "limit": 50}).get_json()["datasets"]]
+    assert "quarry" in none and "safari" not in none
+    found = c.get("/api/dataset/data", query_string={"q": "SAF"}).get_json()
+    assert [d["name"] for d in found["datasets"]] == ["safari"] and found["total"] == 1

@@ -244,7 +244,8 @@
     "noCategoriesYet": "(none, add them later)",
     "nameInvalid": "The name cannot contain / or \\ or start with a dot",
     "nameTaken": "A dataset with this name already exists",
-    "confirmStep": "Confirm"
+    "confirmStep": "Confirm",
+    "searchName": "Search dataset names…"
   },
   "eraserPanel": {
     "radius": "Radius",

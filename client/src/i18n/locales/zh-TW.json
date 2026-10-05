@@ -244,7 +244,8 @@
     "noCategoriesYet": "（沒有，之後可再加）",
     "nameInvalid": "名稱不能包含 / 或 \\，也不能以 . 開頭",
     "nameTaken": "已經有同名的資料集",
-    "confirmStep": "確認"
+    "confirmStep": "確認",
+    "searchName": "搜尋資料集名稱…"
   },
   "eraserPanel": {
     "radius": "半徑",

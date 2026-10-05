@@ -37,6 +37,8 @@ page_data.add_argument('page', default=1, type=int)
 page_data.add_argument('limit', default=20, type=int)
 page_data.add_argument('folder', default='', help='Folder for data')
 page_data.add_argument('order', default='file_name', help='Order to display images')
+page_data.add_argument('parent', default='', help="Datasets page: only datasets with a category under this parent ('-' = none)")
+page_data.add_argument('q', default='', help='Datasets page: search dataset names')
 
 delete_data = reqparse.RequestParser()
 delete_data.add_argument('fully', default=False, type=bool,
@@ -414,8 +416,32 @@ class DatasetData(Resource):
         page = args['page']
         folder = args['folder']
 
-        datasets = current_user.datasets.filter(deleted=False)
-        pagination = Pagination(datasets.count(), limit, page)
+        datasets = list(current_user.datasets.filter(deleted=False).order_by('id'))
+
+        # parent categories of each dataset's categories (for the tabs)
+        category_ids = {c for d in datasets for c in (d.categories or [])}
+        parents_of = {c.id: c.parents() for c in CategoryModel.objects(id__in=list(category_ids))
+                      .only('id', 'supercategory', 'supercategories')}
+        dataset_parents = {d.id: sorted({p for c in (d.categories or []) for p in parents_of.get(c, [])})
+                           for d in datasets}
+        names = [d.name for d in datasets]
+        q = (args.get('q') or '').strip().lower()
+        if q:
+            datasets = [d for d in datasets if q in d.name.lower()]
+        parent_counts = {}
+        for d in datasets:
+            for p in dataset_parents[d.id]:
+                parent_counts[p] = parent_counts.get(p, 0) + 1
+        no_parent = sum(1 for d in datasets if not dataset_parents[d.id])
+        total_shown = len(datasets)
+
+        parent = args.get('parent') or ''
+        if parent == '-':
+            datasets = [d for d in datasets if not dataset_parents[d.id]]
+        elif parent:
+            datasets = [d for d in datasets if parent in dataset_parents[d.id]]
+
+        pagination = Pagination(len(datasets), limit, page)
         datasets = datasets[pagination.start:pagination.end]
 
         datasets_json = []
@@ -426,7 +452,8 @@ class DatasetData(Resource):
             dataset_json['numberImages'] = images.count()
             dataset_json['numberAnnotated'] = images.filter(annotated=True).count()
             dataset_json['permissions'] = dataset.permissions(current_user)
-            
+            dataset_json['parents'] = dataset_parents[dataset.id]
+
             first = images.first()
             if first is not None:
                 dataset_json['first_image_id'] = images.first().id
@@ -436,7 +463,11 @@ class DatasetData(Resource):
             "pagination": pagination.export(),
             "folder": folder,
             "datasets": datasets_json,
-            "categories": query_util.fix_ids(current_user.categories.filter(deleted=False).all())
+            "categories": query_util.fix_ids(current_user.categories.filter(deleted=False).all()),
+            "parents": [{"name": n, "count": parent_counts[n]} for n in sorted(parent_counts)],
+            "no_parent": no_parent,
+            "total": total_shown,
+            "names": names,
         }
 
 @api.route('/<int:dataset_id>/data')
