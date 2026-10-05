@@ -180,10 +180,10 @@ def test_api_yolo_import_then_export(yolo_world):
     assert ".zip" in d.headers["Content-Disposition"]
     with zipfile.ZipFile(io.BytesIO(d.data)) as zf:
         names = set(zf.namelist())
-        assert {"data.yaml", "classes.txt", "labels/p1.txt", "labels/p2.txt", "images/p1.jpg"} <= names
-        lines = zf.read("labels/p1.txt").decode().split("\n")
+        assert {"data.yaml", "classes.txt", "labels/yolo_conv_p1.txt", "labels/yolo_conv_p2.txt", "images/yolo_conv_p1.jpg"} <= names
+        lines = zf.read("labels/yolo_conv_p1.txt").decode().split("\n")
         classes = zf.read("classes.txt").decode().split()
-        assert zf.read("labels/p2.txt") == b""
+        assert zf.read("labels/yolo_conv_p2.txt") == b""
     kayak_lines = [l for l in lines if l and classes[int(l.split()[0])] == "kayak"]
     assert _values(kayak_lines[0])[1:] == pytest.approx([0.5, 0.5, 0.2, 0.4])
 
@@ -217,7 +217,7 @@ def test_api_category_counts_and_export_order(yolo_world):
     export = ExportModel.objects(dataset_id=ds).order_by("-id").first()
     with zipfile.ZipFile(export.path) as zf:
         assert zf.read("classes.txt").decode().split() == ["ship"]
-        assert zf.read("labels/p1.txt").decode().count("\n") == 1
+        assert zf.read("labels/yolo_conv_p1.txt").decode().count("\n") == 1
 
 
 def test_api_export_list_and_delete(yolo_world):
@@ -304,7 +304,7 @@ def test_dataset_name_prefix(yolo_world):
     assert stats["matched"] == 1
 
     c, ds = yolo_world["client"], yolo_world["dataset"]["id"]
-    r = c.get(f"/api/dataset/{ds}/export?format=yolo&prefix_dataset=true&with_images=true&with_empty_images=true")
+    r = c.get(f"/api/dataset/{ds}/export?format=yolo&with_images=true&with_empty_images=true")
     assert r.status_code == 200, r.data
     export = ExportModel.objects(dataset_id=ds).order_by("-id").first()
     with zipfile.ZipFile(export.path) as zf:

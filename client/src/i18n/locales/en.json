@@ -567,8 +567,7 @@
     "deleted": "Export #{id} deleted",
     "downloadFailed": "Download failed",
     "splitPart": "{name} {pct}% ({n})",
-    "seed": "Random seed {seed}",
-    "prefixed": "dataset name in file names"
+    "seed": "Random seed {seed}"
   },
   "exportSplit": {
     "title": "Split into train / val / test",
@@ -604,8 +603,7 @@
     "contentCount": "about {images} images, {annotations} annotations",
     "noSplit": "No split",
     "separator": ", ",
-    "prefix": "Start file names with the dataset name",
-    "prefixExample": "e.g. {image}, {label}. Names stay unique when you merge datasets for training; importing back here still matches the original images.",
+    "prefixExample": "Files are always named <dataset>_<original name>, e.g. {image}, {label}, so merged datasets never clash; importing back here still matches the original images.",
     "prefixSummary": "file names like {image}"
   }
 }

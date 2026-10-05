@@ -695,8 +695,7 @@
     "deleted": "已刪除匯出 #{id}",
     "downloadFailed": "下載失敗",
     "splitPart": "{name} {pct}%（{n} 張）",
-    "seed": "亂數種子 {seed}",
-    "prefixed": "檔名含資料集名稱"
+    "seed": "亂數種子 {seed}"
   },
   "exportSplit": {
     "title": "切分成訓練 / 驗證 / 測試集",
@@ -732,8 +731,7 @@
     "contentCount": "約 {images} 張圖、{annotations} 個標註",
     "noSplit": "不切分",
     "separator": "、",
-    "prefix": "檔名加上資料集名稱",
-    "prefixExample": "例如 {image}、{label}。合併多個資料集訓練時檔名不會撞到；匯入回本系統時一樣對得到原圖。",
+    "prefixExample": "檔名一律是「資料集名稱_原檔名」，例如 {image}、{label}，合併多個資料集訓練時不會撞名；匯入回本系統時一樣對得到原圖。",
     "prefixSummary": "檔名如 {image}"
   }
 }

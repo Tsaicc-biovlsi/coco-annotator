@@ -23,8 +23,7 @@ from mongoengine import Q
 
 @shared_task
 def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
-                       fmt="coco", yolo_task="detect", with_images=False, split=None, seed=42,
-                       prefix_dataset=False):
+                       fmt="coco", yolo_task="detect", with_images=False, split=None, seed=42):
 
     task = TaskModel.objects.get(id=task_id)
     dataset = DatasetModel.objects.get(id=dataset_id)
@@ -139,7 +138,8 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
         file_path = f"{directory}yolo-{yolo_task}-{timestamp}.zip"
         task.info(f"Writing YOLO {yolo_task} labels to {file_path}")
         from geometry.yolo_format import safe_prefix
-        prefix = safe_prefix(dataset.name) if prefix_dataset else ""
+        # YOLO files are always named <dataset>_<image> (unique across datasets)
+        prefix = safe_prefix(dataset.name)
         if prefix:
             task.info(f"File names start with the dataset name: {prefix}<image name>")
         result = _write_yolo_zip(coco, yolo_task, with_images, file_path, task, subsets, split, prefix)
@@ -160,7 +160,7 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
 
     task.info("Creating export object")
     export = ExportModel(dataset_id=dataset.id, path=file_path, tags=tags)
-    if fmt == "yolo" and prefix_dataset:
+    if fmt == "yolo":
         export.prefix_dataset = True
     if subsets:
         export.split = split
