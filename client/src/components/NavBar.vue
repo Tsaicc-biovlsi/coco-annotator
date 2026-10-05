@@ -40,8 +40,8 @@
         <li class="nav-item" :class="{ active: $route.name === 'categories' }">
           <RouterLink class="nav-link" to="/categories">{{ $t('navBar.categories') }}</RouterLink>
         </li>
-        <li class="nav-item" :class="{ active: $route.name === 'trash' }">
-          <RouterLink class="nav-link" to="/trash">{{ $t('navBar.trash') }}</RouterLink>
+        <li class="nav-item" :class="{ active: $route.name === 'activity' }">
+          <RouterLink class="nav-link" to="/activity">{{ $t('navBar.activity') }}</RouterLink>
         </li>
         <li class="nav-item" :class="{ active: $route.name === 'tasks' }">
           <RouterLink class="nav-link" to="/tasks">{{ $t('navBar.tasks') }}</RouterLink>

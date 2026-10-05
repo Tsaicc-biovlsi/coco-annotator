@@ -49,7 +49,18 @@ class DatasetModel(DynamicDocument):
         return UserModel.objects(username__in=members)\
             .exclude('password', 'id', 'preferences')
 
-    def import_coco(self, coco_json, style="COCO"):
+    def _log(self, action, user, task, **detail):
+        """Activity line for a background task; the task fills in the numbers."""
+        from .activity import ActivityModel
+        try:
+            ActivityModel(action=action, user=getattr(user, 'username', None), dataset_id=self.id,
+                          task_id=task.id, detail={'dataset_name': self.name, **detail},
+                          text=f"{self.name} {' '.join(str(v) for v in detail.values() if v)}".lower(),
+                          hidden=action == 'scan').save()
+        except Exception:  # pragma: no cover - the log must not stop the task
+            pass
+
+    def import_coco(self, coco_json, style="COCO", user=None):
 
         from workers.tasks import import_annotations
 
@@ -58,7 +69,10 @@ class DatasetModel(DynamicDocument):
             dataset_id=self.id,
             group="Annotation Import"
         )
+        if user is not None:
+            task.creator = user.username
         task.save()
+        self._log('import', user, task, format=style)
 
         cel_task = import_annotations.delay(task.id, self.id, coco_json)
 
@@ -70,7 +84,7 @@ class DatasetModel(DynamicDocument):
 
     def export_coco(self, categories=None, style="COCO", with_empty_images=False,
                     fmt="coco", yolo_task="detect", with_images=False, split=None, seed=42,
-                    folder=None, only_approved=False):
+                    folder=None, only_approved=False, user=None):
 
         from workers.tasks import export_annotations
 
@@ -84,7 +98,10 @@ class DatasetModel(DynamicDocument):
             dataset_id=self.id,
             group="Annotation Export"
         )
+        if user is not None:
+            task.creator = user.username
         task.save()
+        self._log('export', user, task, format=style, split=bool(split), only_approved=only_approved or None)
 
         cel_task = export_annotations.delay(task.id, self.id, categories, with_empty_images,
                                             fmt, yolo_task, with_images, split, seed, folder,
@@ -96,7 +113,7 @@ class DatasetModel(DynamicDocument):
             "name": task.name
         }
 
-    def scan(self):
+    def scan(self, user=None):
 
         from workers.tasks import scan_dataset
         
@@ -105,7 +122,10 @@ class DatasetModel(DynamicDocument):
             dataset_id=self.id,
             group="Directory Image Scan"
         )
+        if user is not None:
+            task.creator = user.username
         task.save()
+        self._log('scan', user, task)
         
         cel_task = scan_dataset.delay(task.id, self.id)
 

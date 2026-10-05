@@ -5,7 +5,7 @@ from flask_restx import Namespace, Resource, reqparse
 import io
 
 from database import AnnotationModel, ImageModel
-from ..util import trash
+from ..util import trash, activity
 
 api = Namespace('trash', description='Deleted items: list, restore, permanently delete')
 
@@ -23,6 +23,26 @@ items_args.add_argument('items', location='json', type=list, required=True,
                         help='[{"type": "annotation", "ids": [1, 2]}, ...]')
 items_args.add_argument('include_parents', location='json', type=bool, default=False,
                         help='Also restore the trashed image / dataset they belong to')
+items_args.add_argument('activity_id', location='json', type=int, default=None,
+                        help='The delete line of the activity log these items come from')
+
+
+def _log(action, args, n):
+    """Write the restore / purge itself to the activity log."""
+    if not n:
+        return
+    source = None
+    if args.get('activity_id'):
+        source = activity.visible(current_user).filter(id=args['activity_id'], action='delete').first()
+    kinds = sorted({i.get('type') for i in args['items'] if i.get('type')})
+    detail = {'kinds': kinds}
+    if source is not None:
+        detail.update({k: v for k, v in (source.detail or {}).items()
+                       if k in ('kind', 'file_name', 'name', 'dataset_name', 'categories')})
+        detail['from'] = source.id
+    activity.record(action, current_user, dataset_id=source.dataset_id if source else None,
+                    image_id=source.image_id if source else None, counts={'items': n}, detail=detail,
+                    text=(source.text if source else ''))
 
 
 @api.route('/')
@@ -50,6 +70,7 @@ class TrashRestore(Resource):
             n = trash.restore(current_user, args['items'], include_parents=bool(args.get('include_parents')))
         except trash.NeedsParents as e:
             return {'message': str(e), 'parents': e.parents}, 409
+        _log('restore', args, n)
         return {'success': True, 'restored': n}
 
 
@@ -61,7 +82,9 @@ class TrashPurge(Resource):
     def post(self):
         """ Permanently delete items (image files and dataset folders too) """
         args = items_args.parse_args()
-        return {'success': True, 'deleted': trash.purge(current_user, args['items'])}
+        n = trash.purge(current_user, args['items'])
+        _log('purge', args, n)
+        return {'success': True, 'deleted': n}
 
 
 @api.route('/empty')
@@ -70,7 +93,10 @@ class TrashEmpty(Resource):
     @login_required
     def post(self):
         """ Permanently delete everything in the user's trash """
-        return {'success': True, 'deleted': trash.empty(current_user)}
+        n = trash.empty(current_user)
+        if n:
+            activity.record('purge', current_user, counts={'items': n}, detail={'empty': True})
+        return {'success': True, 'deleted': n}
 
 
 @api.route('/preview')

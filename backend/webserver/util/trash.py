@@ -36,11 +36,22 @@ def now():
 
 # ------------------------------------------------------------- deleting
 
-def soft_delete(target, user=None, batch=None):
-    """Move a document or a queryset to the trash. Returns the batch id."""
+def soft_delete(target, user=None, batch=None, log=True):
+    """Move a document or a queryset to the trash (and write it to the
+    activity log). Returns the batch id."""
+    from mongoengine.queryset import QuerySet
     batch = batch or uuid.uuid4().hex[:16]
+    docs = list(target) if isinstance(target, QuerySet) else [target]
     target.update(set__deleted=True, set__deleted_date=now(),
                   set__deleted_by=getattr(user, 'username', None), set__delete_batch=batch)
+    if log and docs:
+        kind = next((k for k, m in TYPES.items() if isinstance(docs[0], m)), None)
+        if kind:
+            from . import activity
+            try:
+                activity.deleted(user, kind, docs, batch)
+            except Exception:  # pragma: no cover - the delete itself worked
+                logger.exception("Could not record a delete")
     return batch
 
 
@@ -337,6 +348,8 @@ def purge_expired(force=False):
         count += _purge_docs(kind, docs)
     if count:
         logger.info(f"Trash: permanently deleted {count} items older than {days} days")
+    from . import activity
+    activity.expire()
     return count
 
 

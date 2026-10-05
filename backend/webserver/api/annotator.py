@@ -4,7 +4,7 @@ from flask_restx import Namespace, Resource
 from flask_login import login_required, current_user
 from flask import request
 
-from ..util import query_util, coco_util, profile, thumbnails
+from ..util import query_util, coco_util, profile, thumbnails, activity
 from geometry import polygon_to_rbbox
 
 from config import Config
@@ -16,6 +16,15 @@ from database import (
 )
 
 api = Namespace('annotator', description='Annotator related operations')
+
+
+def _rounded(values):
+    """Shape data rounded, so saving the same drawing again is not a change."""
+    if isinstance(values, (list, tuple)):
+        return [_rounded(v) for v in values]
+    if isinstance(values, float):
+        return round(values, 1)
+    return values
 
 
 @api.route('/data')
@@ -98,6 +107,8 @@ class AnnotatorData(Resource):
                 keypoints = annotation.get('keypoints', [])
                 if keypoints:
                     counted = True
+                old_shape = (db_annotation.segmentation or [], db_annotation.keypoints or [])
+                new_segmentation = old_shape[0]
 
                 isrbbox = bool(annotation.get('isrbbox', False))
 
@@ -137,11 +148,16 @@ class AnnotatorData(Resource):
                         set__paper_object=paperjs_object,
                     )
 
+                    new_segmentation = segmentation
                     if area > 0:
                         counted = True
 
                 if counted:
                     num_annotations += 1
+                changed = (_rounded(new_segmentation), _rounded(keypoints)) != \
+                    (_rounded(old_shape[0]), _rounded(old_shape[1]))
+                activity.annotation_saved(current_user, image_model, db_annotation.id,
+                                          has_shape=counted, changed=changed)
 
         image_model.update(
             set__metadata=image.get('metadata', {}),

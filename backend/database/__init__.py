@@ -10,6 +10,7 @@ from .images import *
 from .events import *
 from .users import *
 from .tasks import *
+from .activity import *
 
 import json
 
@@ -54,7 +55,7 @@ def ensure_indexes():
     annotations this can take a few seconds on the first start.
     """
     for model in (ImageModel, AnnotationModel, DatasetModel, CategoryModel,
-                  UserModel, TaskModel, ExportModel):
+                  UserModel, TaskModel, ExportModel, ActivityModel):
         model.ensure_indexes()
 
 

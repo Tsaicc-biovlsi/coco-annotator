@@ -8,7 +8,8 @@ from ..util import query_util, coco_util
 from database import (
     ImageModel,
     DatasetModel,
-    AnnotationModel
+    AnnotationModel,
+    CategoryModel
 )
 
 from PIL import Image
@@ -123,6 +124,8 @@ class Images(Resource):
             db_image = ImageModel.create_from_path(path, dataset.id).save()
         except NotUniqueError:
             db_image = ImageModel.objects.get(path=path)
+        from ..util import activity
+        activity.images_uploaded(current_user, dataset, db_image)
         return {'id': db_image.id, 'file_name': file_name, 'existed': False}
 
 
@@ -208,6 +211,9 @@ class ImageClass(Resource):
             if category_id not in (dataset.categories or []):
                 return {'message': 'That category is not part of this dataset'}, 400
             image.update(set__image_class=category_id, set__annotated=True)
+        from ..util import activity
+        activity.image_class_set(current_user, image,
+                                 CategoryModel.objects(id=category_id).first() if category_id is not None else None)
         return {'success': True, 'image_class': category_id}
 
 
@@ -241,7 +247,14 @@ class ImageCopyAnnotations(Resource):
             deleted=False
         )
 
-        return {'annotations_created': image_to.copy_annotations(query)}
+        created = image_to.copy_annotations(query)
+        if created:
+            from ..util import activity
+            activity.record('copy', current_user, dataset_id=image_to.dataset_id, image_id=image_to.id,
+                            counts={'annotations': created},
+                            detail={'file_name': image_to.file_name, 'from_file': image_from.file_name},
+                            text=f"{image_to.file_name} {image_from.file_name}")
+        return {'annotations_created': created}
 
 
 @api.route('/<int:image_id>/annotations')

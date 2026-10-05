@@ -108,8 +108,12 @@ class Dataset(Resource):
             dataset = DatasetModel(name=name, categories=category_ids, task=args.get('task') or '')
             dataset.save()
         except NotUniqueError:
-            return {'message': 'Dataset already exists. Check the undo tab to fully delete the dataset.'}, 400
+            return {'message': 'Dataset already exists. If it was deleted, restore or permanently delete it in the trash (activity log).'}, 400
 
+        from ..util import activity
+        activity.record('dataset_create', current_user, dataset_id=dataset.id,
+                        counts={'categories': len(category_ids)},
+                        detail={'name': dataset.name, 'task': dataset.task or None})
         return query_util.fix_ids(dataset)
 
 
@@ -310,6 +314,7 @@ class DatasetId(Resource):
         return {"success": True}
 
     @api.expect(update_dataset)
+    @login_required
     def post(self, dataset_id):
 
         """ Updates dataset by ID """
@@ -320,6 +325,7 @@ class DatasetId(Resource):
 
         args = update_dataset.parse_args()
         categories = args.get('categories')
+        before = {'task': dataset.task or '', 'categories': list(dataset.categories or [])}
         if args.get('task') is not None:
             if not dataset.is_owner(current_user):
                 return {"message": "Only the owner can change the planned task"}, 403
@@ -348,6 +354,25 @@ class DatasetId(Resource):
             default_annotation_metadata=dataset.default_annotation_metadata
         )
 
+        changes = {}
+        if args.get('task') is not None and args['task'] != before['task']:
+            changes['task'] = args['task'] or None
+            changes['old_task'] = before['task'] or None
+        if categories is not None:
+            added = [c for c in dataset.categories if c not in before['categories']]
+            removed = [c for c in before['categories'] if c not in dataset.categories]
+            names = {c.id: c.name for c in CategoryModel.objects(id__in=added + removed).only('id', 'name')}
+            if added:
+                changes['categories_added'] = [names.get(c, '?') for c in added]
+            if removed:
+                changes['categories_removed'] = [names.get(c, '?') for c in removed]
+        if default_annotation_metadata is not None:
+            changes['metadata'] = True
+        if changes:
+            from ..util import activity
+            activity.record('dataset_update', current_user, dataset_id=dataset.id, detail=changes,
+                            text=" ".join(changes.get('categories_added', []) + changes.get('categories_removed', [])))
+
         return {"success": True}
 
 
@@ -365,7 +390,14 @@ class DatasetIdShare(Resource):
         if not dataset.is_owner(current_user):
             return {"message": "You do not have permission to share this dataset"}, 403
 
+        before = set(dataset.users or [])
+        after = set(args.get('users') or [])
         dataset.update(users=args.get('users'))
+        if before != after:
+            from ..util import activity
+            activity.record('dataset_share', current_user, dataset_id=dataset.id,
+                            detail={'added': sorted(after - before), 'removed': sorted(before - after)},
+                            text=" ".join(sorted(after ^ before)))
 
         return {"success": True}
 
@@ -648,7 +680,8 @@ class DatasetExport(Resource):
                                    yolo_task=args.get('yolo_task') or 'detect',
                                    with_images=bool(args.get('with_images')),
                                    folder=args.get('folder') or None,
-                                   only_approved=bool(args.get('only_approved')))
+                                   only_approved=bool(args.get('only_approved')),
+                                   user=current_user)
     
     @api.expect(coco_upload)
     @login_required
@@ -661,7 +694,7 @@ class DatasetExport(Resource):
         if dataset is None:
             return {'message': 'Invalid dataset ID'}, 400
 
-        return dataset.import_coco(json.load(coco))
+        return dataset.import_coco(json.load(coco), user=current_user)
 
 
 @api.route('/<int:dataset_id>/coco')
@@ -691,7 +724,7 @@ class DatasetCoco(Resource):
         if dataset is None:
             return {'message': 'Invalid dataset ID'}, 400
 
-        return dataset.import_coco(json.load(coco))
+        return dataset.import_coco(json.load(coco), user=current_user)
 
 
 
@@ -735,7 +768,7 @@ class DatasetYolo(Resource):
                                '(labels are matched to images by file name without the extension)',
                     'stats': _yolo_stats(stats)}, 400
 
-        result = dataset.import_coco(coco, style=f"YOLO {stats['task']}")
+        result = dataset.import_coco(coco, style=f"YOLO {stats['task']}", user=current_user)
         result['stats'] = _yolo_stats(stats)
         result['names_found'] = names is not None
         return result
@@ -806,5 +839,5 @@ class DatasetScan(Resource):
         if not dataset:
             return {'message': 'Invalid dataset ID'}, 400
         
-        return dataset.scan()
+        return dataset.scan(user=current_user)
 

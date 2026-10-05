@@ -69,8 +69,11 @@ class Category(Resource):
             )
             category.save()
         except NotUniqueError as e:
-            return {'message': 'Category already exists. Check the undo tab to fully delete the category.'}, 400
+            return {'message': 'Category already exists. If it was deleted, restore or permanently delete it in the trash (activity log).'}, 400
 
+        from ..util import activity
+        activity.record('category_create', current_user, category_id=category.id,
+                        detail={'name': category.name, 'color': category.color})
         return query_util.fix_ids(category)
 
 
@@ -134,6 +137,7 @@ class Category(Resource):
         if not name:
             return {"message": "Invalid category name to update"}, 400
 
+        old_name, old_color = category.name, category.color
         # update name of the category
         # check if the name to update exits already in db
         # @ToDo: Is it necessary to allow equal category names among different creators?
@@ -158,6 +162,11 @@ class Category(Resource):
             # it is only triggered when the name already exists and the creator is the same
             return {"message": f"Category '{name}' already exists"}, 400
 
+        from ..util import activity
+        activity.record('category_update', current_user, category_id=category.id,
+                        detail={'name': name, 'old_name': old_name if old_name != name else None,
+                                'color': color, 'old_color': old_color if old_color != color else None},
+                        text=f"{name} {old_name}")
         return {"success": True}
 
 

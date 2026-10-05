@@ -117,6 +117,14 @@ class ImageStatus(Resource):
         count, error = change_status(images, dataset, args['action'], args.get('note'))
         if error:
             return {'message': error}, 403
+        if count:
+            from ..util import activity
+            single = len(images) == 1
+            activity.record('review', current_user, dataset_id=dataset.id,
+                            image_id=images[0].id if single else None, counts={'images': count},
+                            detail={'review_action': args['action'], 'note': args.get('note') or None,
+                                    'file_name': images[0].file_name if single else None},
+                            text=" ".join(i.file_name for i in images[:50]))
         image.reload()
         return {'success': True, 'count': count, **image_review_info(image)}
 
@@ -150,8 +158,12 @@ class DatasetAssign(Resource):
             query = query.filter(Q(status=None) | Q(status__in=['unlabeled', 'rejected']))
         images = list(query.order_by('file_name').only('id'))
 
+        from ..util import activity
         if not usernames:
             ImageModel.objects(id__in=[i.id for i in images]).update(unset__assignee=True)
+            if images:
+                activity.record('assign', current_user, dataset_id=dataset.id,
+                                counts={'images': len(images)}, detail={'unassigned': True})
             return {'success': True, 'assigned': {}, 'unassigned': len(images)}
 
         # contiguous blocks in file name order: each person gets a range
@@ -162,6 +174,10 @@ class DatasetAssign(Resource):
             if block:
                 ImageModel.objects(id__in=[i.id for i in block]).update(set__assignee=username)
             counts[username] = len(block)
+        if images:
+            activity.record('assign', current_user, dataset_id=dataset.id,
+                            counts={'images': len(images)}, detail={'people': counts},
+                            text=" ".join(counts))
         return {'success': True, 'assigned': counts, 'unassigned': 0}
 
 
@@ -216,7 +232,12 @@ class DatasetReviewers(Resource):
             return {'message': 'Only the owner can choose reviewers'}, 403
         members = {u.username for u in dataset.get_users()}
         reviewers = sorted({u for u in args.get('reviewers') or [] if u in members})
+        before = sorted(dataset.reviewers or [])
         dataset.update(set__reviewers=reviewers)
+        if before != reviewers:
+            from ..util import activity
+            activity.record('reviewers', current_user, dataset_id=dataset.id,
+                            detail={'reviewers': reviewers}, text=" ".join(reviewers))
         return {'success': True, 'reviewers': reviewers}
 
 

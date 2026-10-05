@@ -1,7 +1,7 @@
 from flask_restx import Namespace, Resource, reqparse
 from flask_login import login_required, current_user
 
-from database import AnnotationModel
+from database import AnnotationModel, ImageModel
 from ..util import query_util
 
 import datetime
@@ -65,6 +65,9 @@ class Annotation(Resource):
         except (ValueError, TypeError) as e:
             return {'message': str(e)}, 400
 
+        from ..util import activity
+        activity.annotation_created(current_user, annotation, image)
+
         return query_util.fix_ids(annotation)
 
 
@@ -106,7 +109,14 @@ class AnnotationId(Resource):
         args = update_annotation.parse_args()
 
         new_category_id = args.get('category_id')
+        changed = new_category_id != annotation.category_id
         annotation.update(category_id=new_category_id)
+        if changed:
+            from ..util import activity
+            image = ImageModel.objects(id=annotation.image_id).first()
+            if image is not None:
+                activity.annotation_saved(current_user, image, annotation.id,
+                                          has_shape=True, changed=True)
         logger.info(
             f'{current_user.username} has updated category for annotation (id: {annotation.id})'
         )

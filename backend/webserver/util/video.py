@@ -4,6 +4,7 @@ Frames go to ``<dataset>/<video name>/<video name>_<time>.jpg`` (the time
 as minutes-seconds-milliseconds, so names sort in playback order) and
 are added to the dataset straight away. Runs as a background task.
 """
+import datetime
 import logging
 import os
 import re
@@ -11,7 +12,7 @@ import threading
 
 import cv2
 
-from database import DatasetModel, ImageModel, TaskModel
+from database import ActivityModel, DatasetModel, ImageModel, TaskModel
 
 logger = logging.getLogger('gunicorn.error')
 
@@ -81,6 +82,7 @@ def _run(task_id, dataset_id, video_path, original_name, every_seconds, max_fram
                 continue
             try:
                 image = ImageModel.create_from_path(path, dataset.id)
+                image.import_task = task_id  # lets the activity log take the frames back
                 image.save()
                 created += 1
             except Exception as e:  # e.g. created by the folder watcher at the same time
@@ -96,6 +98,9 @@ def _run(task_id, dataset_id, video_path, original_name, every_seconds, max_fram
             os.remove(video_path)
         except OSError:
             pass
+        ActivityModel.objects(task_id=task_id, action='video').update(
+            set__counts={'images': created}, set__detail__folder=stem,
+            set__updated_at=datetime.datetime.utcnow())
         task.set_progress(100, socket=socket)
 
 
@@ -109,6 +114,11 @@ def import_video(dataset, video_path, original_name, every_seconds=1.0, max_fram
     if user is not None:
         task.creator = user.username
     task.save()
+    from . import activity
+    activity.record('video', user, dataset_id=dataset.id, task_id=task.id,
+                    detail={'file_name': os.path.basename(original_name),
+                            'every_seconds': every_seconds},
+                    text=original_name)
     args = (task.id, dataset.id, video_path, original_name, every_seconds, max_frames, socket)
     if background:
         threading.Thread(target=_run, args=args, daemon=True).start()

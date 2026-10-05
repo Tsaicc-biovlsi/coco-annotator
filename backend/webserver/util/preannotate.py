@@ -1,10 +1,12 @@
 """Turn model predictions into annotations (one image or a whole dataset)."""
+import datetime
 import logging
 import threading
 
 from mongoengine import Q
 
 from database import (
+    ActivityModel,
     AnnotationModel,
     CategoryModel,
     DatasetModel,
@@ -79,7 +81,7 @@ class CategoryResolver:
         return True
 
 
-def apply_predictions(image, predictions, resolver, username=None):
+def apply_predictions(image, predictions, resolver, username=None, task_id=None):
     """Save predictions as annotations of ``image``. Returns how many."""
     created = 0
     category_ids = set(image.category_ids or [])
@@ -100,6 +102,8 @@ def apply_predictions(image, predictions, resolver, username=None):
             annotation.rbbox = p["rbbox"]
         if p.get("keypoints") and resolver.ensure_keypoints(category, p["num_keypoints"]):
             annotation.keypoints = p["keypoints"]
+        if task_id is not None:
+            annotation.import_task = task_id  # the activity log can take the run back
         annotation.save()
         if username:
             annotation.update(creator=username)
@@ -126,6 +130,12 @@ def annotate_image(image, model_name, conf=0.25, create_missing=True, user=None)
     resolver = CategoryResolver(dataset, create_missing=create_missing, user=user)
     created = apply_predictions(image, predictions, resolver,
                                 username=user.username if user else None)
+    if created:
+        from . import activity
+        activity.record('auto_annotate', user, dataset_id=image.dataset_id, image_id=image.id,
+                        counts={'annotations': created},
+                        detail={'model': model_name, 'file_name': image.file_name},
+                        text=f"{model_name} {image.file_name}")
     return {
         "predictions": len(predictions),
         "created": created,
@@ -154,7 +164,7 @@ def _run_dataset(task_id, dataset_id, model_name, conf, skip_annotated,
             try:
                 predictions = yolo.predict(model_name, image.path, conf=conf)
                 created = apply_predictions(image, predictions, resolver,
-                                            username=user.username if user else None)
+                                            username=user.username if user else None, task_id=task_id)
                 total_created += created
                 if created:
                     task.info(f"{image.file_name}: {created} annotations")
@@ -169,6 +179,9 @@ def _run_dataset(task_id, dataset_id, model_name, conf, skip_annotated,
             task.warning("Keypoint count differs from the category, keypoints not added: "
                          + ", ".join(sorted(resolver.keypoints_mismatch)))
         task.info(f"Done: {total_created} annotations created")
+        ActivityModel.objects(task_id=task_id, action='auto_annotate').update(
+            set__counts={'annotations': total_created, 'images': len(images)},
+            set__updated_at=datetime.datetime.utcnow())
         task.set_progress(100, socket=socket)
 
 
@@ -183,6 +196,9 @@ def annotate_dataset(dataset, model_name, conf=0.25, skip_annotated=True,
     if user is not None:
         task.creator = user.username
     task.save()
+    from . import activity
+    activity.record('auto_annotate', user, dataset_id=dataset.id, task_id=task.id,
+                    detail={'model': model_name, 'whole_dataset': True}, text=model_name)
 
     args = (task.id, dataset.id, model_name, conf, skip_annotated, create_missing, user, socket)
     if background:

@@ -6,12 +6,14 @@ from database import (
     AnnotationModel,
     DatasetModel,
     TaskModel,
-    ExportModel
+    ExportModel,
+    ActivityModel
 )
 
 # import pycocotools.mask as mask
 import numpy as np
 import time
+import datetime
 import json
 import os
 
@@ -204,6 +206,11 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
         export.split_counts = split_counts
         export.seed = seed
     export.save()
+    ActivityModel.objects(task_id=task_id, action='export').update(
+        set__counts={'images': len(coco.get('images', [])), 'annotations': len(coco.get('annotations', [])),
+                     'categories': len(category_names)},
+        set__detail__categories=list(category_names)[:50], set__detail__export_id=export.id,
+        set__updated_at=datetime.datetime.utcnow())
 
     task.set_progress(100, socket=socket)
 
@@ -413,6 +420,8 @@ def import_annotations(task_id, dataset_id, coco_json):
     task.info("===== Importing Categories =====")
     # category id mapping  ( file : database )
     categories_id = {}
+    created_categories = []
+    created_annotations = 0
 
     # Create any missing categories
     for category in coco_categories:
@@ -431,6 +440,7 @@ def import_annotations(task_id, dataset_id, coco_json):
                 keypoint_labels=category.get('keypoints', [])
             )
             new_category.save()
+            created_categories.append(category_name)
 
             category_model = new_category
             dataset.categories.append(new_category.id)
@@ -570,7 +580,9 @@ def import_annotations(task_id, dataset_id, coco_json):
             if isrbbox:
                 annotation_model.isrbbox = True
                 annotation_model.rbbox = rbbox
+            annotation_model.import_task = task_id  # lets the activity log take the import back
             annotation_model.save()
+            created_annotations += 1
 
             image_categories.append(category_model_id)
         else:
@@ -597,6 +609,12 @@ def import_annotations(task_id, dataset_id, coco_json):
             set__num_annotations=num_annotations,
             set__regenerate_thumbnail=True
         )
+
+    ActivityModel.objects(task_id=task_id, action='import').update(
+        set__counts={'annotations': created_annotations, 'images': len(images_id),
+                     'categories': len(created_categories)},
+        set__detail__new_categories=created_categories[:50],
+        set__updated_at=datetime.datetime.utcnow())
 
     task.set_progress(100, socket=socket)
 
