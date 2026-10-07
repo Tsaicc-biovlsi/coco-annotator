@@ -37,8 +37,7 @@
   "annotator": {
     "beingAnnotated": "{users} 正在標註這張圖片。",
     "categorySearch": "搜尋類別",
-    "cleared": "已刪除 {n} 個標註",
-    "confirmClear": "要刪除這張圖片的全部 {n} 個標註嗎？之後可以在「活動紀錄」的垃圾桶救回。",
+    "cleared": "已清除 {n} 個標註，按 Ctrl+Z 可以復原",
     "noCategoriesHaveBeenEnabled": "這張圖片沒有啟用任何類別。",
     "nothingToClear": "這張圖片沒有標註。"
   },
@@ -493,7 +492,8 @@
     "save": "儲存",
     "selectTool": "選取工具",
     "subtractSelection": "減去選取範圍",
-    "undoLastAction": "復原上一個動作"
+    "undoLastAction": "復原上一個動作",
+    "clearAnnotations": "清除這張圖片的標註"
   },
   "stat": {
     "annotatedImages": "已標註圖片",

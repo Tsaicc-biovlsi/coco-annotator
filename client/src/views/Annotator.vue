@@ -1107,7 +1107,7 @@ export default {
         this.$toastr.info(this.$t("annotator.nothingToClear"));
         return;
       }
-      if (!confirm(this.$t("annotator.confirmClear", { n: total }))) return;
+      // no confirmation: Ctrl+Z (or the trash) brings them back
 
       const snapshots = [];
       categories.forEach(c =>

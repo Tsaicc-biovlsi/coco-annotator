@@ -37,8 +37,7 @@
   "annotator": {
     "beingAnnotated": "This image is being annotated by {users}.",
     "categorySearch": "Category Search",
-    "cleared": "Deleted {n} annotations",
-    "confirmClear": "Delete all {n} annotations of this image? They can be restored from the trash on the Activity page.",
+    "cleared": "Cleared {n} annotations; Ctrl+Z brings them back",
     "noCategoriesHaveBeenEnabled": "No categories have been enabled for this image.",
     "nothingToClear": "This image has no annotations."
   },

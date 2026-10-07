@@ -144,6 +144,11 @@ export default {
           function: this.fit
         },
         {
+          default: ["d"],
+          name: "Clear Annotations",
+          function: this.clearAnnotations
+        },
+        {
           default: ["control", "s"],
           name: "Save",
           function: this.save
