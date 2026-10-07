@@ -26,7 +26,8 @@
         :disabled="busy"
         @click="act('submit')"
       >
-        <i class="fa fa-paper-plane" /> {{ $t('review.submit') }}
+        <i class="fa" :class="canReview ? 'fa-check' : 'fa-paper-plane'" />
+        {{ canReview ? $t('review.submitApprove') : $t('review.submit') }}
       </button>
       <template v-if="canReview && status !== 'unlabeled'">
         <button
@@ -171,7 +172,8 @@ export default {
         this.$emit("updated", r.data);
         this.rejecting = false;
         this.note = "";
-        this.$toastr.success(this.$t("review.done." + action));
+        const approvedOwn = action === "submit" && r.data.status === "approved";
+        this.$toastr.success(this.$t(approvedOwn ? "review.done.selfApprove" : "review.done." + action));
         if (this.autoNext && (action === "submit" || reviewing)) await this.goNext(reviewing ? "review" : "work");
       } catch (error) {
         const data = (error.response && error.response.data) || {};
@@ -191,7 +193,8 @@ export default {
         const r = await axios.post(`/api/review/image/${this.imageId}`, { action: "submit", skip_empty: true });
         if (!r.data.skipped) {
           this.$emit("updated", r.data);
-          this.$toastr.success(this.$t("review.submittedOnNext", { name: this.filename }));
+          this.$toastr.success(this.$t(r.data.status === "approved" ? "review.approvedOnNext" : "review.submittedOnNext",
+            { name: this.filename }));
         }
       } catch (error) {
         const data = (error.response && error.response.data) || {};

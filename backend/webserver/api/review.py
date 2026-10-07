@@ -70,9 +70,14 @@ def change_status(images, dataset, action, note=''):
     elif not current_user.can_edit(dataset):
         return 0, 'You do not have permission to edit this dataset'
 
+    # a reviewer's own work needs no review: submitting approves it
+    self_approve = action == 'submit' and dataset.can_review(current_user)
     count = 0
     for image in images:
-        if action == 'submit':
+        if self_approve:
+            image.update(set__status='approved', set__labeled_by=me, set__labeled_at=now,
+                         set__reviewed_by=me, set__reviewed_at=now, set__review_note='')
+        elif action == 'submit':
             image.update(set__status='labeled', set__labeled_by=me, set__labeled_at=now)
         elif action == 'approve':
             image.update(set__status='approved', set__reviewed_by=me, set__reviewed_at=now,
@@ -128,7 +133,9 @@ class ImageStatus(Resource):
             single = len(images) == 1
             activity.record('review', current_user, dataset_id=dataset.id,
                             image_id=images[0].id if single else None, counts={'images': count},
-                            detail={'review_action': args['action'], 'note': args.get('note') or None,
+                            detail={'review_action': 'self_approve' if args['action'] == 'submit'
+                                    and dataset.can_review(current_user) else args['action'],
+                                    'note': args.get('note') or None,
                                     'file_name': images[0].file_name if single else None},
                             text=" ".join(i.file_name for i in images[:50]))
         image.reload()

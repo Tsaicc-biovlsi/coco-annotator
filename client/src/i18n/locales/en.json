@@ -673,7 +673,8 @@
       "submit": "Submitted",
       "approve": "Approved",
       "reject": "Rejected",
-      "reopen": "Reopened"
+      "reopen": "Reopened",
+      "selfApprove": "Done and approved (a reviewer's own work needs no review)"
     },
     "nothingToReview": "Nothing left to review",
     "nothingToDo": "You have no images left to annotate",
@@ -711,8 +712,10 @@
     "all": "All",
     "assignedToMe": "Assigned to me",
     "onlyApproved": "Only images that were approved",
-    "submitOnNext": "When going to the next image (N or →), submit it if it has annotations",
-    "submittedOnNext": "Submitted {name}"
+    "submitOnNext": "When going to the next image (N or →), submit it (reviewers: approve it) if it has annotations",
+    "submittedOnNext": "Submitted {name}",
+    "submitApprove": "Done (approve directly)",
+    "approvedOnNext": "Approved {name}"
   },
   "imageClass": {
     "title": "Image class",
@@ -992,7 +995,8 @@
       "assign": "assigned {n} images: {people}",
       "unassign": "unassigned {n} images",
       "parentsChanged": "parents: {names}",
-      "parentsCleared": "parents cleared"
+      "parentsCleared": "parents cleared",
+      "review_self_approve": "finished and approved"
     }
   },
   "parents": {

@@ -129,5 +129,23 @@ def test_submit_skip_empty(world):
     ImageModel.objects(id=image.id).update(set__num_annotations=2)
     r = c.post(f"/api/review/image/{image.id}", json={"action": "submit", "skip_empty": True})
     assert r.status_code == 200 and not r.get_json().get("skipped")
-    assert ImageModel.objects(id=image.id).first().status == "labeled"
+    # the owner reviews: their own submit is an approval
+    assert ImageModel.objects(id=image.id).first().status == "approved"
     ImageModel.objects(id=image.id).update(set__status="unlabeled")
+
+
+
+def test_reviewer_submit_is_approved(review_world):
+    w = review_world
+    img = w["images"][3]["id"]
+    owner, l1, l2 = w["owner"], w["labeler1"], w["labeler2"]
+    r = owner.post(f"/api/review/image/{img}", json={"action": "submit"}).get_json()
+    assert r["status"] == "approved" and r["labeled_by"] == "smoke" and r["reviewed_by"] == "smoke"
+    owner.post(f"/api/review/image/{img}", json={"action": "reopen"})
+    # a member who is a reviewer: the same; a plain member: waits for review
+    owner.post(f"/api/review/dataset/{w['ds']}/reviewers", json={"reviewers": ["labeler2"]})
+    assert l2.post(f"/api/review/image/{img}", json={"action": "submit"}).get_json()["status"] == "approved"
+    owner.post(f"/api/review/image/{img}", json={"action": "reopen"})
+    assert l1.post(f"/api/review/image/{img}", json={"action": "submit"}).get_json()["status"] == "labeled"
+    owner.post(f"/api/review/dataset/{w['ds']}/reviewers", json={"reviewers": []})
+    owner.post(f"/api/review/image/{img}", json={"action": "reopen"})
