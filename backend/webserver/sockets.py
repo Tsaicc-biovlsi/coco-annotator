@@ -18,6 +18,13 @@ import logging
 logger = logging.getLogger('gunicorn.error')
 
 
+# Before the connection is upgraded to a websocket (and when a proxy keeps it
+# on long-polling), the browser sends its queued messages in one request. The
+# annotator emits an event per edit, so 16 (Engine.IO's default limit) is
+# easily passed: "Too many packets in payload" and the socket is dropped.
+from engineio.payload import Payload
+Payload.max_decode_packets = 1000
+
 socketio = SocketIO(async_mode='threading')
 
 

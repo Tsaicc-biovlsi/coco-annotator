@@ -47,6 +47,8 @@ RUN if [ "$SAM" = "cpu" ]; then \
     fi
 # Ultralytics settings/cache in a writable place, no online checks
 ENV YOLO_CONFIG_DIR=/tmp/Ultralytics YOLO_OFFLINE=1
+# (Ultralytics checks a subfolder it does not create: make it, no warning at start)
+RUN mkdir -p /tmp/Ultralytics/Ultralytics
 
 ############################ workers ###############################
 FROM python-base AS workers

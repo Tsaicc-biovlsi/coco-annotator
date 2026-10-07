@@ -199,3 +199,12 @@ def test_registration_can_be_disabled(world, monkeypatch):
     r = client.post("/api/user/register", json={"username": "intruder", "password": "pw", "name": "X"})
     assert r.status_code == 400
     assert "disabled" in r.get_json()["message"]
+
+
+def test_socket_payload_limit_raised():
+    """Long-polling sends queued messages in one payload: more than 16 must be accepted."""
+    from engineio.payload import Payload
+    import webserver.sockets  # noqa: F401  (sets the limit)
+    assert Payload.max_decode_packets >= 1000
+    packets = "".join(f"4{i}\x1e" for i in range(100)).rstrip("\x1e")
+    assert len(Payload(encoded_payload=packets).packets) == 100
