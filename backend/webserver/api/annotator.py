@@ -60,6 +60,7 @@ class AnnotatorData(Resource):
 
         annotated = False
         num_annotations = 0
+        saved = []  # (annotation id, has a shape, shape changed) for the activity log
         # Iterate every category passed in the data
         for category in data.get('categories', []):
             category_id = category.get('id')
@@ -160,8 +161,9 @@ class AnnotatorData(Resource):
                     num_annotations += 1
                 changed = (_rounded(new_segmentation), _rounded(keypoints)) != \
                     (_rounded(old_shape[0]), _rounded(old_shape[1]))
-                activity.annotation_saved(current_user, image_model, db_annotation.id,
-                                          has_shape=counted, changed=changed)
+                saved.append((db_annotation.id, counted, changed))
+
+        activity.annotations_saved(current_user, image_model, saved)
 
         image_model.update(
             set__metadata=image.get('metadata', {}),

@@ -122,6 +122,33 @@ def annotation_saved(user, image, annotation_id, has_shape, changed):
         logger.exception("Could not record an annotation change")
 
 
+def annotations_saved(user, image, saved):
+    """One annotator save: ``saved`` = [(annotation_id, has_shape, changed)].
+    At most three queries, however many annotations the image has."""
+    try:
+        shaped = [a for a, has_shape, _ in saved if has_shape]
+        if not shaped:
+            return
+        moved = set()
+        for waiting in ActivityModel.objects(action='annotate', image_id=image.id, pending__in=shaped):
+            ids = [a for a in shaped if a in (waiting.pending or [])]
+            if ids:
+                waiting.update(pull_all__pending=ids, push__added=ids,
+                               set__hidden=False, set__updated_at=now())
+                moved.update(ids)
+        changed = [a for a, has_shape, ch in saved if has_shape and ch and a not in moved]
+        if not changed:
+            return
+        entry = _annotate_entry(user, image)
+        if entry is None:
+            return
+        changed = [a for a in changed if a not in (entry.added or [])]
+        if changed:
+            entry.update(add_to_set__edited=changed, set__hidden=False, set__updated_at=now())
+    except Exception:  # pragma: no cover
+        logger.exception("Could not record annotation changes")
+
+
 def image_class_set(user, image, category):
     try:
         entry = _annotate_entry(user, image)

@@ -807,11 +807,7 @@ export default {
     },
     /** parent name to show above the category at ``index`` ("" = no parent), or null for no title */
     groupTitle(index) {
-      if (!this.categories.some(c => parentsOf(c).length)) return null;
-      const first = c => parentsOf(c)[0] || "";
-      const here = first(this.categories[index]);
-      if (index > 0 && first(this.categories[index - 1]) === here) return null;
-      return here;
+      return this.groupTitles[index] ?? null;
     },
     getCategory(index) {
       if (index == null) return null;
@@ -1251,6 +1247,12 @@ export default {
     }
   },
   computed: {
+    /** parent heading above each category (computed once, not on every redraw) */
+    groupTitles() {
+      const firsts = this.categories.map(c => parentsOf(c)[0] || "");
+      if (!firsts.some(Boolean)) return this.categories.map(() => null);
+      return firsts.map((p, i) => (i > 0 && firsts[i - 1] === p ? null : p));
+    },
     doneLoading() {
       return !this.loading.image && !this.loading.data;
     },
