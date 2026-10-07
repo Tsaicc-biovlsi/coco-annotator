@@ -367,7 +367,9 @@
     "upload": "Upload",
     "uploadHint": "Ultralytics YOLO weights (detect, OBB, segment or pose), e.g. runs/.../weights/best.pt. Rename the file first: the file name is shown in the list. Only upload models from people you trust.",
     "uploadModel": "Add a model (.pt)",
-    "uploaded": "Model {name} added"
+    "uploaded": "Model {name} added",
+    "manageModels": "Upload, turn on / off or manage models on the Models page",
+    "seeModels": "See all models on the Models page"
   },
   "nav": {
     "language": "Language"
@@ -379,7 +381,8 @@
     "help": "Help",
     "tasks": "Tasks",
     "undo": "Undo",
-    "activity": "Activity"
+    "activity": "Activity",
+    "models": "Models"
   },
   "pageNotFound": {
     "couldNotFindThePage": "Could not find the page you are looking for.",
@@ -1015,5 +1018,35 @@
     "picked": "Picked: {names}",
     "all": "All",
     "showing": "{from}–{to} of {n}"
+  },
+  "models": {
+    "title": "Models",
+    "subtitle": "Uploaded YOLO models: on / off, names, notes, default confidence and usage",
+    "device": "Device",
+    "sam": "SAM (click to segment)",
+    "samOff": "not available",
+    "count": "Models",
+    "countValue": "{n} ({on} on)",
+    "readOnly": "Only admins can upload, change or delete models; this page shows which models can be used.",
+    "none": "No models yet",
+    "off": "Off",
+    "on": "On",
+    "edit": "Edit",
+    "download": "Download",
+    "displayName": "Display name",
+    "defaultConf": "Default confidence",
+    "notSet": "not set (last value used)",
+    "clear": "clear",
+    "note": "Note",
+    "notePlaceholder": "e.g. training data, version, where it works well",
+    "save": "Save",
+    "uploadedBy": "uploaded by {user} on {time}",
+    "fileDate": "file date {time}",
+    "moreClasses": "{n} more",
+    "runs": "{n} runs",
+    "made": "{n} annotations made",
+    "lastUsed": "last {time} ({user})",
+    "neverUsed": "never used",
+    "saved": "Saved {name}"
   }
 }

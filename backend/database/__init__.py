@@ -11,6 +11,7 @@ from .events import *
 from .users import *
 from .tasks import *
 from .activity import *
+from .model_info import *
 
 import json
 

@@ -150,6 +150,7 @@ class YoloService:
         self._load_lock = threading.Lock()
         self._predict_lock = threading.Lock()
         self._error = None
+        self._info = {}                # name -> (mtime, info): listing must not load every model
 
     # ------------------------------------------------------------ discovery
     @property
@@ -227,12 +228,24 @@ class YoloService:
             "kpt_shape": kpt_shape,
         }
 
+    def cached_info(self, name):
+        """info() remembered per file version."""
+        mtime = os.path.getmtime(self.path_for(name))
+        cached = self._info.get(name)
+        if cached and cached[0] == mtime:
+            return cached[1]
+        info = self.info(name)
+        self._info[name] = (mtime, info)
+        return info
+
     def list(self):
         models = []
         for name in self.model_names():
             entry = {"name": name}
             try:
-                entry.update(self.info(name))
+                entry.update(self.cached_info(name))
+                entry["size"] = os.path.getsize(self.path_for(name))
+                entry["modified"] = os.path.getmtime(self.path_for(name))
             except Exception as e:
                 logger.warning(f"Could not load model {name}: {e}")
                 entry["error"] = str(e)
@@ -283,6 +296,7 @@ class YoloService:
         os.replace(tmp, path)
         with self._load_lock:
             self._models.pop(name, None)
+        self._info.pop(name, None)
         return self.info(name)
 
     def delete(self, name):
@@ -290,6 +304,17 @@ class YoloService:
         os.remove(path)
         with self._load_lock:
             self._models.pop(name, None)
+        self._info.pop(name, None)
+
+    def device_name(self):
+        device = self._resolve_device()
+        if device.startswith("cuda"):
+            try:
+                import torch
+                return f"{device} ({torch.cuda.get_device_name(0)})"
+            except Exception:
+                pass
+        return device
 
     # ------------------------------------------------------------ predict
     def predict(self, name, image_path, conf=0.25, iou=0.7, imgsz=None):

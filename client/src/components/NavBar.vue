@@ -43,6 +43,9 @@
         <li class="nav-item" :class="{ active: $route.name === 'activity' }">
           <RouterLink class="nav-link" to="/activity">{{ $t('navBar.activity') }}</RouterLink>
         </li>
+        <li class="nav-item" :class="{ active: $route.name === 'models' }">
+          <RouterLink class="nav-link" to="/models">{{ $t('navBar.models') }}</RouterLink>
+        </li>
         <li class="nav-item" :class="{ active: $route.name === 'tasks' }">
           <RouterLink class="nav-link" to="/tasks">{{ $t('navBar.tasks') }}</RouterLink>
         </li>

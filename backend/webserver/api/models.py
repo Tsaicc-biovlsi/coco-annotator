@@ -2,7 +2,8 @@ from flask_restx import Namespace, Resource, reqparse
 from werkzeug.datastructures import FileStorage
 from flask_login import login_required, current_user
 
-from database import ImageModel
+from database import ActivityModel, ImageModel, ModelInfoModel
+from flask import send_file
 from ..util.sam import sam
 from ..util.yolo import yolo
 from ..util import preannotate
@@ -104,7 +105,52 @@ def _check_model(name):
         yolo.path_for(name)
     except ValueError:
         return {"message": "Unknown model"}, 400
+    meta = ModelInfoModel.objects(name=name).first()
+    if meta is not None and not meta.enabled:
+        return {"message": "This model is turned off (Models page)"}, 400
     return None
+
+
+def _usage():
+    """Per model: runs, annotations made, last run (from the activity log)."""
+    usage = {}
+    for entry in ActivityModel.objects(action='auto_annotate').only('detail', 'counts', 'user', 'updated_at'):
+        name = (entry.detail or {}).get('model')
+        if not name:
+            continue
+        u = usage.setdefault(name, {'runs': 0, 'annotations': 0, 'last_used': None, 'last_user': None})
+        u['runs'] += 1
+        u['annotations'] += (entry.counts or {}).get('annotations', 0) or 0
+        if u['last_used'] is None or entry.updated_at > u['last_used']:
+            u['last_used'], u['last_user'] = entry.updated_at, entry.user
+    return usage
+
+
+def _iso(value):
+    return value.replace(microsecond=0).isoformat() + 'Z' if value else None
+
+
+def _with_meta(models, include_usage=False):
+    metas = {m.name: m for m in ModelInfoModel.objects(name__in=[m['name'] for m in models])}
+    usage = _usage() if include_usage else {}
+    out = []
+    for m in models:
+        meta = metas.get(m['name'])
+        m = dict(m)
+        m.update({
+            'display_name': (meta.display_name if meta else '') or '',
+            'note': (meta.note if meta else '') or '',
+            'enabled': meta.enabled if meta else True,
+            'default_conf': meta.default_conf if meta else None,
+            'uploaded_by': meta.uploaded_by if meta else None,
+            'uploaded_at': _iso(meta.uploaded_at) if meta and meta.uploaded_by else None,
+        })
+        if include_usage:
+            u = usage.get(m['name'], {})
+            m['usage'] = {'runs': u.get('runs', 0), 'annotations': u.get('annotations', 0),
+                          'last_used': _iso(u.get('last_used')), 'last_user': u.get('last_user')}
+        out.append(m)
+    return out
 
 
 def _conf(value):
@@ -116,10 +162,19 @@ class YoloModels(Resource):
 
     @login_required
     def get(self):
-        """ Your models (.pt files in the models folder) with task and classes """
+        """ Your models (.pt files in the models folder) with task and classes.
+        ?all=1 (Models page): also turned-off models, with usage. """
+        from flask import request
         if not yolo.installed:
-            return {"installed": False, "models": []}
-        return {"installed": True, "models": yolo.list()}
+            return {"installed": False, "models": [], "sam": sam.status()}
+        manage = request.args.get('all') in ('1', 'true')
+        models = _with_meta(yolo.list(), include_usage=manage)
+        if not manage:
+            models = [m for m in models if m['enabled']]
+        result = {"installed": True, "models": models, "can_manage": bool(current_user.is_admin)}
+        if manage:
+            result.update({"device": yolo.device_name(), "directory": yolo.directory, "sam": sam.status()})
+        return result
 
 
 yolo_upload = reqparse.RequestParser()
@@ -149,6 +204,11 @@ class YoloUpload(Resource):
         except ValueError as e:
             return {"message": str(e)}, 400
         logger.info(f"User {current_user.username} added model {info['name']}")
+        import datetime
+        meta = ModelInfoModel.objects(name=info['name']).first() or ModelInfoModel(name=info['name'])
+        meta.uploaded_by = current_user.username
+        meta.uploaded_at = datetime.datetime.utcnow()
+        meta.save()
         return {"success": True, "model": info}
 
 
@@ -165,7 +225,48 @@ class YoloModel(Resource):
         except (ValueError, OSError):
             return {"message": "Unknown model"}, 400
         logger.info(f"User {current_user.username} removed model {name}")
+        ModelInfoModel.objects(name=name).delete()
         return {"success": True}
+
+    @login_required
+    def put(self, name):
+        """ Change a model's display name, note, on/off, default confidence (admins only) """
+        from flask import request
+        if not current_user.is_admin:
+            return {"message": "Only admins can change models"}, 403
+        try:
+            yolo.path_for(name)
+        except ValueError:
+            return {"message": "Unknown model"}, 400
+        data = request.get_json(silent=True) or {}
+        meta = ModelInfoModel.objects(name=name).first() or ModelInfoModel(name=name)
+        if 'display_name' in data:
+            meta.display_name = str(data['display_name'] or '').strip()[:100]
+        if 'note' in data:
+            meta.note = str(data['note'] or '').strip()[:2000]
+        if 'enabled' in data:
+            meta.enabled = bool(data['enabled'])
+        if 'default_conf' in data:
+            conf = data['default_conf']
+            meta.default_conf = None if conf in (None, '') else _conf(conf)
+        meta.save()
+        return {"success": True, "model": _with_meta([{"name": name}])[0]}
+
+
+@api.route('/yolo/model/<path:name>/download')
+class YoloModelDownload(Resource):
+
+    @login_required
+    def get(self, name):
+        """ The .pt file (admins only) """
+        if not current_user.is_admin:
+            return {"message": "Only admins can download models"}, 403
+        try:
+            path = yolo.path_for(name)
+        except ValueError:
+            return {"message": "Unknown model"}, 400
+        import os
+        return send_file(path, as_attachment=True, download_name=os.path.basename(path))
 
 
 @api.route('/yolo/image/<int:image_id>')

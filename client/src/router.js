@@ -7,6 +7,7 @@ import AdminPanel from "@/views/AdminPanel.vue";
 import Datasets from "@/views/Datasets.vue";
 import Categories from "@/views/Categories.vue";
 import Activity from "@/views/Activity.vue";
+import Models from "@/views/Models.vue";
 import Dataset from "@/views/Dataset.vue";
 import Auth from "@/views/Auth.vue";
 import User from "@/views/User.vue";
@@ -36,6 +37,11 @@ export default createRouter({
       path: "/activity",
       name: "activity",
       component: Activity
+    },
+    {
+      path: "/models",
+      name: "models",
+      component: Models
     },
     {
       path: "/trash",

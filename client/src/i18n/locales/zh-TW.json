@@ -367,7 +367,9 @@
     "upload": "上傳",
     "uploadHint": "Ultralytics YOLO 權重檔（detect、OBB、segment 或 pose），例如 runs/.../weights/best.pt。建議先改成好認的檔名，清單上會顯示檔名。只上傳你信任來源的模型。",
     "uploadModel": "新增模型（.pt）",
-    "uploaded": "已新增模型 {name}"
+    "uploaded": "已新增模型 {name}",
+    "manageModels": "到「模型」頁上傳、開關或管理模型",
+    "seeModels": "到「模型」頁查看所有模型"
   },
   "nav": {
     "language": "語言"
@@ -379,7 +381,8 @@
     "help": "說明",
     "tasks": "任務",
     "undo": "復原",
-    "activity": "活動紀錄"
+    "activity": "活動紀錄",
+    "models": "模型"
   },
   "option": {
     "fileName": "檔名",
@@ -1145,5 +1148,35 @@
     "picked": "已選：{names}",
     "all": "全部",
     "showing": "第 {from}–{to} 個，共 {n} 個"
+  },
+  "models": {
+    "title": "模型",
+    "subtitle": "上傳的 YOLO 模型：開關、命名、備註、預設信心值和使用紀錄",
+    "device": "運算裝置",
+    "sam": "SAM（點選分割）",
+    "samOff": "未啟用",
+    "count": "模型",
+    "countValue": "{n} 個（{on} 個開啟）",
+    "readOnly": "只有管理員可以上傳、修改或刪除模型；這裡可以看到有哪些模型可以用。",
+    "none": "還沒有模型",
+    "off": "已關閉",
+    "on": "開啟中",
+    "edit": "編輯",
+    "download": "下載",
+    "displayName": "顯示名稱",
+    "defaultConf": "預設信心值",
+    "notSet": "未設定（用上次的值）",
+    "clear": "清除",
+    "note": "備註",
+    "notePlaceholder": "例如：訓練資料、版本、適用的場景",
+    "save": "儲存",
+    "uploadedBy": "{user} 上傳於 {time}",
+    "fileDate": "檔案日期 {time}",
+    "moreClasses": "還有 {n} 個",
+    "runs": "執行 {n} 次",
+    "made": "產生 {n} 個標註",
+    "lastUsed": "上次 {time}（{user}）",
+    "neverUsed": "還沒用過",
+    "saved": "已儲存 {name}"
   }
 }
