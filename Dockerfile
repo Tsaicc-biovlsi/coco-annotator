@@ -10,7 +10,11 @@
 #   VERSION               version string shown in the UI
 
 ############################ web client ############################
-FROM node:22-alpine AS client
+# Base images are pinned by digest: when the "22-alpine" / "3.12-slim" tags move
+# upstream, an unpinned FROM makes Docker rebuild every layer after it (all
+# pip installs, PyTorch included). Bump these on purpose, e.g. with
+#   docker pull python:3.12-slim && docker inspect --format '{{index .RepoDigests 0}}' python:3.12-slim
+FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS client
 WORKDIR /workspace/client
 COPY client/package.json client/package-lock.json ./
 RUN npm ci --no-audit --no-fund
@@ -18,7 +22,7 @@ COPY client/ ./
 RUN npm run build
 
 ############################ python base ###########################
-FROM python:3.12-slim AS python-base
+FROM python:3.12-slim@sha256:05cda9777409a9c3ffddd94a4c476b79f0769a0b4857f0c7ed9226b6800b0d6f AS python-base
 ARG SAM=none
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PYTHONPATH=/workspace
 WORKDIR /workspace
