@@ -35,7 +35,7 @@ export default {
   emits: ["update:selected"],
   computed: {
     groups() {
-      // every folder of the tree (course, then its groups ...): picks all below it
+      // every folder of the tree (a folder, then the ones inside ...): picks all below it
       const chosen = new Set(this.selected);
       const out = [];
       const walk = (node, depth) => node.children.forEach(child => {

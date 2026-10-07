@@ -63,7 +63,7 @@
             </li>
           </ul>
 
-          <!-- deeper levels (course › group ›...): where we are, and the folders inside -->
+          <!-- deeper levels (a › b › ...): where we are, and the folders inside -->
           <div v-if="subPath.length > 1 || subChildren.length" class="sub-levels d-flex flex-wrap align-items-center gap-1 mb-3">
             <template v-for="(a, i) in subPath" :key="a">
               <i v-if="i > 0" class="fa fa-angle-right text-muted" />

@@ -20,7 +20,7 @@
       <span v-if="!shownOptions.length" class="small text-muted px-2">{{ $t('parents.noMatch') }}</span>
     </div>
 
-    <!-- filter the list, or type a new one ("Course/Group 3" makes levels) -->
+    <!-- filter the list, or type a new one ("Vehicles/Land" makes levels) -->
     <div class="input-group input-group-sm">
       <span class="input-group-text"><i class="fa" :class="options.length ? 'fa-search' : 'fa-folder-o'" /></span>
       <input

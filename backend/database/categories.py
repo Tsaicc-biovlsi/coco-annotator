@@ -11,13 +11,13 @@ class CategoryModel(DynamicDocument):
                        "keypoint_edges", "keypoint_labels", "keypoint_colors"]
 
     id = SequenceField(primary_key=True)
-    #: the same name can be used again under another parent (e.g. "person" in
-    #: each group of a course): unique per creator and first parent
+    #: the same name can be used again under another parent (e.g. "person"
+    #: under "Outdoor/Street" and "Indoor/Hall"): unique per creator and first parent
     name = StringField(required=True, unique_with=['creator', 'supercategory'])
     #: COCO's single parent: the first of ``supercategories``
     supercategory = StringField(default='')
     #: all parent categories (a category can be in several groups). A parent
-    #: is a path: "Course/Group 1" is "Group 1" inside "Course" (any depth)
+    #: is a path: "Vehicles/Land" is "Land" inside "Vehicles" (any depth)
     supercategories = ListField(StringField(), default=[])
 
     #: the unique index of older versions (name per creator only)
@@ -46,7 +46,7 @@ class CategoryModel(DynamicDocument):
 
     @staticmethod
     def normalize_path(value):
-        """ "Course / Group 1 " -> "Course/Group 1" (a parent path, any depth)"""
+        """ "Vehicles / Land " -> "Vehicles/Land" (a parent path, any depth)"""
         import re
         parts = [p.strip() for p in re.split(r"[/／]", str(value or ''))]
         return '/'.join(p for p in parts if p)

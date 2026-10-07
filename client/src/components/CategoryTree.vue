@@ -37,7 +37,7 @@
 </template>
 
 <script>
-/** Folders of parent categories (course › group › ...), any depth */
+/** Folders of parent categories (a › b › ...), any depth */
 export default {
   name: "CategoryTree",
   props: {

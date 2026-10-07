@@ -103,31 +103,31 @@ def test_recreate_deleted_category(world):
 
 
 def test_parent_paths_and_same_name_under_other_parents(world):
-    """Course / group / category trees: a name can repeat under another group."""
+    """Parent paths of any depth: a name can repeat under another parent."""
     from database import CategoryModel
     c = world["client"]
     made = []
-    for group in ("第一組", "第二組"):
-        r = c.post("/api/category/", json={"name": "人", "supercategories": [f" 影像課程 / {group} "]})
+    for group in ("路口", "走廊"):
+        r = c.post("/api/category/", json={"name": "人", "supercategories": [f" 場景 / {group} "]})
         assert r.status_code == 200, r.get_json()
         made.append(r.get_json()["id"])
     assert made[0] != made[1]
     first = CategoryModel.objects(id=made[0]).first()
-    assert first.supercategories == ["影像課程/第一組"] and first.supercategory == "影像課程/第一組"
+    assert first.supercategories == ["場景/路口"] and first.supercategory == "場景/路口"
     # the same name twice under one parent is still refused
-    assert c.post("/api/category/", json={"name": "人", "supercategories": ["影像課程/第一組"]}).status_code == 400
+    assert c.post("/api/category/", json={"name": "人", "supercategories": ["場景/路口"]}).status_code == 400
     assert CategoryModel.ancestors("a/b/c") == ["a", "a/b", "a/b/c"]
 
     # a dataset made from ids keeps exactly those categories
-    r = c.post("/api/dataset/", json={"name": "course_g2", "categories": [made[1]]})
+    r = c.post("/api/dataset/", json={"name": "scene_hall", "categories": [made[1]]})
     assert r.status_code == 200 and r.get_json()["categories"] == [made[1]]
 
     # Datasets page: tabs for each level of the path
     data = c.get("/api/dataset/data", query_string={"limit": 50}).get_json()
     names = {p["name"] for p in data["parents"]}
-    assert {"影像課程", "影像課程/第二組"} <= names
-    shown = c.get("/api/dataset/data", query_string={"limit": 50, "parent": "影像課程"}).get_json()
-    assert [d["name"] for d in shown["datasets"]] == ["course_g2"]
+    assert {"場景", "場景/走廊"} <= names
+    shown = c.get("/api/dataset/data", query_string={"limit": 50, "parent": "場景"}).get_json()
+    assert [d["name"] for d in shown["datasets"]] == ["scene_hall"]
     CategoryModel.objects(id__in=made).delete()
 
 

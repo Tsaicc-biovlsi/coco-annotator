@@ -4,12 +4,12 @@
  */
 
 /**
- * A parent is a path: "Course/Group 1" is "Group 1" inside "Course", any
+ * A parent is a path: "Vehicles/Land" is "Land" inside "Vehicles", any
  * depth. The same category name can be used again under another parent.
  */
 export const PATH_SEP = "/";
 
-/** " Course / Group 1 " -> "Course/Group 1" */
+/** " Vehicles / Land " -> "Vehicles/Land" */
 export function normalizePath(value) {
   return String(value || "").split(/[/／]/).map(s => s.trim()).filter(Boolean).join(PATH_SEP);
 }
@@ -18,7 +18,7 @@ export function pathParts(path) {
   return normalizePath(path).split(PATH_SEP).filter(Boolean);
 }
 
-/** "Course/Group 1" -> "Course › Group 1" */
+/** "Vehicles/Land" -> "Vehicles › Land" */
 export function pathLabel(path, from = "") {
   let parts = pathParts(path);
   const base = pathParts(from);
@@ -26,7 +26,7 @@ export function pathLabel(path, from = "") {
   return parts.join(" › ");
 }
 
-/** last level of a path ("Course/Group 1" -> "Group 1") */
+/** last level of a path ("Vehicles/Land" -> "Land") */
 export function pathName(path) {
   const parts = pathParts(path);
   return parts[parts.length - 1] || "";
@@ -64,7 +64,7 @@ export function parentsOf(category) {
   return parseParents(category.supercategory);
 }
 
-// "第十二組" sorts after "第二組": Chinese numbers compare as numbers
+// "第十二區" sorts after "第二區": Chinese numbers compare as numbers
 const CN_DIGITS = { 零: 0, 〇: 0, 一: 1, 二: 2, 兩: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
 function cnNumber(text) {
   let total = 0;

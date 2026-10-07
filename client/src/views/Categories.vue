@@ -30,7 +30,7 @@
           <i class="fa fa-tags fa-3x d-block mb-2" />{{ $t('categories.youNeedToCreateA') }}
         </p>
         <div v-else class="row g-3">
-          <!-- folders: course › group › ... -->
+          <!-- folders: a › b › ... -->
           <div class="col-lg-3">
             <div class="card shadow-sm tree-card">
               <div class="card-body p-2">

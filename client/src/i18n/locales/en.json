@@ -1041,7 +1041,7 @@
     }
   },
   "parents": {
-    "hint": "Pick parents (several allowed); type a new one below, \"/\" makes levels, e.g. \"Course/Group 3\". The same name can be used again under another parent. COCO export writes the first one as supercategory.",
+    "hint": "Pick parents (several allowed); type a new one below, \"/\" makes levels, e.g. \"Vehicles/Land\". The same name can be used again under another parent. COCO export writes the first one as supercategory.",
     "quick": "Add by parent:",
     "none": "No parent",
     "others": "Other categories",
@@ -1050,7 +1050,7 @@
     "searchCategories": "Search categories or parents…",
     "addHere": "New category under {name}",
     "noMatch": "No matching parent",
-    "findOrNew": "Search, or type a new one (e.g. Course/Group 3)",
+    "findOrNew": "Search, or type a new one (e.g. Vehicles/Land)",
     "firstOne": "No parents yet: type one (\"/\" makes levels)",
     "addNew": "Add \"{name}\"",
     "picked": "Picked: {names}",
@@ -1150,7 +1150,7 @@
   "tree": {
     "collapse": "Collapse",
     "expand": "Expand",
-    "hint": "Parents can have levels: \"Course/Group 1\" puts it in \"Group 1\" inside \"Course\".",
+    "hint": "Parents can have levels: \"Vehicles/Land\" puts it in \"Land\" inside \"Vehicles\".",
     "includeBelow": "Include sub-folders",
     "onlyFolders": "No categories directly here: turn on \"Include sub-folders\" or open a folder."
   }
