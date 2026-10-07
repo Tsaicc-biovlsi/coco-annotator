@@ -89,7 +89,7 @@
     "dataset": "Share a dataset with these accounts (optional)",
     "download": "Download accounts (CSV)",
     "duplicate": "duplicate",
-    "listHint": "IDs are 1 letter and 8 digits (e.g. B11223344). An empty password is generated. Enter moves to the next row.",
+    "listHint": "IDs are 1 letter and 8 digits (e.g. B11223344). An empty password uses the shared password above, or a generated one. Enter moves to the next row.",
     "loadCsv": "Load a CSV file",
     "noDataset": "(none)",
     "saveNow": "Download or copy the passwords now: they cannot be shown again (an admin can reset a password later).",
@@ -117,7 +117,12 @@
     "created": "Created",
     "copy": "Copy (for Excel)",
     "copied": "Copied — paste it into Excel",
-    "copyFailed": "Could not copy, use download instead"
+    "copyFailed": "Could not copy, use download instead",
+    "defaultPassword": "Shared password",
+    "defaultPasswordPlaceholder": "empty: a random one each",
+    "defaultPasswordOn": "Rows without a password get this one; a password typed in a row wins.",
+    "defaultPasswordOff": "Rows without a password each get a random one.",
+    "readyDefault": "Ready (shared password)"
   },
   "categories": {
     "addAKeypoint": "Add a keypoint",

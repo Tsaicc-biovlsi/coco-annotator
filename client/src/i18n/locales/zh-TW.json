@@ -89,7 +89,7 @@
     "dataset": "把資料集分享給這些帳號（選填）",
     "download": "下載帳號密碼（CSV）",
     "duplicate": "重複",
-    "listHint": "學號是 1 個英文字母加 8 位數字（例如 B11223344）。密碼留空會自動產生。按 Enter 換到下一行。",
+    "listHint": "學號是 1 個英文字母加 8 位數字（例如 B11223344）。密碼欄空白的用上方的統一密碼，沒設統一密碼就自動產生。按 Enter 換到下一行。",
     "loadCsv": "讀取 CSV 檔",
     "noDataset": "（不分享）",
     "saveNow": "請現在下載或抄下密碼，關閉後就無法再顯示（之後管理員可以重設密碼）。",
@@ -117,7 +117,12 @@
     "created": "已建立",
     "copy": "複製（貼到 Excel）",
     "copied": "已複製，可以貼到 Excel",
-    "copyFailed": "無法複製，請改用下載"
+    "copyFailed": "無法複製，請改用下載",
+    "defaultPassword": "統一密碼",
+    "defaultPasswordPlaceholder": "留空則每人亂數產生",
+    "defaultPasswordOn": "密碼欄空白的人都用這組密碼；個別填了密碼的以個別為準。",
+    "defaultPasswordOff": "密碼欄空白的人會各自產生一組亂數密碼。",
+    "readyDefault": "可建立（統一密碼）"
   },
   "categories": {
     "addAKeypoint": "新增關鍵點",

@@ -13,6 +13,22 @@
         <div class="modal-body">
           <!-- ============ entering ============ -->
           <template v-if="!result">
+            <div class="default-pw d-flex flex-wrap align-items-center gap-2 mb-3">
+              <label class="fw-semibold small mb-0" for="bulkUsersDefaultPw">
+                <i class="fa fa-key" /> {{ $t('bulkUsers.defaultPassword') }}
+              </label>
+              <input
+                id="bulkUsersDefaultPw"
+                v-model="defaultPassword"
+                class="form-control form-control-sm mono pw-input"
+                :placeholder="$t('bulkUsers.defaultPasswordPlaceholder')"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <span class="small text-muted">
+                {{ defaultPassword.trim() ? $t('bulkUsers.defaultPasswordOn') : $t('bulkUsers.defaultPasswordOff') }}
+              </span>
+            </div>
             <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
               <span class="chip ok"><i class="fa fa-check" /> {{ $t('bulkUsers.countOk', { n: counts.ok }) }}</span>
               <span v-if="counts.exists" class="chip exists"><i class="fa fa-user" /> {{ $t('bulkUsers.countExists', { n: counts.exists }) }}</span>
@@ -49,7 +65,7 @@
                         v-model="row[field]"
                         class="cell"
                         :class="{ mono: field !== 'name' }"
-                        :placeholder="i === 0 ? $t('bulkUsers.placeholder.' + field) : ''"
+                        :placeholder="cellPlaceholder(i, field)"
                         :maxlength="field === 'username' ? 9 : 40"
                         autocomplete="off"
                         spellcheck="false"
@@ -187,6 +203,7 @@ export default {
       existing: new Set(),
       roles: [],
       role: "user",
+      defaultPassword: "",
       datasetId: null,
       datasets: [],
       result: null,
@@ -204,7 +221,9 @@ export default {
         if (seen.has(id)) return { kind: "bad", icon: "fa-clone", text: this.$t("bulkUsers.duplicate") };
         seen.add(id);
         if (this.existing.has(id)) return { kind: "exists", icon: "fa-user", text: this.$t("bulkUsers.alreadyExists") };
-        return { kind: "ok", icon: "fa-check", text: row.password.trim() ? this.$t("bulkUsers.ready") : this.$t("bulkUsers.readyAuto") };
+        const text = row.password.trim() ? this.$t("bulkUsers.ready")
+          : this.defaultPassword.trim() ? this.$t("bulkUsers.readyDefault") : this.$t("bulkUsers.readyAuto");
+        return { kind: "ok", icon: "fa-check", text };
       });
     },
     counts() {
@@ -222,6 +241,7 @@ export default {
       this.result = null;
       this.datasetId = null;
       this.role = "user";
+      this.defaultPassword = "";
       showModal("#bulkUsers");
       axios.get("/api/dataset/").then(r => {
         this.datasets = (r.data || []).sort((a, b) => a.name.localeCompare(b.name));
@@ -238,6 +258,14 @@ export default {
     roleName(r) {
       if (r.key === "admin" || r.key === "user") return this.$t("roles.builtin." + r.key);
       return r.name || r.key;
+    },
+    /** first row shows examples; empty password cells show what they will get */
+    cellPlaceholder(i, field) {
+      if (field === "password") {
+        if (this.defaultPassword.trim()) return this.isEmpty(this.rows[i]) && i > 0 ? "" : this.defaultPassword.trim();
+        return i === 0 ? this.$t("bulkUsers.placeholder.password") : "";
+      }
+      return i === 0 ? this.$t("bulkUsers.placeholder." + field) : "";
     },
     statusOf(i) {
       return this.statuses[i] || { kind: "empty" };
@@ -323,7 +351,7 @@ export default {
     submit() {
       const users = this.rows
         .filter((row, i) => this.statusOf(i).kind === "ok")
-        .map(row => ({ username: row.username.trim().toUpperCase(), name: row.name.trim(), password: row.password.trim() }));
+        .map(row => ({ username: row.username.trim().toUpperCase(), name: row.name.trim(), password: row.password.trim() || this.defaultPassword.trim() }));
       this.running = true;
       axios
         .post("/api/admin/users/bulk", { users, datasetId: this.datasetId, role: this.role })
@@ -449,6 +477,15 @@ td.mono {
 }
 .status.exists {
   color: #868e96;
+}
+.default-pw {
+  background: #f8f9fb;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+.pw-input {
+  max-width: 220px;
 }
 .chip {
   display: inline-flex;
