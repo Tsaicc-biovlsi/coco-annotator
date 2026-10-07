@@ -158,7 +158,8 @@ class UsersBulk(Resource):
 
             password = password or _new_password()
             user = UserModel(username=username, name=name or username,
-                             password=hash_password(password), is_admin=False)
+                             password=hash_password(password), is_admin=False,
+                             must_change_password=True)
             if role:
                 _set_role(user, role)
             user.save()
@@ -200,6 +201,7 @@ class User(Resource):
         user.name = args.get('name', "")
         user.email = args.get('email', "")
         _set_role(user, role or DEFAULT)
+        user.must_change_password = True
         user.save()
 
         return {'success': True, 'user': _user_out(user)}
@@ -243,6 +245,9 @@ class Username(Resource):
         password = args.get('password')
         if len(password) > 0:
             user.password = hash_password(password)
+            # a password set by someone else: they choose their own at next login
+            if user.username.lower() != current_user.username.lower():
+                user.must_change_password = True
 
         role, error = _pick_role(args.get('role'), args.get('isAdmin'))
         if error:

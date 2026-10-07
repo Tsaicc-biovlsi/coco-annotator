@@ -1132,5 +1132,18 @@
     "adminFixed": "Admins can always do everything.",
     "create": "Create",
     "addHint": "e.g. Teaching assistant, Reviewer; switch on what it may do after creating it."
+  },
+  "forcePassword": {
+    "title": "Choose your own password",
+    "body": "{name}, your password was set by an admin. Please change it to one only you know; you will be signed out and can sign in with the new one.",
+    "current": "Current password (the one you just used)",
+    "submit": "Update password",
+    "done": "Password updated. Please sign in with your new password.",
+    "wrongCurrent": "The current password is not correct.",
+    "problem": {
+      "same": "The new password must be different.",
+      "confirm": "The two new passwords do not match.",
+      "too_short": "The new password needs at least 5 characters."
+    }
   }
 }

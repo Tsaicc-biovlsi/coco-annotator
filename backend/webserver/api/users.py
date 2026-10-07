@@ -57,7 +57,15 @@ class UserPassword(Resource):
         args = set_password.parse_args()
 
         if check_password(current_user.password, args.get('password')):
-            current_user.update(password=hash_password(args.get('new_password')), new=False)
+            new_password = args.get('new_password') or ''
+            if len(new_password) < 5:
+                return {'success': False, 'message': 'The new password needs at least 5 characters.',
+                        'code': 'too_short'}, 400
+            if new_password == args.get('password'):
+                return {'success': False, 'message': 'The new password must be different.',
+                        'code': 'same'}, 400
+            current_user.update(password=hash_password(new_password), new=False,
+                                must_change_password=False)
             return {'success': True}
 
         return {'success': False, 'message': 'Password does not match current passowrd'}, 400

@@ -1,6 +1,7 @@
 <template>
   <div id="app">
     <NavBar v-show="showNavBar" />
+    <ForcePasswordChange v-if="mustChangePassword" :user="$store.state.user.user" />
     <template v-if="pageNeeded">
       <NoPageAccess v-if="pageBlocked" :page="pageNeeded" />
       <RouterView v-else-if="$store.state.user.user" :key="$route.fullPath" />
@@ -12,11 +13,12 @@
 <script>
 import NavBar from "@/components/NavBar.vue";
 import NoPageAccess from "@/components/NoPageAccess.vue";
+import ForcePasswordChange from "@/components/ForcePasswordChange.vue";
 import { mapMutations } from "vuex";
 
 export default {
   name: "App",
-  components: { NavBar, NoPageAccess },
+  components: { NavBar, NoPageAccess, ForcePasswordChange },
   methods: {
     ...mapMutations("user", ["setUserInfo"]),
     ...mapMutations("info", ["getServerInfo", "socket"]),
@@ -33,6 +35,11 @@ export default {
     /** Activity log, Models and Tasks need permission for non-admins */
     pageNeeded() {
       return (this.$route.meta && this.$route.meta.page) || null;
+    },
+    /** logged in with a password an admin chose: pick one before anything else */
+    mustChangePassword() {
+      const user = this.$store.state.user.user;
+      return !!(user && user.must_change_password && this.$route.name !== "authentication");
     },
     pageBlocked() {
       if (!this.pageNeeded || !this.$store.state.user.user) return false;

@@ -25,6 +25,9 @@ class UserModel(DynamicDocument, UserMixin):
     permissions = ListField(defualt=[])
     # 身分 (database/roles.py); admins are role "admin" and keep is_admin
     role = StringField(default=None)
+    # set when an admin picks the password (bulk accounts, new account, reset):
+    # the user is asked to choose their own right after logging in
+    must_change_password = BooleanField(default=False)
 
     # meta = {'allow_inheritance': True}
 
