@@ -1,10 +1,15 @@
 <template>
   <div class="image-class">
     <div class="d-flex align-items-center mb-1">
-      <span class="title me-auto">{{ $t('imageClass.title') }}</span>
+      <a v-if="collapsible" href="#" class="title me-auto toggle" @click.prevent="toggle">
+        <i class="fa fa-fw" :class="open ? 'fa-caret-down' : 'fa-caret-right'" />{{ $t('imageClass.title') }}
+        <span v-if="!open && currentName" class="current">：{{ currentName }}</span>
+      </a>
+      <span v-else class="title me-auto">{{ $t('imageClass.title') }}</span>
       <span v-if="saving" class="small"><i class="fa fa-spinner fa-spin" /></span>
     </div>
-    <div class="d-flex flex-wrap gap-1">
+    <template v-if="open">
+    <div class="d-flex flex-wrap gap-1 pills">
       <button
         v-for="category in categories"
         :key="category.id"
@@ -24,6 +29,7 @@
       <input id="imageClassNext" v-model="autoNext" class="form-check-input" type="checkbox" />
       <label class="form-check-label hint" for="imageClassNext">{{ $t('imageClass.autoNext') }}</label>
     </div>
+    </template>
   </div>
 </template>
 
@@ -32,6 +38,7 @@ import axios from "axios";
 import { textColorFor } from "@/libs/colors";
 
 const AUTO_NEXT_KEY = "imageClass/autoNext";
+const OPEN_KEY = "imageClass/open";
 
 export default {
   name: "ImageClassPicker",
@@ -40,7 +47,9 @@ export default {
     value: { type: Number, default: null },
     categories: { type: Array, default: () => [] },
     canEdit: { type: Boolean, default: false },
-    nextImageId: { type: Number, default: null }
+    nextImageId: { type: Number, default: null },
+    /** folded by default (datasets that are not for classification) */
+    collapsible: { type: Boolean, default: false }
   },
   emits: ["update:value", "navigate"],
   data() {
@@ -50,7 +59,21 @@ export default {
     } catch {
       // storage unavailable
     }
-    return { saving: false, autoNext };
+    let open = true;
+    if (this.collapsible) {
+      try {
+        open = localStorage.getItem(OPEN_KEY) === "true";
+      } catch {
+        open = false;
+      }
+    }
+    return { saving: false, autoNext, open };
+  },
+  computed: {
+    currentName() {
+      const c = this.categories.find(x => x.id === this.value);
+      return c ? c.name : "";
+    }
   },
   watch: {
     autoNext(value) {
@@ -62,6 +85,14 @@ export default {
     }
   },
   methods: {
+    toggle() {
+      this.open = !this.open;
+      try {
+        localStorage.setItem(OPEN_KEY, String(this.open));
+      } catch {
+        // not remembered
+      }
+    },
     pillStyle(category) {
       const color = category.color || "#6c757d";
       return this.value === category.id
@@ -94,6 +125,18 @@ export default {
 }
 .title {
   font-weight: 600;
+}
+.toggle {
+  color: #e9ecef;
+  text-decoration: none;
+}
+.current {
+  font-weight: 400;
+  color: #9ec5fe;
+}
+.pills {
+  max-height: 120px;
+  overflow-y: auto;
 }
 .hint {
   color: #ced4da;

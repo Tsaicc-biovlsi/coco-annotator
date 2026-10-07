@@ -132,6 +132,7 @@
         :categories="categories"
         :can-edit="!!(permissions.dataset && permissions.dataset.edit)"
         :next-image-id="image.next"
+        :collapsible="dataset.task !== 'classify'"
         @navigate="id => $refs.filetitle.route(id)"
       />
 
@@ -147,7 +148,6 @@
 
       <div
         class="sidebar-section"
-        :style="{ 'max-height': mode == 'label' ? '100%' : '57%' }"
       >
         <p
           v-if="categories.length == 0"
@@ -196,11 +196,11 @@
         </div>
       </div>
 
-      <div v-show="mode == 'segment'">
+      <div v-show="mode == 'segment'" class="tool-area">
         <hr />
         <h6 class="sidebar-title text-center">{{ $tr('toolbar', activeTool) }}</h6>
 
-        <div class="tool-section" style="max-height: 30%; color: lightgray">
+        <div class="tool-section" style="color: lightgray">
           <div v-if="refsReady && $refs.bbox != null">
             <BBoxPanel :bbox="$refs.bbox" />
           </div>
@@ -1004,11 +1004,29 @@ export default {
         }
       }
     },
+    /**
+     * Bring a category into view inside the sidebar list only, and only when
+     * it is out of view. (scrollIntoView centred it every time the current
+     * annotation changed, e.g. at the first point of a shape, so the sidebar
+     * jumped; it could also scroll the page itself.)
+     */
     scrollElement(element) {
-      element.scrollIntoView({
-        behavior: "smooth",
-        block: "center"
-      });
+      if (!element) return;
+      let box = element.parentElement;
+      while (box && box !== document.body) {
+        const style = getComputedStyle(box);
+        if (/(auto|scroll)/.test(style.overflowY) && box.scrollHeight > box.clientHeight) break;
+        box = box.parentElement;
+      }
+      if (!box || box === document.body) return;
+      // already in view: leave the list where it is (no jumping while drawing)
+      const boxRect = box.getBoundingClientRect();
+      const rect = element.getBoundingClientRect();
+      const header = Math.min(rect.height, 40); // the category's own row is enough
+      if (rect.top >= boxRect.top && rect.top + header <= boxRect.bottom) return;
+      // otherwise the smallest move that shows it
+      const offset = rect.top < boxRect.top ? rect.top - boxRect.top - 8 : rect.top + header - boxRect.bottom + 8;
+      box.scrollTo({ top: Math.max(0, box.scrollTop + offset), behavior: "smooth" });
     },
     showAll() {
       if (this.categoryRefs() == null) return;
@@ -1405,12 +1423,28 @@ export default {
   box-shadow: 5px 10px;
 }
 
+/* a column: the category list takes the space left and scrolls inside, so
+   what happens in it (a new annotation, a category opening) never moves the
+   tool panel or the rest of the page */
 .right-panel {
   padding-top: 40px;
   background-color: #4b5162;
   width: 250px;
   height: inherit;
   float: right;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.right-panel > * {
+  flex: 0 0 auto;
+}
+.right-panel > .sidebar-section {
+  flex: 1 1 auto;
+  min-height: 80px;
+}
+.tool-area .tool-section {
+  max-height: 30vh;
 }
 
 .middle-panel {
