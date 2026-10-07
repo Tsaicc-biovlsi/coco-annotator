@@ -75,6 +75,9 @@
           <span class="badge" :class="statusClass(image.status || 'unlabeled')" :title="image.review_note || ''">
             {{ $t('review.status.' + (image.status || 'unlabeled')) }}
           </span>
+          <span v-if="image.ai" class="badge ai-badge" :title="$t('imageCard.aiHint')">
+            <i class="fa fa-magic" /> AI
+          </span>
           <span
             v-if="image.image_class != null && categoryMap[image.image_class]"
             class="badge"
@@ -228,6 +231,10 @@ p {
   padding: 3px 10px;
   float: right;
   color: black;
+}
+.ai-badge {
+  background: #ede7fb;
+  color: #6a3fc4;
 }
 .category-badge {
   float: left;

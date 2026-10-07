@@ -293,7 +293,8 @@
     "beingAnnotated": "Being annotated by {users}",
     "delete": "Delete",
     "downloadImageCoco": "Download Image & COCO",
-    "noAnnotations": "No annotations"
+    "noAnnotations": "No annotations",
+    "aiHint": "Has annotations made by a model"
   },
   "importDataset": {
     "title": "Import images / videos / annotations",
@@ -728,7 +729,9 @@
     "submitOnNext": "When going to the next image (N or →), submit it (reviewers: approve it) if it has annotations",
     "submittedOnNext": "Submitted {name}",
     "submitApprove": "Done (approve directly)",
-    "approvedOnNext": "Approved {name}"
+    "approvedOnNext": "Approved {name}",
+    "filterAnnotated": "Annotated (has annotations)",
+    "filterAi": "AI annotated (has model annotations)"
   },
   "imageClass": {
     "title": "Image class",

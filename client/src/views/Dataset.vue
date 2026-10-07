@@ -1244,7 +1244,7 @@ export default {
   },
   computed: {
     statusOptions() {
-      const options = { "": this.$t("review.all") };
+      const options = { "": this.$t("review.all"), annotated: this.$t("review.filterAnnotated"), ai: this.$t("review.filterAi") };
       ["unlabeled", "labeled", "approved", "rejected"].forEach(s => (options[s] = this.$t("review.status." + s)));
       return options;
     },

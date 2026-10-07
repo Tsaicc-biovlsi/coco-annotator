@@ -321,19 +321,23 @@ class DatasetStats(Resource):
         return stats
 
 
-def _annotation_sources(dataset):
-    """Annotations per member (drawn by hand), per model, and imported."""
+def _mark_sources(dataset_id):
+    """Model runs / imports from before annotations were marked with their
+    source: the activity log knows their task."""
     from database import ActivityModel
-    live = AnnotationModel.objects(dataset_id=dataset.id, deleted=False)
-
-    # runs from before annotations were marked: the activity log knows their task
-    for entry in ActivityModel.objects(dataset_id=dataset.id, action__in=['auto_annotate', 'import'],
+    for entry in ActivityModel.objects(dataset_id=dataset_id, action__in=['auto_annotate', 'import'],
                                        task_id__ne=None).only('action', 'task_id', 'detail'):
         if entry.action == 'auto_annotate':
             AnnotationModel.objects(import_task=entry.task_id, source__exists=False).update(
                 set__source='model', set__model=(entry.detail or {}).get('model'))
         else:
             AnnotationModel.objects(import_task=entry.task_id, source__exists=False).update(set__source='import')
+
+
+def _annotation_sources(dataset):
+    """Annotations per member (drawn by hand), per model, and imported."""
+    live = AnnotationModel.objects(dataset_id=dataset.id, deleted=False)
+    _mark_sources(dataset.id)
 
     def summary(query):
         return {'annotations': query.count(), 'images': len(query.distinct('image_id'))}
@@ -641,7 +645,15 @@ class DatasetDataId(Resource):
             query_build &= Q(image_class=None)
         elif image_class not in (None, ''):
             query_build &= Q(image_class=int(image_class))
-        if status == 'unlabeled':
+        if status == 'annotated':
+            # has any annotation, whatever its review status
+            query_build &= Q(annotated=True)
+        elif status == 'ai':
+            # has annotations a model made (still there, maybe edited since)
+            _mark_sources(dataset_id)
+            ai_images = AnnotationModel.objects(dataset_id=dataset_id, deleted=False, source='model').distinct('image_id')
+            query_build &= Q(id__in=ai_images)
+        elif status == 'unlabeled':
             query_build &= (Q(status=None) | Q(status='unlabeled'))
         elif status in ImageModel.STATUSES:
             query_build &= Q(status=status)
@@ -657,6 +669,11 @@ class DatasetDataId(Resource):
         
         images = images.skip(page*per_page).limit(per_page)
         images_json = query_util.fix_ids(images)
+        # which of these have model-made annotations (an "AI" tag on the card)
+        ai_ids = set(AnnotationModel.objects(image_id__in=[i['id'] for i in images_json], deleted=False,
+                                             source='model').distinct('image_id'))
+        for image_json in images_json:
+            image_json['ai'] = image_json['id'] in ai_ids
         # for image in images:
         #     image_json = query_util.fix_ids(image)
 

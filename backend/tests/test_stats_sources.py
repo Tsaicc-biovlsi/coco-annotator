@@ -45,3 +45,12 @@ def test_stats_split_by_source(world, dataset_directory):
     imported = next(s for s in stats["sources"] if s["kind"] == "import")
     assert imported["annotations"] == 2 and imported["images"] == 1
     assert AnnotationModel.objects(dataset_id=ds, source="model").count() == 3
+
+    # image filters: has annotations / has model annotations, and the AI tag
+    def shown(status):
+        data = c.get(f"/api/dataset/{ds}/data", query_string={"status": status, "limit": 50}).get_json()
+        return {i["file_name"]: i["ai"] for i in data["images"]}
+    assert shown("ai") == {"s1.jpg": True}
+    assert shown("annotated") == {"s0.jpg": False, "s1.jpg": True}
+    AnnotationModel.objects(dataset_id=ds, source="model").update(set__deleted=True)
+    assert shown("ai") == {}
