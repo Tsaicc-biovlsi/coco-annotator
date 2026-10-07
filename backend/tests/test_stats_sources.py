@@ -54,3 +54,52 @@ def test_stats_split_by_source(world, dataset_directory):
     assert shown("annotated") == {"s0.jpg": False, "s1.jpg": True}
     AnnotationModel.objects(dataset_id=ds, source="model").update(set__deleted=True)
     assert shown("ai") == {}
+
+
+def test_copy_keeps_ai_but_not_the_run(world, dataset_directory, monkeypatch):
+    """Copying (C) a model's annotations: still AI, credited to whoever copied,
+    and taking the model run back leaves the copies."""
+    from PIL import Image
+    from database import ActivityModel, AnnotationModel, CategoryModel, ImageModel, TaskModel
+    from webserver.util import preannotate
+    c = world["client"]
+    ds = c.post("/api/dataset/", json={"name": "copy_ai", "categories": ["bus"]}).get_json()["id"]
+    folder = os.path.join(dataset_directory, "copy_ai")
+    os.makedirs(folder, exist_ok=True)
+    for i in range(2):
+        Image.new("RGB", (100, 80)).save(os.path.join(folder, f"c{i}.jpg"))
+    c.get(f"/api/dataset/{ds}/scan")
+    a, b = sorted(ImageModel.objects(dataset_id=ds), key=lambda i: i.file_name)
+    bus = CategoryModel.objects(name="bus").first()
+
+    task = TaskModel(name="run", group="t", dataset_id=ds); task.save()
+    ActivityModel(action="auto_annotate", user="smoke", dataset_id=ds, task_id=task.id,
+                  detail={"model": "bus.pt"}).save()
+
+    class Resolver:
+        skipped, keypoints_mismatch = set(), set()
+
+        def get(self, name):
+            return bus
+    preds = [{"class_name": "bus", "segmentation": [[5, 5, 30, 5, 30, 30, 5, 30]], "bbox": [5, 5, 25, 25],
+              "area": 625, "isbbox": True}] * 2
+    preannotate.apply_predictions(a, preds, Resolver(), username="smoke", model_name="bus.pt", task_id=task.id)
+    # a run from before annotations were marked: only the task id is known
+    AnnotationModel.objects(image_id=a.id).update(unset__source=1, unset__model=1, unset__creator=1)
+
+    r = c.post(f"/api/image/copy/{a.id}/{b.id}/annotations", json={"category_ids": []}).get_json()
+    copies = list(AnnotationModel.objects(id__in=r["ids"]))
+    assert len(copies) == 2
+    for copy in copies:
+        assert copy.source == "model" and copy.model == "bus.pt" and copy.creator == "smoke"
+        assert getattr(copy, "import_task", None) is None and copy.copied_from
+
+    data = c.get(f"/api/dataset/{ds}/data", query_string={"status": "ai"}).get_json()
+    assert {i["file_name"] for i in data["images"]} == {"c0.jpg", "c1.jpg"}
+
+    from database import UserModel
+    monkeypatch.setattr(UserModel, "can_page", lambda self, page: True)
+    entry = ActivityModel.objects(task_id=task.id).first()
+    assert c.post(f"/api/activity/{entry.id}/undo").status_code == 200
+    assert AnnotationModel.objects(image_id=a.id, deleted=False).count() == 0
+    assert AnnotationModel.objects(image_id=b.id, deleted=False).count() == 2

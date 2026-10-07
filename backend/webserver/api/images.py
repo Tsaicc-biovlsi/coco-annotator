@@ -247,6 +247,11 @@ class ImageCopyAnnotations(Resource):
             deleted=False
         )
 
+        # older model runs / imports: mark their source before the copy drops the run
+        if query.filter(source__exists=False, import_task__exists=True).first() is not None:
+            from ..util.activity import mark_sources
+            mark_sources(image_from.dataset_id)
+
         ids = []
         created = image_to.copy_annotations(query, created_ids=ids)
         if created:

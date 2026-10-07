@@ -322,16 +322,8 @@ class DatasetStats(Resource):
 
 
 def _mark_sources(dataset_id):
-    """Model runs / imports from before annotations were marked with their
-    source: the activity log knows their task."""
-    from database import ActivityModel
-    for entry in ActivityModel.objects(dataset_id=dataset_id, action__in=['auto_annotate', 'import'],
-                                       task_id__ne=None).only('action', 'task_id', 'detail'):
-        if entry.action == 'auto_annotate':
-            AnnotationModel.objects(import_task=entry.task_id, source__exists=False).update(
-                set__source='model', set__model=(entry.detail or {}).get('model'))
-        else:
-            AnnotationModel.objects(import_task=entry.task_id, source__exists=False).update(set__source='import')
+    from ..util.activity import mark_sources
+    mark_sources(dataset_id)
 
 
 def _annotation_sources(dataset):

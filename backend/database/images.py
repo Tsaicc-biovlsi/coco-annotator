@@ -267,6 +267,12 @@ class ImageModel(DynamicDocument):
 
                 clone.dataset_id = self.dataset_id
                 clone.image_id = self.id
+                # a copy keeps where its shape came from (source / model: a copy
+                # of a model's annotation is still "AI") but is not part of
+                # that run or import: taking the run back leaves the copy
+                if 'import_task' in clone:
+                    del clone.import_task
+                clone.copied_from = annotation.id
 
                 clone.save(copy=True)
                 created += 1
