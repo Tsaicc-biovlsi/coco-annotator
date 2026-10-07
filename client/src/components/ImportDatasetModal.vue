@@ -80,10 +80,33 @@
                 <div class="form-text">{{ videos.map(v => v.name).join('、') }}（{{ videoSize }}）</div>
                 <div class="row g-2 mt-1">
                   <div class="col-6">
-                    <label class="form-label small mb-0" for="videoEvery">{{ $t('video.every') }}</label>
+                    <label class="form-label small mb-0" for="videoEvery">{{ $t('video.everyLabel') }}</label>
                     <div class="input-group input-group-sm">
-                      <input id="videoEvery" v-model.number="videoEvery" type="number" min="0.04" max="3600" step="0.5" class="form-control" :disabled="running" />
-                      <span class="input-group-text">{{ $t('video.seconds') }}</span>
+                      <span class="input-group-text">{{ $t('video.everyPrefix') }}</span>
+                      <input
+                        v-if="videoUnit === 'seconds'"
+                        id="videoEvery"
+                        v-model.number="videoEvery"
+                        type="number" min="0.04" max="3600" step="0.5"
+                        class="form-control"
+                        :disabled="running"
+                      />
+                      <input
+                        v-else
+                        id="videoEvery"
+                        v-model.number="videoEveryFrames"
+                        type="number" min="1" max="100000" step="1"
+                        class="form-control"
+                        :disabled="running"
+                      />
+                      <select v-model="videoUnit" class="form-select unit-select" :disabled="running" :aria-label="$t('video.unit')">
+                        <option value="seconds">{{ $t('video.seconds') }}</option>
+                        <option value="frames">{{ $t('video.frameUnit') }}</option>
+                      </select>
+                      <span class="input-group-text">{{ $t('video.everySuffix') }}</span>
+                    </div>
+                    <div class="form-text mt-0">
+                      {{ videoUnit === 'frames' ? $t('video.framesExample', { n: videoEveryFrames || 1 }) : $t('video.secondsExample', { n: videoEvery || 1 }) }}
                     </div>
                   </div>
                   <div class="col-6">
@@ -200,6 +223,8 @@ export default {
       newTask: "",
       videos: [],
       videoEvery: 1,
+      videoEveryFrames: 10,
+      videoUnit: "seconds",
       videoMax: 1000,
       videoStage: null,
       videoAccept: ".mp4,.mov,.avi,.mkv,.webm,.m4v,.mpg,.mpeg,.wmv,video/*",
@@ -218,7 +243,10 @@ export default {
     },
     canRun() {
       const hasTarget = this.target !== "new" || this.newName.trim().length > 0;
-      const videosOk = !this.videos.length || (this.videoEvery >= 0.04 && this.videoMax >= 1);
+      const everyOk = this.videoUnit === "frames"
+        ? Number.isInteger(this.videoEveryFrames) && this.videoEveryFrames >= 1
+        : this.videoEvery >= 0.04;
+      const videosOk = !this.videos.length || (everyOk && this.videoMax >= 1);
       return hasTarget && videosOk &&
         (this.images.length > 0 || this.videos.length > 0 || this.coco || this.yoloLabels.length > 0 || this.target === "new");
     },
@@ -328,7 +356,8 @@ export default {
         this.videoStage = { step: "upload", name: video.name, pct: 0 };
         const form = new FormData();
         form.append("video", video);
-        form.append("every_seconds", this.videoEvery);
+        if (this.videoUnit === "frames") form.append("every_frames", this.videoEveryFrames);
+        else form.append("every_seconds", this.videoEvery);
         form.append("max_frames", this.videoMax);
         const r = await axios.post(`/api/dataset/${datasetId}/video`, form, {
           headers: { "Content-Type": "multipart/form-data" },
@@ -397,3 +426,10 @@ export default {
   }
 };
 </script>
+
+<style scoped>
+.unit-select {
+  max-width: 5.5rem;
+  flex: 0 0 auto;
+}
+</style>

@@ -66,6 +66,8 @@ video_upload = reqparse.RequestParser()
 video_upload.add_argument('video', location='files', type=FileStorage, required=True, help='Video file')
 video_upload.add_argument('every_seconds', location='form', type=float, default=1.0,
                           help='Save one frame every N seconds')
+video_upload.add_argument('every_frames', location='form', type=int, default=None,
+                          help='Save one frame every N video frames (instead of every_seconds)')
 video_upload.add_argument('max_frames', location='form', type=int, default=1000,
                           help='Stop after this many frames')
 
@@ -872,7 +874,11 @@ class DatasetVideo(Resource):
         if ext not in VIDEO_EXTENSIONS:
             return {'message': 'Unsupported video type: ' + (ext or name)}, 400
         every = args.get('every_seconds') or 1.0
-        if not 0.04 <= every <= 3600:
+        every_frames = args.get('every_frames')
+        if every_frames is not None:
+            if not 1 <= every_frames <= 100000:
+                return {'message': 'every_frames must be between 1 and 100000'}, 400
+        elif not 0.04 <= every <= 3600:
             return {'message': 'every_seconds must be between 0.04 and 3600'}, 400
         max_frames = args.get('max_frames') or 1000
         if not 1 <= max_frames <= 20000:
@@ -884,7 +890,8 @@ class DatasetVideo(Resource):
         path = os.path.join(upload_dir, uuid.uuid4().hex + ext)
         video.save(path)
 
-        return import_video(dataset, path, name, every_seconds=every, max_frames=max_frames,
+        return import_video(dataset, path, name, every_seconds=every, every_frames=every_frames,
+                            max_frames=max_frames,
                             user=current_user, socket=socketio,
                             background=not Config.CELERY_TASK_ALWAYS_EAGER)
 

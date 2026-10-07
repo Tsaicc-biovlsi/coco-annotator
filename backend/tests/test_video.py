@@ -57,3 +57,22 @@ def test_video_import(world, dataset_directory, tmp_path):
     task = TaskModel.objects(id=r.get_json()["id"]).first()
     assert ImageModel.objects(dataset_id=ds, file_name__startswith="short_").count() == 5
     assert task.warnings == 1
+
+
+def test_video_every_n_frames(world, tmp_path):
+    from database import ImageModel
+    c = world["client"]
+    ds = c.post("/api/dataset/", json={"name": "video_frames_ds"}).get_json()["id"]
+    data = _video_bytes(tmp_path)   # 30 frames at 10 fps
+
+    r = c.post(f"/api/dataset/{ds}/video", data={"video": (io.BytesIO(data), "cam.avi"), "every_frames": "0"},
+               content_type="multipart/form-data")
+    assert r.status_code == 400
+
+    # one every 7 frames: frames 0, 7, 14, 21, 28 -> 0.0, 0.7, 1.4, 2.1, 2.8 s
+    r = c.post(f"/api/dataset/{ds}/video", data={"video": (io.BytesIO(data), "cam.avi"), "every_frames": "7"},
+               content_type="multipart/form-data")
+    assert r.status_code == 200, r.data
+    names = [i.file_name for i in ImageModel.objects(dataset_id=ds).order_by("file_name")]
+    assert names == ["cam_000m00s000.jpg", "cam_000m00s700.jpg", "cam_000m01s400.jpg",
+                     "cam_000m02s100.jpg", "cam_000m02s800.jpg"]

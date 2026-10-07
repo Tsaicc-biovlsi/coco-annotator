@@ -32,8 +32,9 @@ def frame_name(stem, ms):
 
 
 def extract_frames(video_path, out_dir, stem, every_seconds=1.0, max_frames=1000,
-                   on_progress=None, quality=95):
-    """Save one frame every ``every_seconds``. Returns the saved paths."""
+                   on_progress=None, quality=95, every_frames=None):
+    """Save one frame every ``every_seconds`` (or every ``every_frames`` video
+    frames). Returns the saved paths."""
     capture = cv2.VideoCapture(video_path)
     if not capture.isOpened():
         raise ValueError("The video could not be opened (unsupported format or codec)")
@@ -42,7 +43,7 @@ def extract_frames(video_path, out_dir, stem, every_seconds=1.0, max_frames=1000
         total = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
         if fps <= 0 or fps > 1000:
             fps = 30.0
-        step = max(1, int(round(every_seconds * fps)))
+        step = max(1, int(every_frames)) if every_frames else max(1, int(round(every_seconds * fps)))
         expected = min(max_frames, (total + step - 1) // step) if total > 0 else max_frames
         os.makedirs(out_dir, exist_ok=True)
 
@@ -64,7 +65,8 @@ def extract_frames(video_path, out_dir, stem, every_seconds=1.0, max_frames=1000
         capture.release()
 
 
-def _run(task_id, dataset_id, video_path, original_name, every_seconds, max_frames, socket):
+def _run(task_id, dataset_id, video_path, original_name, every_seconds, max_frames, socket,
+         every_frames=None):
     task = TaskModel.objects.get(id=task_id)
     dataset = DatasetModel.objects.get(id=dataset_id)
     task.update(status="PROGRESS")
@@ -72,10 +74,11 @@ def _run(task_id, dataset_id, video_path, original_name, every_seconds, max_fram
     out_dir = os.path.join(dataset.directory, stem)
     created = 0
     try:
-        task.info(f"Extracting a frame every {every_seconds} s (at most {max_frames}) from {original_name}")
+        interval = f"{every_frames} frames" if every_frames else f"{every_seconds} s"
+        task.info(f"Extracting a frame every {interval} (at most {max_frames}) from {original_name}")
         paths, info = extract_frames(
             video_path, out_dir, stem, every_seconds, max_frames,
-            on_progress=lambda p: task.set_progress(p, socket=socket))
+            on_progress=lambda p: task.set_progress(p, socket=socket), every_frames=every_frames)
         task.info(f"Video: {info['fps']} fps, {info['frames']} frames; kept every {info['step']}th frame")
         for path in paths:
             if ImageModel.objects(path=path).first() is not None:
@@ -105,7 +108,7 @@ def _run(task_id, dataset_id, video_path, original_name, every_seconds, max_fram
 
 
 def import_video(dataset, video_path, original_name, every_seconds=1.0, max_frames=1000,
-                 user=None, socket=None, background=True):
+                 user=None, socket=None, background=True, every_frames=None):
     task = TaskModel(
         name=f"Importing video {os.path.basename(original_name)} into {dataset.name}",
         dataset_id=dataset.id,
@@ -117,9 +120,10 @@ def import_video(dataset, video_path, original_name, every_seconds=1.0, max_fram
     from . import activity
     activity.record('video', user, dataset_id=dataset.id, task_id=task.id,
                     detail={'file_name': os.path.basename(original_name),
-                            'every_seconds': every_seconds},
+                            'every_seconds': None if every_frames else every_seconds,
+                            'every_frames': every_frames},
                     text=original_name)
-    args = (task.id, dataset.id, video_path, original_name, every_seconds, max_frames, socket)
+    args = (task.id, dataset.id, video_path, original_name, every_seconds, max_frames, socket, every_frames)
     if background:
         threading.Thread(target=_run, args=args, daemon=True).start()
     else:

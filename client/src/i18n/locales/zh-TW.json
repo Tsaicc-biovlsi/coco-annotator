@@ -916,13 +916,20 @@
     "max": "每支影片最多",
     "frames": "張",
     "hint": "影格會存成 JPG，放在以影片命名的子資料夾，例如 影片名稱/影片名稱_000m01s000.jpg（檔名是時間點）。上傳完影片就會刪掉，只留下影格。",
-    "emptyHint": "選填。mp4、mov、avi、mkv、webm 等格式，每隔固定秒數擷取一張影格加入資料集。",
+    "emptyHint": "選填。mp4、mov、avi、mkv、webm 等格式，每隔固定秒數或幀數擷取一張影格加入資料集。",
     "stage": {
       "upload": "上傳 {name}",
       "extract": "擷取影格 {name}"
     },
     "failed": "{name} 擷取影格失敗，詳情請看「任務」頁面",
-    "done": "已從 {videos} 支影片擷取 {n} 張影格"
+    "done": "已從 {videos} 支影片擷取 {n} 張影格",
+    "everyLabel": "擷取間隔",
+    "everyPrefix": "每",
+    "everySuffix": "取一張",
+    "unit": "單位",
+    "frameUnit": "幀",
+    "secondsExample": "每 {n} 秒存一張影格",
+    "framesExample": "每 {n} 幀存一張（第 0、{n}… 幀），不受影片 fps 影響"
   },
   "datasetTask": {
     "label": "預計任務",

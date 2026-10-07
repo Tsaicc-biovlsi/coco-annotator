@@ -788,13 +788,20 @@
     "max": "At most per video",
     "frames": "frames",
     "hint": "Frames are saved as JPG in a sub-folder named after the video, e.g. clip/clip_000m01s000.jpg (the name is the time). The video itself is deleted after extraction.",
-    "emptyHint": "Optional. mp4, mov, avi, mkv, webm…: one frame every few seconds becomes a dataset image.",
+    "emptyHint": "Optional. mp4, mov, avi, mkv, webm…: one frame every N seconds or N frames is added to the dataset.",
     "stage": {
       "upload": "Uploading {name}",
       "extract": "Extracting frames {name}"
     },
     "failed": "Extracting frames from {name} failed; see the Tasks page",
-    "done": "Extracted {n} frames from {videos} videos"
+    "done": "Extracted {n} frames from {videos} videos",
+    "everyLabel": "Interval",
+    "everyPrefix": "Every",
+    "everySuffix": "",
+    "unit": "Unit",
+    "frameUnit": "frames",
+    "secondsExample": "One frame every {n} s",
+    "framesExample": "Frames 0, {n}, … (one every {n} video frames, whatever the fps)"
   },
   "datasetTask": {
     "label": "Planned task",
