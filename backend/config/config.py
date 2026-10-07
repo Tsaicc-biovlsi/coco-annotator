@@ -82,6 +82,8 @@ class Config:
     PRELOAD = False
 
     MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", 1 * 1024 * 1024 * 1024))  # 1GB
+    # videos are sent in pieces, so they are not limited by MAX_CONTENT_LENGTH
+    MAX_VIDEO_SIZE = int(os.getenv("MAX_VIDEO_SIZE", 20 * 1024 * 1024 * 1024))  # 20GB
     MONGODB_HOST = os.getenv("MONGODB_HOST", "mongodb://database/flask")
     SECRET_KEY = _secret_key()
 

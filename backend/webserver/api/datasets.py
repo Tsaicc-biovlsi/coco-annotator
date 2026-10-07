@@ -942,6 +942,58 @@ class VideoStage(Resource):
             return {'message': str(e)}, 400
 
 
+chunk_start_args = reqparse.RequestParser()
+chunk_start_args.add_argument('name', location='json', required=True)
+chunk_start_args.add_argument('size', location='json', type=int, required=True)
+
+
+@api.route('/video/stage/start')
+class VideoStageStart(Resource):
+
+    @api.expect(chunk_start_args)
+    @login_required
+    def post(self):
+        """ Start uploading a video in pieces (PUT .../<upload_id>/chunk?offset=, then POST .../finish) """
+        from ..util.video import chunk_start
+        args = chunk_start_args.parse_args()
+        try:
+            return chunk_start(args['name'], args['size'], current_user)
+        except ValueError as e:
+            return {'message': str(e)}, 400
+
+
+@api.route('/video/stage/<string:upload_id>/chunk')
+class VideoStageChunk(Resource):
+
+    @login_required
+    def put(self, upload_id):
+        """ One piece of the video (raw bytes) at ?offset= """
+        from flask import request
+        from ..util.video import chunk_append
+        try:
+            offset = int(request.args.get('offset', -1))
+            return {'received': chunk_append(upload_id, current_user, offset, request.get_data(cache=False))}
+        except LookupError as e:
+            return {'message': str(e)}, 404
+        except ValueError as e:
+            return {'message': str(e)}, 409
+
+
+@api.route('/video/stage/<string:upload_id>/finish')
+class VideoStageFinish(Resource):
+
+    @login_required
+    def post(self, upload_id):
+        """ All pieces sent: returns the video's length, fps and frame count """
+        from ..util.video import chunk_finish
+        try:
+            return chunk_finish(upload_id, current_user)
+        except LookupError as e:
+            return {'message': str(e)}, 404
+        except ValueError as e:
+            return {'message': str(e)}, 400
+
+
 @api.route('/video/stage/<string:upload_id>')
 class VideoStageId(Resource):
 
@@ -949,7 +1001,7 @@ class VideoStageId(Resource):
     def delete(self, upload_id):
         """ Drop an uploaded video that will not be imported """
         from ..util.video import discard
-        return {'success': discard(upload_id, current_user)}
+        return {'success': discard(upload_id, current_user, complete=None)}
 
 
 @api.route('/<int:dataset_id>/scan')

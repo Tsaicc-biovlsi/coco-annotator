@@ -945,7 +945,13 @@
     "useCurrent": "用預覽目前的時間",
     "wholeVideo": "整支影片",
     "expected": "約 {n} 張",
-    "addedN": "已加入 {n} 張影格"
+    "addedN": "已加入 {n} 張影格",
+    "probing": "上傳完成，伺服器正在讀取影片長度與幀數…",
+    "left": "剩約 {t}",
+    "seconds_n": "{n} 秒",
+    "minutes_n": "{m} 分 {s} 秒",
+    "hours_n": "{h} 小時 {m} 分",
+    "stalled": "已經 20 秒沒有進度：可能是網路很慢或連線中斷，可以等一下，或移除後重新加入。"
   },
   "datasetTask": {
     "label": "預計任務",

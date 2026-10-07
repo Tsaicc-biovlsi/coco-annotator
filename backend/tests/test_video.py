@@ -140,3 +140,44 @@ def test_video_stage_then_import(world, tmp_path):
     r = c.post("/api/dataset/video/stage", data={"video": (io.BytesIO(data), "b.avi")},
                content_type="multipart/form-data")
     assert c.delete(f"/api/dataset/video/stage/{r.get_json()['upload_id']}").get_json()["success"]
+
+
+def test_video_chunked_upload(world, tmp_path):
+    from database import ImageModel
+    c = world["client"]
+    ds = c.post("/api/dataset/", json={"name": "video_chunk_ds"}).get_json()["id"]
+    data = _video_bytes(tmp_path)
+
+    assert c.post("/api/dataset/video/stage/start", json={"name": "x.txt", "size": 10}).status_code == 400
+    r = c.post("/api/dataset/video/stage/start", json={"name": "big cam.avi", "size": len(data)})
+    uid = r.get_json()["upload_id"]
+    piece = 4000
+    offset = 0
+    while offset < len(data):
+        chunk = data[offset:offset + piece]
+        r = c.put(f"/api/dataset/video/stage/{uid}/chunk?offset={offset}", data=chunk,
+                  content_type="application/octet-stream")
+        assert r.status_code == 200, r.data
+        # a retried piece is not added twice
+        r = c.put(f"/api/dataset/video/stage/{uid}/chunk?offset={offset}", data=chunk,
+                  content_type="application/octet-stream")
+        offset += len(chunk)
+        assert r.get_json()["received"] == offset
+    # a piece from the wrong place
+    assert c.put(f"/api/dataset/video/stage/{uid}/chunk?offset=5", data=b"zz",
+                 content_type="application/octet-stream").status_code in (200, 409)
+    # not usable before finish
+    assert c.post(f"/api/dataset/{ds}/video", data={"upload_id": uid},
+                  content_type="multipart/form-data").status_code == 400
+    info = c.post(f"/api/dataset/video/stage/{uid}/finish").get_json()
+    assert info["frames"] == 30 and info["duration"] == 3
+
+    r = c.post(f"/api/dataset/{ds}/video", data={"upload_id": uid, "every_seconds": "1"},
+               content_type="multipart/form-data")
+    assert r.status_code == 200, r.data
+    assert ImageModel.objects(dataset_id=ds).count() == 3
+
+    # an incomplete upload cannot be finished
+    uid = c.post("/api/dataset/video/stage/start", json={"name": "c.avi", "size": 100}).get_json()["upload_id"]
+    assert c.post(f"/api/dataset/video/stage/{uid}/finish").status_code == 400
+    assert c.delete(f"/api/dataset/video/stage/{uid}").get_json()["success"]

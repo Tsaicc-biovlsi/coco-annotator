@@ -78,14 +78,76 @@ def stage(upload, user):
     except ValueError:
         os.remove(path)
         raise
-    meta = {"name": name, "ext": ext, "user": getattr(user, 'username', None), **info}
-    with open(os.path.join(directory, upload_id + '.json'), 'w') as f:
-        json.dump(meta, f)
+    meta = {"name": name, "ext": ext, "user": getattr(user, 'username', None), "complete": True, **info}
+    _write_meta(upload_id, meta)
     return {"upload_id": upload_id, "name": name, **info}
 
 
-def staged(upload_id, user):
-    """(path, meta) of a staged video of this user, or None."""
+def _write_meta(upload_id, meta):
+    with open(os.path.join(stage_dir(), upload_id + '.json'), 'w') as f:
+        json.dump(meta, f)
+
+
+# --- in pieces: big videos go up in chunks (proxies often cap one request,
+# e.g. at 100 MB, and a dropped piece can be sent again)
+
+def chunk_start(name, size, user):
+    name = os.path.basename((name or 'video').replace('\\', '/'))
+    ext = os.path.splitext(name)[1].lower()
+    if ext not in VIDEO_EXTENSIONS:
+        raise ValueError('Unsupported video type: ' + (ext or name))
+    from config import Config
+    if size is None or not 0 < size <= Config.MAX_VIDEO_SIZE:
+        raise ValueError(f'The video must be smaller than {Config.MAX_VIDEO_SIZE // 1024 ** 3} GB')
+    directory = stage_dir()
+    _clean_stage(directory)
+    upload_id = uuid.uuid4().hex
+    open(os.path.join(directory, upload_id + ext), 'wb').close()
+    _write_meta(upload_id, {"name": name, "ext": ext, "user": getattr(user, 'username', None),
+                            "size": int(size), "complete": False})
+    return {"upload_id": upload_id, "received": 0}
+
+
+def chunk_append(upload_id, user, offset, data):
+    """Add one piece at ``offset``; a piece sent twice (a retry) is not added again.
+    Returns the bytes received so far."""
+    found = staged(upload_id, user, complete=False)
+    if found is None:
+        raise LookupError('Unknown upload')
+    path, meta = found
+    received = os.path.getsize(path)
+    if offset + len(data) <= received:
+        return received                      # already have it
+    if offset != received:
+        raise ValueError(f'Expected the piece at {received}, got {offset}')
+    if received + len(data) > meta['size']:
+        raise ValueError('More data than the announced size')
+    with open(path, 'ab') as f:
+        f.write(data)
+    os.utime(path)
+    return received + len(data)
+
+
+def chunk_finish(upload_id, user):
+    found = staged(upload_id, user, complete=False)
+    if found is None:
+        raise LookupError('Unknown upload')
+    path, meta = found
+    if os.path.getsize(path) != meta['size']:
+        raise ValueError(f"Only {os.path.getsize(path)} of {meta['size']} bytes arrived")
+    try:
+        info = probe(path)
+    except ValueError:
+        discard(upload_id, user, complete=False)
+        raise
+    meta.update(info, complete=True)
+    _write_meta(upload_id, meta)
+    return {"upload_id": upload_id, "name": meta['name'], **info}
+
+
+def staged(upload_id, user, complete=True):
+    """(path, meta) of a staged video of this user, or None (``complete``:
+    fully uploaded, or still arriving in pieces)."""
     if not re.fullmatch(r'[0-9a-f]{32}', upload_id or ''):
         return None
     directory = stage_dir()
@@ -96,12 +158,14 @@ def staged(upload_id, user):
         return None
     if meta.get('user') != getattr(user, 'username', None):
         return None
+    if complete is not None and bool(meta.get('complete', True)) != complete:
+        return None
     path = os.path.join(directory, upload_id + meta.get('ext', ''))
     return (path, meta) if os.path.isfile(path) else None
 
 
-def discard(upload_id, user):
-    found = staged(upload_id, user)
+def discard(upload_id, user, complete=None):
+    found = staged(upload_id, user, complete=complete)
     if found is None:
         return False
     for path in (found[0], os.path.join(stage_dir(), upload_id + '.json')):

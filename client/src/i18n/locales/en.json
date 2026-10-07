@@ -817,7 +817,13 @@
     "useCurrent": "Use the preview's current time",
     "wholeVideo": "Whole video",
     "expected": "≈ {n} frames",
-    "addedN": "{n} frames added"
+    "addedN": "{n} frames added",
+    "probing": "Uploaded; the server is reading the video's length and frames…",
+    "left": "about {t} left",
+    "seconds_n": "{n} s",
+    "minutes_n": "{m} min {s} s",
+    "hours_n": "{h} h {m} min",
+    "stalled": "No progress for 20 s: the network may be very slow or the connection dropped. Wait, or remove and add it again."
   },
   "datasetTask": {
     "label": "Planned task",

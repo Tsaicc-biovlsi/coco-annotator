@@ -92,9 +92,21 @@
               </button>
             </div>
 
-            <div v-if="v.status === 'uploading'" class="progress mt-1" style="height: 14px">
-              <div class="progress-bar" :style="{ width: v.pct + '%' }">{{ $t('video.uploading') }} {{ Math.round(v.pct) }}%</div>
-            </div>
+            <template v-if="v.status === 'uploading'">
+              <div class="progress mt-1" style="height: 8px">
+                <div class="progress-bar" :class="{ 'progress-bar-striped progress-bar-animated': v.pct >= 100 }" :style="{ width: Math.max(v.pct, 1) + '%' }" />
+              </div>
+              <div class="small mt-1" :class="stalled(v) ? 'text-danger' : 'text-muted'">
+                <template v-if="v.pct >= 100">
+                  <i class="fa fa-spinner fa-spin" /> {{ $t('video.probing') }}
+                </template>
+                <template v-else>
+                  {{ $t('video.uploading') }} {{ size(v.loaded) }} / {{ size(v.size) }}（{{ Math.floor(v.pct) }}%）
+                  <template v-if="v.speed"> · {{ size(v.speed) }}/s · {{ $t('video.left', { t: eta(v) }) }}</template>
+                  <div v-if="stalled(v)"><i class="fa fa-exclamation-triangle" /> {{ $t('video.stalled') }}</div>
+                </template>
+              </div>
+            </template>
             <div v-else-if="v.status === 'waiting'" class="small text-muted mt-1"><i class="fa fa-clock-o" /> {{ $t('video.waiting') }}</div>
             <div v-else-if="v.status === 'error'" class="small text-danger mt-1"><i class="fa fa-exclamation-circle" /> {{ v.error }}</div>
 
@@ -173,6 +185,8 @@
 <script>
 import axios from "axios";
 
+const CHUNK = 8 * 1024 * 1024; // bytes per request
+const RETRIES = 5;
 const ACCEPT = ".mp4,.mov,.avi,.mkv,.webm,.m4v,.mpg,.mpeg,.wmv,video/*";
 let counter = 0;
 
@@ -196,7 +210,9 @@ export default {
       everySeconds: 1,
       everyFrames: 10,
       maxFrames: 1000,
-      uploading: false
+      uploading: false,
+      now: Date.now(),
+      ticker: null
     };
   },
   computed: {
@@ -240,6 +256,7 @@ export default {
     }
   },
   beforeUnmount() {
+    if (this.ticker) clearInterval(this.ticker);
     this.clear();
   },
   methods: {
@@ -340,17 +357,50 @@ export default {
     },
     async upload(v) {
       v.status = "uploading";
+      Object.assign(v, { loaded: 0, speed: 0, lastLoaded: 0, lastTime: Date.now(), progressAt: Date.now() });
+      if (!this.ticker) this.ticker = setInterval(() => (this.now = Date.now()), 1000);
       v.controller = new AbortController();
-      const form = new FormData();
-      form.append("video", v.file);
+      const signal = v.controller.signal;
+      const track = loaded => {
+        const now = Date.now();
+        v.pct = v.size ? (100 * loaded) / v.size : 100;
+        // speed over the last few seconds (smoothed)
+        const dt = (now - v.lastTime) / 1000;
+        if (dt >= 1) {
+          const rate = (loaded - v.lastLoaded) / dt;
+          v.speed = v.speed ? v.speed * 0.6 + rate * 0.4 : rate;
+          v.lastTime = now;
+          v.lastLoaded = loaded;
+        }
+        if (loaded > v.loaded) v.progressAt = now;
+        v.loaded = loaded;
+      };
       try {
-        const r = await axios.post("/api/dataset/video/stage", form, {
-          headers: { "Content-Type": "multipart/form-data" },
-          signal: v.controller.signal,
-          onUploadProgress: e => {
-            if (e.total) v.pct = (100 * e.loaded) / e.total;
+        // in pieces: proxies often refuse one big request, and a lost piece is just sent again
+        const started = await axios.post("/api/dataset/video/stage/start", { name: v.name, size: v.size }, { signal });
+        v.uploadId = started.data.upload_id;
+        let offset = 0;
+        while (offset < v.size) {
+          const piece = v.file.slice(offset, offset + CHUNK);
+          for (let attempt = 1; ; attempt++) {
+            try {
+              const r = await axios.put(`/api/dataset/video/stage/${v.uploadId}/chunk?offset=${offset}`, piece, {
+                headers: { "Content-Type": "application/octet-stream" },
+                signal,
+                onUploadProgress: e => track(offset + e.loaded)
+              });
+              offset = r.data.received;
+              break;
+            } catch (error) {
+              const status = error.response && error.response.status;
+              if (axios.isCancel(error) || attempt >= RETRIES || (status && status < 500 && status !== 408 && status !== 429)) throw error;
+              await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+            }
           }
-        });
+          track(offset);
+        }
+        v.pct = 100;
+        const r = await axios.post(`/api/dataset/video/stage/${v.uploadId}/finish`, null, { signal });
         if (!this.videos.includes(v)) {
           this.discard(r.data.upload_id);
           return;
@@ -362,11 +412,28 @@ export default {
         v.status = "ready";
       } catch (error) {
         if (axios.isCancel(error)) return;
+        this.discard(v.uploadId);
+        v.uploadId = null;
         v.status = "error";
         v.error = (error.response && error.response.data && error.response.data.message) || String(error);
       } finally {
         v.controller = null;
+        if (!this.videos.some(x => x.status === "uploading") && this.ticker) {
+          clearInterval(this.ticker);
+          this.ticker = null;
+        }
       }
+    },
+    /** no bytes sent for 20 s */
+    stalled(v) {
+      return v.pct < 100 && this.now - v.progressAt > 20000;
+    },
+    eta(v) {
+      if (!v.speed) return "–";
+      const seconds = Math.round((v.size - v.loaded) / v.speed);
+      if (seconds < 60) return this.$t("video.seconds_n", { n: seconds });
+      const m = Math.floor(seconds / 60);
+      return m < 60 ? this.$t("video.minutes_n", { m, s: seconds % 60 }) : this.$t("video.hours_n", { h: Math.floor(m / 60), m: m % 60 });
     },
     discard(uploadId) {
       if (uploadId) axios.delete(`/api/dataset/video/stage/${uploadId}`).catch(() => {});
