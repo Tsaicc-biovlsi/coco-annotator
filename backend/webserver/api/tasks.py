@@ -2,7 +2,7 @@ from flask_restx import Namespace, Resource
 from flask_login import login_required, current_user
 
 from ..util import query_util
-from database import TaskModel
+from database import TaskModel, DatasetModel
 
 
 api = Namespace('tasks', description='Task related operations')
@@ -27,9 +27,28 @@ class Task(Resource):
         query = query.only(
             'group', 'id', 'name', 'completed', 'progress',
             'priority', 'creator', 'desciption', 'errors',
-            'warnings'
+            'warnings', 'failed', 'start_date', 'end_date', 'dataset_id'
         ).all()
-        return query_util.fix_ids(query)
+        tasks = query_util.fix_ids(query)
+        names = {d.id: d.name for d in DatasetModel.objects(
+            id__in=list({t.get('dataset_id') for t in tasks if t.get('dataset_id')})).only('id', 'name')}
+        for t in tasks:
+            if t.get('dataset_id') in names:
+                t['dataset_name'] = names[t['dataset_id']]
+        return tasks
+
+
+@api.route('/completed')
+class TasksCompleted(Resource):
+    @login_required
+    def delete(self):
+        """ Removes the finished tasks you can see (with their logs) """
+        query = TaskModel.objects(completed=True)
+        if not current_user.can_page('tasks'):
+            query = query.filter(creator=current_user.username)
+        n = query.count()
+        query.delete()
+        return {"success": True, "deleted": n}
 
 
 @api.route('/<int:task_id>')

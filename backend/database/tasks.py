@@ -70,9 +70,17 @@ class TaskModel(DynamicDocument):
 
         self.update(**statment)
 
+    def save(self, *args, **kwargs):
+        if self.start_date is None:
+            self.start_date = datetime.datetime.utcnow()
+        return super().save(*args, **kwargs)
+
     def set_progress(self, percent, socket=None):
 
-        self.update(progress=int(percent), completed=(percent >= 100))
+        if percent >= 100:
+            self.update(progress=int(percent), completed=True, end_date=datetime.datetime.utcnow())
+        else:
+            self.update(progress=int(percent), completed=False)
 
         # Send socket update every 10%
         if self._progress_update < percent or percent >= 100:

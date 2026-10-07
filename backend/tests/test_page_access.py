@@ -105,3 +105,17 @@ def test_admin_has_everything(world):
     me = c.get("/api/user/").get_json()["user"]
     assert me["role"] == "admin" and "manage_users" in me["perms"]
     assert c.get("/api/activity/").status_code == 200
+
+
+def test_task_list_details_and_clear(world):
+    from database import TaskModel
+    c = _login("taskboss", is_admin=True)
+    ds = c.post("/api/dataset/", json={"name": "taskds"}).get_json()["id"]
+    done = TaskModel(name="done", group="Scanner", creator="taskboss", dataset_id=ds); done.save()
+    done.set_progress(100)
+    running = TaskModel(name="running", group="Scanner", creator="taskboss"); running.save()
+    tasks = {t["name"]: t for t in c.get("/api/tasks/").get_json()}
+    assert tasks["done"]["dataset_name"] == "taskds" and tasks["done"]["start_date"] and tasks["done"]["end_date"]
+    assert c.delete("/api/tasks/completed").get_json()["deleted"] >= 1
+    names = {t["name"] for t in c.get("/api/tasks/").get_json()}
+    assert "done" not in names and "running" in names

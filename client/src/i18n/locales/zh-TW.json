@@ -573,17 +573,46 @@
     "annotationExport": "匯出標註",
     "annotationImport": "匯入標註",
     "directoryImageScan": "掃描資料夾圖片",
-    "modelPreAnnotation": "模型預標註"
+    "modelPreAnnotation": "模型預標註",
+    "videoImport": "影片擷取",
+    "scanner": "掃描"
   },
   "taskName": {
     "export": "將 {name} 匯出為 {format} 格式",
     "import": "將 COCO 匯入 {name}",
     "preannotate": "用 {model} 預標註 {name}",
-    "scan": "掃描 {name} 的新圖片"
+    "scan": "掃描 {name} 的新圖片",
+    "video": "把影片 {file} 擷取成圖片放進 {name}"
   },
   "tasks": {
     "running": "{n} 個任務執行中",
-    "tasks": "任務"
+    "tasks": "任務",
+    "subtitle": "匯入、匯出、掃描、影片擷取、模型預標註等在背景執行的工作",
+    "search": "搜尋任務、資料集或建立者",
+    "type": "類型",
+    "allTypes": "所有類型",
+    "shown": "顯示 {n} 個，共 {total} 個",
+    "none": "目前沒有任務",
+    "more": "再顯示更多（還有 {n} 個）",
+    "all": "全部",
+    "runningLabel": "進行中",
+    "done": "已完成",
+    "problems": "有錯誤",
+    "clearDone": "清除已完成（{n}）",
+    "clearConfirm": "刪除 {n} 個已完成的任務和它們的紀錄？進行中的不受影響。",
+    "cleared": "已清除 {n} 個任務",
+    "took": "花了 {t}",
+    "runningFor": "已執行 {t}",
+    "allLines": "全部 {n} 行",
+    "copyLogs": "複製紀錄",
+    "copied": "已複製任務紀錄",
+    "noLogs": "沒有紀錄",
+    "state": {
+      "running": "進行中",
+      "done": "已完成",
+      "warning": "完成（有警告）",
+      "failed": "有錯誤"
+    }
   },
   "time": {
     "day": "{n} 天 | {n} 天",

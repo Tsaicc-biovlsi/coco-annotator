@@ -506,11 +506,38 @@
     "export": "Exporting {name} into {format} format",
     "import": "Import COCO format into {name}",
     "preannotate": "Pre-annotate {name} with {model}",
-    "scan": "Scanning {name} for new images"
+    "scan": "Scanning {name} for new images",
+    "video": "Importing video {file} into {name}"
   },
   "tasks": {
     "running": "{n} tasks are running",
-    "tasks": "Tasks"
+    "tasks": "Tasks",
+    "subtitle": "Imports, exports, scans, video frames and model pre-annotation running in the background",
+    "search": "Search tasks, datasets or people",
+    "type": "Type",
+    "allTypes": "All types",
+    "shown": "{n} of {total}",
+    "none": "No tasks",
+    "more": "Show more ({n} left)",
+    "all": "All",
+    "runningLabel": "Running",
+    "done": "Done",
+    "problems": "With errors",
+    "clearDone": "Clear finished ({n})",
+    "clearConfirm": "Delete {n} finished tasks and their logs? Running ones are kept.",
+    "cleared": "{n} tasks cleared",
+    "took": "took {t}",
+    "runningFor": "running for {t}",
+    "allLines": "All {n} lines",
+    "copyLogs": "Copy log",
+    "copied": "Log copied",
+    "noLogs": "No log lines",
+    "state": {
+      "running": "Running",
+      "done": "Done",
+      "warning": "Done (warnings)",
+      "failed": "Errors"
+    }
   },
   "time": {
     "day": "{n} day | {n} days",

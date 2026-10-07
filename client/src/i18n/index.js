@@ -84,7 +84,8 @@ const PATTERNS = {
     [/^Scanning (.+) for new images$/, m => ["taskName.scan", { name: m[1] }]],
     [/^Exporting (.+) into (.+) format$/, m => ["taskName.export", { name: m[1], format: m[2] }]],
     [/^Import COCO format into (.+)$/, m => ["taskName.import", { name: m[1] }]],
-    [/^Pre-annotating (.+) with (.+)$/, m => ["taskName.preannotate", { name: m[1], model: m[2] }]]
+    [/^Pre-annotating (.+) with (.+)$/, m => ["taskName.preannotate", { name: m[1], model: m[2] }]],
+    [/^Importing video (.+) into (.+)$/, m => ["taskName.video", { file: m[1], name: m[2] }]]
   ]
 };
 
