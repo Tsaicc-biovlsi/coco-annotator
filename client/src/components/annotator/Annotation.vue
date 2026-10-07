@@ -433,6 +433,14 @@ export default {
         this.$emit("click", this.index);
       };
     },
+    /** The drawing tool this annotation was made with */
+    matchingTool() {
+      const a = this.annotation || {};
+      if (a.isrbbox) return "Rotated BBox";
+      if (a.isbbox) return "BBox";
+      if (this.compoundPath && !this.compoundPath.isEmpty()) return "Polygon";
+      return null;
+    },
     /** Everything needed to bring this annotation back after a delete */
     snapshot() {
       let data = { ...this.annotation, metadata: { ...(this.annotation.metadata || {}) } };

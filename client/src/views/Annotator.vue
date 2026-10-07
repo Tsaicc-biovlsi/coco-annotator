@@ -1098,6 +1098,26 @@ export default {
       );
     },
 
+    /** The tool matching the annotation shape under ``point`` (box, rotated box, polygon) */
+    toolForShapeAt(point) {
+      if (!this.paper || !this.paper.project) return null;
+      const hit = this.paper.project.hitTest(point, {
+        fill: true,
+        stroke: true,
+        tolerance: 2,
+        match: result => {
+          let item = result.item;
+          while (item && item.data && item.data.annotationId === undefined) item = item.parent;
+          return !!(item && item.visible && item.data && item.data.annotationId !== undefined);
+        }
+      });
+      if (!hit) return null;
+      let item = hit.item;
+      while (item && item.data.annotationId === undefined) item = item.parent;
+      const category = this.categoryRefs()[item.data.categoryId];
+      const annotation = category && category.annotationRefs()[item.data.annotationId];
+      return annotation && annotation.matchingTool ? annotation.matchingTool() : null;
+    },
     /** C: copy every annotation of the previous image onto this one (Ctrl+Z takes it back) */
     copyFromPrevious() {
       const from = this.image.previous;

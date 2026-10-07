@@ -121,6 +121,12 @@ export default {
     onMouseDown(event) {
       let wasNull = false;
       if (this.polygon.path == null) {
+        // starting on a box or rotated box: switch to that shape's tool instead
+        const other = this.$parent.toolForShapeAt && this.$parent.toolForShapeAt(event.point);
+        if (other && other !== this.name) {
+          this.$parent.activeTool = other;
+          return;
+        }
         wasNull = true;
         this.createPolygon();
       }
