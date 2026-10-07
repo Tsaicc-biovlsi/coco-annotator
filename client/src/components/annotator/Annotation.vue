@@ -781,12 +781,13 @@ export default {
     setColor() {
       if (this.compoundPath == null) return;
 
+      // a new shape (rotated box, unite, ...) starts fully opaque: always set it
+      this.compoundPath.opacity = this.opacity;
       if (!this.$parent.showAnnotations) {
         this.$parent.setColor();
         return;
       }
 
-      this.compoundPath.opacity = this.opacity;
       this.compoundPath.fillColor = this.color;
       if (this.keypoints != null) this.keypoints.color = this.darkHSL;
     },

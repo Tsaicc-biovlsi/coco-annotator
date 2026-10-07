@@ -449,7 +449,10 @@ export default {
       } else {
         annotations.forEach(a => {
           // annotations still being mounted have no shape yet
-          if (a.compoundPath != null) a.compoundPath.fillColor = this.color;
+          if (a.compoundPath != null) {
+            a.compoundPath.fillColor = this.color;
+            a.compoundPath.opacity = this.opacity;
+          }
           if (a.keypoints != null) {
             a.keypoints.color = this.darkHSL;
             a.keypoints.bringToFront();

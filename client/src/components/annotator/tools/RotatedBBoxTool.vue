@@ -330,20 +330,24 @@ export default {
       this.box = box;
       this.drawOverlay();
       this.pendingCommits += 1;
+      // the box belongs to the annotation selected now, even if another one is
+      // picked before an earlier queued commit has finished
+      const target = this.$parent.currentAnnotation;
       this.commitQueue = this.commitQueue
-        .then(() => this.applyBox(box, isNew))
+        .then(() => this.applyBox(box, isNew, target))
         .catch(error => console.error("rotated box", error))
         .finally(() => {
           this.pendingCommits -= 1;
         });
       return this.commitQueue;
     },
-    async applyBox(box, isNew) {
+    async applyBox(box, isNew, target) {
       let parent = this.$parent;
-      let annotation = parent.currentAnnotation;
+      let annotation = target || parent.currentAnnotation;
 
-      if (isNew && this.annotationHasShape(annotation) && parent.currentCategory) {
-        await parent.currentCategory.createAnnotation();
+      const category = (target && target.$parent && target.$parent.createAnnotation) ? target.$parent : parent.currentCategory;
+      if (isNew && this.annotationHasShape(annotation) && category) {
+        await category.createAnnotation();
         // wait until the new annotation is mounted and selected
         for (let i = 0; i < 5 && parent.currentAnnotation === annotation; i++) {
           await this.$nextTick();
@@ -356,7 +360,7 @@ export default {
       }
 
       annotation.setRotatedBox(this.corners(box));
-      if (!this.drawing && !this.drag) {
+      if (!this.drawing && !this.drag && annotation === parent.currentAnnotation) {
         this.box = box;
         this.drawOverlay();
       }
