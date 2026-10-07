@@ -24,7 +24,15 @@
     "username": "Username",
     "users": "Users",
     "you": "(you)",
-    "title": "Admin panel"
+    "title": "Admin panel",
+    "subtitle": "Accounts and what each role may do",
+    "searchUsers": "Search username or name",
+    "allRoles": "All",
+    "noUsers": "No matching users",
+    "youBadge": "you",
+    "online": "Online",
+    "showingFirst": "Showing {n} of {total}.",
+    "showMore": "Show more"
   },
   "annotation": {
     "category": "Category",
@@ -1090,6 +1098,11 @@
       "manage_models": "Upload, turn on/off, rename, download and delete models",
       "manage_users": "Open the admin panel: create, edit and delete non-admin accounts (cannot make admins)",
       "all_datasets": "See every dataset, like an admin (editing still needs to be a member)"
-    }
+    },
+    "custom": "Custom role",
+    "showUsers": "Show these users",
+    "adminFixed": "Admins can always do everything.",
+    "create": "Create",
+    "addHint": "e.g. Teaching assistant, Reviewer; switch on what it may do after creating it."
   }
 }

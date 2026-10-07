@@ -1,191 +1,211 @@
 <template>
   <div>
     <div style="padding-top: 55px" />
-    <div
-      class="album py-5 bg-light"
-      style="overflow: auto; height: calc(100vh - 55px)"
-    >
-      <div class="container">
-        <h2 class="text-center">{{ $t('adminPanel.title') }}</h2>
-        <ul class="nav nav-tabs mb-3 justify-content-center">
-          <li class="nav-item">
-            <a class="nav-link" :class="{ active: tab === 'users' }" href="#" @click.prevent="tab = 'users'">
+    <div class="bg-light admin-page" style="overflow: auto; height: calc(100vh - 55px)">
+      <div class="container py-4">
+        <!-- header -->
+        <div class="d-flex align-items-start flex-wrap gap-2 mb-3">
+          <div class="me-auto">
+            <h3 class="mb-1"><i class="fa fa-shield" /> {{ $t('adminPanel.title') }}</h3>
+            <div class="text-muted small">{{ $t('adminPanel.subtitle') }}</div>
+          </div>
+          <div class="btn-group seg" role="tablist">
+            <button type="button" class="btn btn-sm" :class="tab === 'users' ? 'btn-dark' : 'btn-outline-dark'" @click="tab = 'users'">
               <i class="fa fa-users" /> {{ $t('adminPanel.users') }}
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" :class="{ active: tab === 'roles' }" href="#" @click.prevent="tab = 'roles'">
+              <span class="badge rounded-pill ms-1" :class="tab === 'users' ? 'bg-light text-dark' : 'bg-secondary'">{{ total }}</span>
+            </button>
+            <button type="button" class="btn btn-sm" :class="tab === 'roles' ? 'btn-dark' : 'btn-outline-dark'" @click="tab = 'roles'">
               <i class="fa fa-id-badge" /> {{ $t('roles.title') }}
-            </a>
-          </li>
-        </ul>
-
-        <p v-show="tab === 'users'" class="text-center">
-          <i18n-t keypath="admin.total" tag="span"><template #n><strong>{{ total }}</strong></template></i18n-t>
-        </p>
-
-        <div v-show="tab === 'users'" class="row justify-content-md-center">
-          <div
-            class="col-md-auto btn-group"
-            role="group"
-            style="padding-bottom: 20px"
-          >
-            <button
-              type="button"
-              class="btn btn-success"
-              data-bs-toggle="modal"
-              data-bs-target="#createUser"
-            >
-              {{ $t('adminPanel.createUser') }}
-            </button>
-            <button type="button" class="btn btn-primary" @click="$refs.bulk.open()">
-              {{ $t('bulkUsers.title') }}
-            </button>
-            <button type="button" class="btn btn-secondary" @click="updatePage">
-              {{ $t('adminPanel.refresh') }}
+              <span class="badge rounded-pill ms-1" :class="tab === 'roles' ? 'bg-light text-dark' : 'bg-secondary'">{{ roles.length }}</span>
             </button>
           </div>
         </div>
 
-        <div v-show="tab === 'users'" class="row justify-content-md-center" style="padding-bottom: 10px">
-          <div class="col-md-2 text-end">
-            <span>{{ $t('adminPanel.limit') }}</span>
+        <!-- ============ users ============ -->
+        <template v-if="tab === 'users'">
+          <div class="card shadow-sm p-3 mb-3">
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+              <div class="input-group input-group-sm search">
+                <span class="input-group-text"><i class="fa fa-search" /></span>
+                <input v-model="search" class="form-control" :placeholder="$t('adminPanel.searchUsers')" />
+              </div>
+              <div class="ms-auto d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#createUser">
+                  <i class="fa fa-user-plus" /> {{ $t('adminPanel.createUser') }}
+                </button>
+                <button type="button" class="btn btn-sm btn-primary" @click="$refs.bulk.open()">
+                  <i class="fa fa-list" /> {{ $t('bulkUsers.title') }}
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" :title="$t('adminPanel.refresh')" @click="updatePage">
+                  <i class="fa fa-refresh" />
+                </button>
+              </div>
+            </div>
+            <div class="d-flex flex-wrap gap-1 mt-2">
+              <button
+                type="button"
+                class="btn btn-sm role-chip"
+                :class="roleFilter === '' ? 'active' : ''"
+                @click="roleFilter = ''"
+              >
+                {{ $t('adminPanel.allRoles') }} <span class="count">{{ users.length }}</span>
+              </button>
+              <button
+                v-for="r in roles"
+                :key="r.key"
+                type="button"
+                class="btn btn-sm role-chip"
+                :class="roleFilter === r.key ? 'active' : ''"
+                :style="{ '--role': roleColor(r.key) }"
+                @click="roleFilter = roleFilter === r.key ? '' : r.key"
+              >
+                <span class="dot" /> {{ roleName(r) }} <span class="count">{{ countOf(r.key) }}</span>
+              </button>
+            </div>
           </div>
-          <div class="col-md-2">
-            <select
-              v-model="limit"
-              class="form-select form-select-sm text-inline"
-            >
-              <option>50</option>
-              <option>100</option>
-              <option>500</option>
-              <option>1000</option>
-            </select>
-          </div>
-        </div>
 
-        <div v-show="tab === 'users'">
-          <table class="table table-hover table-sm align-middle">
-            <thead class="remove-top-border">
-              <tr>
-                <th scope="col">{{ $t('adminPanel.username') }}</th>
-                <th scope="col">{{ $t('adminPanel.name') }}</th>
-                <th scope="col">{{ $t('roles.role') }}</th>
-                <th class="text-center" scope="col">{{ $t('adminPanel.edit') }}</th>
-                <th class="text-center" scope="col">
-                  {{ $t('adminPanel.delete') }}
-                </th>
-              </tr>
-            </thead>
-
-            <tbody>
-              <tr v-for="(user, index) in users" :key="index">
-                <td>
-                  {{ user.username }}
-                  <small v-if="isSelf(user)" class="text-muted">{{ $t('adminPanel.you') }}</small>
-                </td>
-                <td>{{ user.name }}</td>
-                <td class="role-cell">
-                  <select
-                    v-if="canChangeRole(user)"
-                    class="form-select form-select-sm"
-                    :value="user.role"
-                    @change="setRole(user, $event.target.value)"
-                  >
-                    <option v-for="r in assignableRoles" :key="r.key" :value="r.key">{{ roleName(r) }}</option>
-                  </select>
-                  <span v-else class="badge" :class="user.role === 'admin' ? 'bg-danger' : 'bg-secondary'">
-                    {{ roleName(user.role) }}
+          <div class="card shadow-sm user-list">
+            <div v-if="!shownUsers.length" class="text-center text-muted py-5">
+              <i class="fa fa-user-o fa-2x d-block mb-2" />{{ $t('adminPanel.noUsers') }}
+            </div>
+            <div v-for="user in shownUsers" :key="user.username" class="user-row d-flex align-items-center gap-3">
+              <div class="avatar" :style="{ background: roleColor(user.role) }">{{ initials(user) }}</div>
+              <div class="flex-grow-1 min-w-0">
+                <div class="fw-semibold text-truncate">
+                  {{ user.name || user.username }}
+                  <span v-if="isSelf(user)" class="badge bg-light text-secondary border ms-1">{{ $t('adminPanel.youBadge') }}</span>
+                </div>
+                <div class="small text-muted text-truncate">
+                  <span class="font-monospace">{{ user.username }}</span>
+                  <span class="mx-1">·</span>
+                  <span :class="{ 'text-success': user.online }">
+                    <i v-if="user.online" class="fa fa-circle online-dot" /> {{ user.online ? $t('adminPanel.online') : seen(user) }}
                   </span>
-                </td>
-                <td class="text-center">
-                  <i
-                    v-if="mayTouch(user)"
-                    class="fa fa-pencil edit-icon"
-                    :title="$t('adminPanel.edit')"
-                    @click="editUser(user)"
-                  />
-                </td>
-                <td class="text-center">
-                  <i
-                    v-if="!isSelf(user) && mayTouch(user)"
-                    class="fa fa-remove delete-icon"
-                    :title="$t('adminPanel.delete')"
-                    @click="deleteUser(user)"
-                  />
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+                </div>
+              </div>
+              <div class="role-pick" :style="{ '--role': roleColor(user.role) }">
+                <select
+                  v-if="canChangeRole(user)"
+                  class="form-select form-select-sm"
+                  :value="user.role"
+                  :aria-label="$t('roles.role')"
+                  @change="setRole(user, $event.target.value)"
+                >
+                  <option v-for="r in assignableRoles" :key="r.key" :value="r.key">{{ roleName(r) }}</option>
+                </select>
+                <span v-else class="role-badge"><i v-if="user.role === 'admin'" class="fa fa-shield" /> {{ roleName(user.role) }}</span>
+              </div>
+              <div class="actions text-nowrap">
+                <button
+                  v-if="mayTouch(user)"
+                  type="button"
+                  class="btn btn-sm btn-light"
+                  :title="$t('adminPanel.edit')"
+                  @click="editUser(user)"
+                >
+                  <i class="fa fa-pencil" />
+                </button>
+                <button
+                  v-if="!isSelf(user) && mayTouch(user)"
+                  type="button"
+                  class="btn btn-sm btn-light text-danger"
+                  :title="$t('adminPanel.delete')"
+                  @click="deleteUser(user)"
+                >
+                  <i class="fa fa-trash" />
+                </button>
+              </div>
+            </div>
+            <div v-if="total > users.length" class="text-center small text-muted py-2 border-top">
+              {{ $t('adminPanel.showingFirst', { n: users.length, total }) }}
+              <a href="#" @click.prevent="limit = Math.min(limit * 2, 1000)">{{ $t('adminPanel.showMore') }}</a>
+            </div>
+          </div>
+        </template>
 
-        <div v-show="tab === 'roles'" class="roles text-start">
-          <p class="text-muted small text-center">{{ $t('roles.help') }}</p>
-          <div class="table-responsive">
-            <table class="table table-sm align-middle roles-table">
-              <thead>
-                <tr>
-                  <th rowspan="2">{{ $t('roles.role') }}</th>
-                  <th :colspan="pagePerms.length" class="text-center group-head">{{ $t('roles.groupPages') }}</th>
-                  <th :colspan="managePerms.length" class="text-center group-head">{{ $t('roles.groupManage') }}</th>
-                  <th rowspan="2" class="text-center">{{ $t('roles.users') }}</th>
-                  <th v-if="isAdmin" rowspan="2"></th>
-                </tr>
-                <tr>
-                  <th v-for="p in permissions" :key="p" class="text-center perm-head" :title="$t('roles.permHelp.' + p)">
-                    {{ $t('roles.perm.' + p) }} <i class="fa fa-question-circle text-muted" />
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="r in roles" :key="r.key">
-                  <td>
+        <!-- ============ roles ============ -->
+        <template v-if="tab === 'roles'">
+          <div class="alert alert-light border small d-flex align-items-center gap-2">
+            <i class="fa fa-info-circle text-primary" />
+            <span>{{ $t('roles.help') }}<template v-if="!isAdmin"> {{ $t('roles.adminsOnly') }}</template></span>
+          </div>
+          <div class="row g-3">
+            <div v-for="r in roles" :key="r.key" class="col-md-6 col-xl-4">
+              <div class="card shadow-sm h-100 role-card" :style="{ '--role': roleColor(r.key) }">
+                <div class="role-head d-flex align-items-center gap-2">
+                  <div class="role-icon"><i class="fa" :class="roleIcon(r.key)" /></div>
+                  <div class="flex-grow-1 min-w-0">
                     <input
                       v-if="isAdmin && !r.builtin"
                       v-model="r.name"
                       class="form-control form-control-sm role-name"
+                      :aria-label="$t('roles.role')"
                       @change="saveRole(r, { name: r.name })"
                       @keyup.enter="$event.target.blur()"
                     />
-                    <span v-else>
-                      <strong>{{ roleName(r) }}</strong>
-                      <small class="text-muted d-block">{{ $t('roles.builtin.' + r.key + 'Hint') }}</small>
-                    </span>
-                  </td>
-                  <td v-for="p in permissions" :key="p" class="text-center">
-                    <input
-                      type="checkbox"
-                      class="form-check-input"
-                      :checked="r.permissions.includes(p)"
-                      :disabled="!isAdmin || r.key === 'admin'"
-                      @change="togglePerm(r, p, $event.target.checked)"
-                    />
-                  </td>
-                  <td class="text-center">{{ r.users }}</td>
-                  <td v-if="isAdmin" class="text-center">
-                    <i
-                      v-if="!r.builtin"
-                      class="fa fa-trash delete-icon"
-                      :title="$t('roles.delete')"
-                      @click="deleteRole(r)"
-                    />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                    <div v-else class="fw-semibold">{{ roleName(r) }}</div>
+                    <div class="small text-muted">
+                      <i v-if="r.key === 'admin'" class="fa fa-lock" />
+                      {{ r.builtin ? $t('roles.builtin.' + r.key + 'Hint') : $t('roles.custom') }}
+                    </div>
+                  </div>
+                  <a href="#" class="users-count" :title="$t('roles.showUsers')" @click.prevent="showRoleUsers(r)">
+                    <i class="fa fa-user" /> {{ r.users }}
+                  </a>
+                </div>
+
+                <div class="card-body pt-2">
+                  <div v-for="group in permGroups" :key="group.key" class="mb-2">
+                    <div class="group-label">{{ $t(group.label) }}</div>
+                    <div
+                      v-for="p in group.perms"
+                      :key="p"
+                      class="perm d-flex align-items-start gap-2"
+                      :class="{ on: r.permissions.includes(p) }"
+                    >
+                      <i class="fa fa-fw perm-icon" :class="PERM_ICONS[p]" />
+                      <label class="flex-grow-1 min-w-0" :for="`perm-${r.key}-${p}`">
+                        <span class="d-block">{{ $t('roles.perm.' + p) }}</span>
+                        <small class="text-muted d-block">{{ $t('roles.permHelp.' + p) }}</small>
+                      </label>
+                      <div class="form-check form-switch m-0">
+                        <input
+                          :id="`perm-${r.key}-${p}`"
+                          type="checkbox"
+                          class="form-check-input"
+                          role="switch"
+                          :checked="r.permissions.includes(p)"
+                          :disabled="!isAdmin || r.key === 'admin'"
+                          @change="togglePerm(r, p, $event.target.checked)"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-if="isAdmin && !r.builtin" class="card-footer bg-transparent text-end">
+                  <button type="button" class="btn btn-sm btn-outline-danger" @click="deleteRole(r)">
+                    <i class="fa fa-trash" /> {{ $t('roles.delete') }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="isAdmin" class="col-md-6 col-xl-4">
+              <form class="card h-100 new-role-card d-flex align-items-center justify-content-center p-4" @submit.prevent="addRole">
+                <i class="fa fa-plus-circle fa-2x mb-2 text-muted" />
+                <div class="fw-semibold mb-2">{{ $t('roles.add') }}</div>
+                <div class="input-group input-group-sm new-role">
+                  <input v-model="newRole" class="form-control" :placeholder="$t('roles.newPlaceholder')" />
+                  <button type="submit" class="btn btn-success" :disabled="!newRole.trim()">
+                    {{ $t('roles.create') }}
+                  </button>
+                </div>
+                <div class="small text-muted mt-2 text-center">{{ $t('roles.addHint') }}</div>
+              </form>
+            </div>
           </div>
-          <form v-if="isAdmin" class="d-flex gap-2 justify-content-center" @submit.prevent="addRole">
-            <input
-              v-model="newRole"
-              class="form-control form-control-sm new-role"
-              :placeholder="$t('roles.newPlaceholder')"
-            />
-            <button type="submit" class="btn btn-success btn-sm" :disabled="!newRole.trim()">
-              <i class="fa fa-plus" /> {{ $t('roles.add') }}
-            </button>
-          </form>
-          <p v-else class="text-muted small text-center">{{ $t('roles.adminsOnly') }}</p>
-        </div>
+        </template>
       </div>
     </div>
 
@@ -333,6 +353,16 @@ import { showModal, hideModal } from "@/libs/modal";
 import BulkUsersModal from "@/components/BulkUsersModal.vue";
 
 const PAGES = ["activity", "models", "tasks"];
+const PERM_ICONS = {
+  activity: "fa-history",
+  models: "fa-cubes",
+  tasks: "fa-tasks",
+  manage_models: "fa-upload",
+  manage_users: "fa-user-plus",
+  all_datasets: "fa-database"
+};
+// custom roles take these in order
+const ROLE_COLORS = ["#2a78d6", "#1a9e6e", "#8a5cd1", "#d9822b", "#0f8fa8", "#c2417a", "#6b7f2a"];
 
 export default {
   name: "AdminPanel",
@@ -341,11 +371,14 @@ export default {
   data() {
     return {
       tab: "users",
+      PERM_ICONS,
+      search: "",
+      roleFilter: "",
       users: [],
       roles: [],
       permissions: [],
       newRole: "",
-      limit: 50,
+      limit: 200,
       total: 0,
       create: {
         name: "",
@@ -366,11 +399,18 @@ export default {
     isAdmin() {
       return this.$store.getters["user/isAdmin"];
     },
-    pagePerms() {
-      return this.permissions.filter(p => PAGES.includes(p));
+    permGroups() {
+      return [
+        { key: "pages", label: "roles.groupPages", perms: this.permissions.filter(p => PAGES.includes(p)) },
+        { key: "manage", label: "roles.groupManage", perms: this.permissions.filter(p => !PAGES.includes(p)) }
+      ];
     },
-    managePerms() {
-      return this.permissions.filter(p => !PAGES.includes(p));
+    shownUsers() {
+      const q = this.search.trim().toLowerCase();
+      return this.users.filter(u =>
+        (!this.roleFilter || u.role === this.roleFilter) &&
+        (!q || u.username.toLowerCase().includes(q) || (u.name || "").toLowerCase().includes(q))
+      );
     },
     /** Only admins hand out the admin role */
     assignableRoles() {
@@ -406,6 +446,37 @@ export default {
       const r = typeof role === "string" ? this.roles.find(x => x.key === role) || { key: role } : role;
       if (r.key === "admin" || r.key === "user") return this.$t("roles.builtin." + r.key);
       return r.name || r.key;
+    },
+    roleColor(key) {
+      if (key === "admin") return "#d63a3a";
+      if (key === "user" || !key) return "#6c757d";
+      const custom = this.roles.filter(r => !r.builtin).map(r => r.key);
+      const i = custom.indexOf(key);
+      return ROLE_COLORS[(i < 0 ? 0 : i) % ROLE_COLORS.length];
+    },
+    roleIcon(key) {
+      return key === "admin" ? "fa-shield" : key === "user" ? "fa-user" : "fa-id-badge";
+    },
+    countOf(key) {
+      return this.users.filter(u => u.role === key).length;
+    },
+    initials(user) {
+      const text = (user.name || user.username || "?").trim();
+      return /^[A-Za-z]/.test(text) ? text.slice(0, 2).toUpperCase() : text.slice(-2);
+    },
+    seen(user) {
+      const raw = user.last_seen && (user.last_seen["$date"] ?? user.last_seen);
+      const date = raw != null ? new Date(raw) : null;
+      if (!date || isNaN(date)) return this.$t("dataset.neverSeen");
+      const pad = n => String(n).padStart(2, "0");
+      return this.$t("dataset.lastSeen", {
+        time: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+      });
+    },
+    showRoleUsers(role) {
+      this.roleFilter = role.key;
+      this.search = "";
+      this.tab = "users";
     },
     mayTouch(user) {
       return this.isAdmin || user.role !== "admin";
@@ -521,49 +592,200 @@ export default {
 </script>
 
 <style scoped>
-.remove-top-border {
-  border: none !important;
+.admin-page {
+  text-align: left;
+}
+.min-w-0 {
+  min-width: 0;
+}
+.search {
+  max-width: 320px;
 }
 
-.fa {
-  margin: 0;
-  padding: 2px;
+/* role filter chips */
+.role-chip {
+  --role: #343a40;
+  border: 1px solid #dee2e6;
+  background: #fff;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.82rem;
+  color: #495057;
+}
+.role-chip .dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--role);
+  margin-right: 2px;
+}
+.role-chip .count {
+  color: #adb5bd;
+  margin-left: 2px;
+}
+.role-chip.active {
+  background: var(--role);
+  border-color: var(--role);
+  color: #fff;
+}
+.role-chip.active .dot {
+  background: #fff;
+}
+.role-chip.active .count {
+  color: rgba(255, 255, 255, 0.8);
 }
 
-.edit-icon:hover {
-  color: green;
+/* user rows */
+.user-row {
+  padding: 10px 16px;
+  border-bottom: 1px solid #f1f3f5;
 }
-
-.delete-icon:hover {
-  color: red;
+.user-row:last-child {
+  border-bottom: none;
 }
-
-.role-cell select {
-  max-width: 180px;
+.user-row:hover {
+  background: #f8f9fb;
 }
-
-.roles {
-  max-width: 1100px;
-  margin: 0 auto;
-}
-
-.roles-table .group-head {
-  border-bottom: 2px solid #dee2e6;
+.avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 600;
   font-size: 0.85rem;
-  color: #6c757d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.online-dot {
+  font-size: 0.5rem;
+  vertical-align: middle;
+}
+.role-pick {
+  --role: #6c757d;
+  width: 170px;
+  flex-shrink: 0;
+}
+.role-pick select {
+  border-left: 4px solid var(--role);
+}
+.role-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: #fff;
+  background: var(--role);
+}
+.actions .btn {
+  width: 32px;
+}
+@media (max-width: 575.98px) {
+  .user-row {
+    flex-wrap: wrap;
+    row-gap: 6px !important;
+  }
+  .user-row > .flex-grow-1 {
+    flex-basis: calc(100% - 54px);
+  }
+  .role-pick {
+    margin-left: 54px;
+    flex: 1;
+    width: auto;
+  }
 }
 
-.perm-head {
-  font-size: 0.85rem;
-  white-space: nowrap;
-  cursor: help;
+/* role cards */
+.role-card {
+  --role: #6c757d;
+  border-top: 4px solid var(--role);
 }
-
+.role-head {
+  padding: 12px 16px 8px;
+}
+.role-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--role);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
 .role-name {
-  min-width: 140px;
+  font-weight: 600;
+  border-color: transparent;
+  background: transparent;
+  padding-left: 4px;
+  margin-left: -4px;
 }
-
+.role-name:hover {
+  border-color: #dee2e6;
+}
+.role-name:focus {
+  background: #fff;
+}
+.users-count {
+  font-size: 0.8rem;
+  color: #495057;
+  background: #f1f3f5;
+  border-radius: 999px;
+  padding: 2px 10px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.users-count:hover {
+  background: #e9ecef;
+}
+.group-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #adb5bd;
+  margin: 6px 0 2px;
+}
+.perm {
+  padding: 6px 8px;
+  border-radius: 6px;
+  margin: 0 -8px;
+}
+.perm label {
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1.25;
+}
+.perm small {
+  font-size: 0.75rem;
+}
+.perm-icon {
+  color: #adb5bd;
+  margin-top: 3px;
+}
+.perm.on .perm-icon {
+  color: var(--role);
+}
+.perm.on {
+  background: #f8f9fb;
+}
+.perm .form-switch .form-check-input {
+  width: 2.2em;
+  height: 1.2em;
+  cursor: pointer;
+}
+.perm .form-switch .form-check-input:checked {
+  background-color: var(--role);
+  border-color: var(--role);
+}
+.new-role-card {
+  border: 2px dashed #ced4da;
+  background: transparent;
+  min-height: 220px;
+}
 .new-role {
-  max-width: 240px;
+  max-width: 280px;
 }
 </style>
