@@ -375,6 +375,7 @@ export default {
   data() {
     return {
       goingNext: false,
+      copying: false,
       activeTool: "Select",
       paper: null,
       shapeOpacity: 0.6,
@@ -1097,6 +1098,49 @@ export default {
       );
     },
 
+    /** C: copy every annotation of the previous image onto this one (Ctrl+Z takes it back) */
+    copyFromPrevious() {
+      const from = this.image.previous;
+      const to = this.image.id;
+      if (from == null) {
+        this.$toastr.info(this.$t("annotator.noPreviousImage"));
+        return;
+      }
+      if (this.copying) return;
+      this.copying = true;
+      this.current.annotation = -1;
+      this.$nextTick(() => {
+        this.save(() => {
+          axios
+            .post(`/api/image/copy/${from}/${to}/annotations`, { category_ids: [] })
+            .then(r => {
+              const ids = r.data.ids || [];
+              if (!ids.length) {
+                this.$toastr.info(this.$t("annotator.nothingToCopy"));
+                return;
+              }
+              this.addUndo(
+                new UndoAction({
+                  name: this.$t("toolbar.copyAnnotations"),
+                  action: "Copy",
+                  func: () =>
+                    axios.post(`/api/image/copy/${to}/annotations/undo`, { ids }).then(() => {
+                      if (this.image.id === to) this.getData();
+                    }),
+                  args: null
+                })
+              );
+              this.$toastr.success(this.$t("annotator.copiedPrevious", { n: ids.length }));
+              this.getData();
+            })
+            .catch(error => {
+              const data = (error.response && error.response.data) || {};
+              this.$toastr.error(data.message || String(error), this.$t("toolbar.copyAnnotations"));
+            })
+            .finally(() => (this.copying = false));
+        });
+      });
+    },
     clearAnnotations() {
       const categories = this.categoryRefs();
       const total = categories.reduce(

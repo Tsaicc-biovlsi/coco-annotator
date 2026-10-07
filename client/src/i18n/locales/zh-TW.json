@@ -39,7 +39,10 @@
     "categorySearch": "搜尋類別",
     "cleared": "已清除 {n} 個標註，按 Ctrl+Z 可以復原",
     "noCategoriesHaveBeenEnabled": "這張圖片沒有啟用任何類別。",
-    "nothingToClear": "這張圖片沒有標註。"
+    "nothingToClear": "這張圖片沒有標註。",
+    "noPreviousImage": "沒有上一張圖可以複製",
+    "nothingToCopy": "上一張圖沒有標註可以複製（或圖片大小不同）",
+    "copiedPrevious": "已從上一張複製 {n} 個標註，按 Ctrl+Z 可以復原"
   },
   "auth": {
     "confirmPassword": "確認密碼",
@@ -493,7 +496,8 @@
     "selectTool": "選取工具",
     "subtractSelection": "減去選取範圍",
     "undoLastAction": "復原上一個動作",
-    "clearAnnotations": "清除這張圖片的標註"
+    "clearAnnotations": "清除這張圖片的標註",
+    "copyPreviousAnnotations": "複製上一張的標註"
   },
   "stat": {
     "annotatedImages": "已標註圖片",

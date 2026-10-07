@@ -250,10 +250,11 @@ class ImageModel(DynamicDocument):
         if self.regenerate_thumbnail != flag:
             self.update(regenerate_thumbnail=flag)
 
-    def copy_annotations(self, annotations):
+    def copy_annotations(self, annotations, created_ids=None):
         """
         Creates a copy of the annotations for this image
         :param annotations: QuerySet of annotation models
+        :param created_ids: a list that receives the ids of the copies
         :return: number of annotations
         """
         annotations = annotations.filter(
@@ -269,6 +270,8 @@ class ImageModel(DynamicDocument):
 
                 clone.save(copy=True)
                 created += 1
+                if created_ids is not None:
+                    created_ids.append(clone.id)
 
         if created:
             self.update(set__annotated=True, set__regenerate_thumbnail=True,

@@ -39,7 +39,10 @@
     "categorySearch": "Category Search",
     "cleared": "Cleared {n} annotations; Ctrl+Z brings them back",
     "noCategoriesHaveBeenEnabled": "No categories have been enabled for this image.",
-    "nothingToClear": "This image has no annotations."
+    "nothingToClear": "This image has no annotations.",
+    "noPreviousImage": "There is no previous image to copy from",
+    "nothingToCopy": "The previous image has no annotations to copy (or a different size)",
+    "copiedPrevious": "Copied {n} annotations from the previous image; Ctrl+Z takes them back"
   },
   "auth": {
     "confirmPassword": "Confirm Password",

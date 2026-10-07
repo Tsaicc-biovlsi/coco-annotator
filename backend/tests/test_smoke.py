@@ -208,3 +208,21 @@ def test_socket_payload_limit_raised():
     assert Payload.max_decode_packets >= 1000
     packets = "".join(f"4{i}\x1e" for i in range(100)).rstrip("\x1e")
     assert len(Payload(encoded_payload=packets).packets) == 100
+
+
+def test_copy_returns_ids_and_undo(world):
+    from database import AnnotationModel, ImageModel
+    c = world["client"]
+    images = list(ImageModel.objects(dataset_id=world["dataset"]["id"], deleted=False).order_by("id"))
+    src, dst = images[0], images[1]
+    cat = world["dataset"]["categories"][0]
+    c.post("/api/annotation/", json={"image_id": src.id, "category_id": cat,
+                                     "segmentation": [[1, 1, 30, 1, 30, 30, 1, 30]]})
+    AnnotationModel.objects(image_id=src.id).update(set__area=841)
+    before = AnnotationModel.objects(image_id=dst.id, deleted=False).count()
+    r = c.post(f"/api/image/copy/{src.id}/{dst.id}/annotations", json={"category_ids": []}).get_json()
+    assert r["annotations_created"] == len(r["ids"]) >= 1
+    assert AnnotationModel.objects(image_id=dst.id, deleted=False).count() == before + len(r["ids"])
+    r2 = c.post(f"/api/image/copy/{dst.id}/annotations/undo", json={"ids": r["ids"]}).get_json()
+    assert r2["removed"] == len(r["ids"])
+    assert AnnotationModel.objects(image_id=dst.id, deleted=False).count() == before

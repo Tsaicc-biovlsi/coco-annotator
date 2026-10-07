@@ -139,9 +139,14 @@ export default {
           }
         },
         {
-          default: ["c"],
+          default: ["m"],
           name: "Center Image",
           function: this.fit
+        },
+        {
+          default: ["c"],
+          name: "Copy Previous Annotations",
+          function: this.copyFromPrevious
         },
         {
           default: ["d"],

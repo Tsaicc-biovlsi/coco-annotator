@@ -247,14 +247,34 @@ class ImageCopyAnnotations(Resource):
             deleted=False
         )
 
-        created = image_to.copy_annotations(query)
+        ids = []
+        created = image_to.copy_annotations(query, created_ids=ids)
         if created:
             from ..util import activity
             activity.record('copy', current_user, dataset_id=image_to.dataset_id, image_id=image_to.id,
                             counts={'annotations': created},
                             detail={'file_name': image_to.file_name, 'from_file': image_from.file_name},
                             text=f"{image_to.file_name} {image_from.file_name}")
-        return {'annotations_created': created}
+        return {'annotations_created': created, 'ids': ids}
+
+
+@api.route('/copy/<int:to_id>/annotations/undo')
+class ImageCopyUndo(Resource):
+
+    @login_required
+    def post(self, to_id):
+        """ Take back a copy (Ctrl+Z): removes those copies for good """
+        from flask import request
+        image = current_user.images.filter(id=to_id).first()
+        if image is None:
+            return {'message': 'Invalid image id'}, 400
+        if not current_user.can_edit(image.dataset):
+            return {'message': 'You do not have permission to edit this dataset'}, 403
+        ids = [int(i) for i in (request.get_json(silent=True) or {}).get('ids', [])]
+        removed = AnnotationModel.objects(id__in=ids, image_id=image.id).delete()
+        from ..util.trash import refresh_image
+        refresh_image(image.id)
+        return {'removed': removed}
 
 
 @api.route('/<int:image_id>/annotations')
