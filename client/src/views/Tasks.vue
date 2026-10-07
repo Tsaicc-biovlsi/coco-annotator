@@ -5,7 +5,7 @@
       class="album py-5 bg-light shadow-sm"
       style="overflow: auto; height: calc(100vh - 55px)"
     >
-      <div class="container">
+      <div class="page-container">
         <h2 class="text-center">{{ $t('tasks.tasks') }}</h2>
         <p class="text-center"><i18n-t keypath="tasks.running" tag="span"><template #n><b>{{ total }}</b></template></i18n-t></p>
       

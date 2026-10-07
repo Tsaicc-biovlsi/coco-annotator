@@ -31,7 +31,7 @@
       </nav>
     
       <div class="bg-light text-start" style="overflow: auto; height: calc(100vh - 100px); margin: 10px">
-        <div class="container" v-show="tab == 'images'">
+        <div class="page-container" v-show="tab == 'images'">
           
           <ol class="breadcrumb">
             <li class="breadcrumb-item"></li>
@@ -164,7 +164,7 @@
           </div>
         </div>
 
-        <div class="container" v-show="tab == 'members'">
+        <div class="page-container" v-show="tab == 'members'">
 
           <div class="card my-3 p-3 shadow-sm me-2">
             <h6 class="border-bottom border-gray pb-2"><b>{{ $t('dataset.inviteMembers') }}</b></h6>
@@ -189,7 +189,7 @@
           </div>
 
         </div>
-        <div class="container" v-show="tab == 'statistics'">
+        <div class="page-container" v-show="tab == 'statistics'">
           <div v-if="stats == null">
             {{ $t('dataset.crunchingNumbers') }}
           </div>
@@ -263,7 +263,7 @@
             
           </div>
         </div>
-        <div class="container" v-show="tab == 'settings'">
+        <div class="page-container" v-show="tab == 'settings'">
           <div class="card my-3 p-3 shadow-sm me-2">
             <h6 class="border-bottom border-gray pb-2"><b>{{ $t('datasetTask.label') }}</b></h6>
             <TaskPicker v-model="taskDraft" name="settingsTask" />
@@ -796,7 +796,7 @@ export default {
       userAvatar,
       page: 1,
       pages: 1,
-      limit: 52,
+      limit: 48,
       imageCount: 0,
       categories: [],
       images: [],

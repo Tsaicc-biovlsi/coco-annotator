@@ -1,5 +1,5 @@
 <template>
-  <div class="col-md-3">
+  <div class="col-sm-6 col-md-4 col-xl-3 col-xxl-2">
     <div class="card mb-4 box-shadow" @click="onCardClick">
       <div class="card-body">
         <span class="d-inline-block text-truncate" style="max-width: 75%; float: left">

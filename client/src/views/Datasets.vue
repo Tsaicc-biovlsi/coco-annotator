@@ -6,7 +6,7 @@
       class="album py-5 bg-light"
       style="overflow: auto; height: calc(100vh - 55px)"
     >
-      <div class="container">
+      <div class="page-container">
         <h2 class="text-center">
           {{ $t('datasets.datasets') }}
           <i
@@ -324,7 +324,7 @@ export default {
   data() {
     return {
       pages: 1,
-      limit: 8,
+      limit: 12,
       page: 1,
       loaded: false,
       parent: readTab(),

@@ -1,5 +1,5 @@
 <template>
-  <div class="col-md-3">
+  <div class="col-sm-6 col-md-4 col-xl-3 col-xxl-2">
     <!-- Dataset Card -->
     <div class="card mb-4 box-shadow">
       <!-- Display Image (with the planned task in the corner) -->

@@ -2,7 +2,7 @@
   <div>
     <div style="padding-top: 55px" />
     <div class="bg-light models-page" style="overflow: auto; height: calc(100vh - 55px)">
-      <div class="container py-4">
+      <div class="page-container py-4">
         <div class="d-flex align-items-start flex-wrap gap-2 mb-3">
           <div class="me-auto">
             <h3 class="mb-1"><i class="fa fa-cubes" /> {{ $t('models.title') }}</h3>

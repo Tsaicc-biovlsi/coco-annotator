@@ -2,7 +2,7 @@
   <div>
     <div style="padding-top: 55px" />
     <div class="bg-light categories-page" style="overflow: auto; height: calc(100vh - 55px)">
-      <div class="container-xl py-4">
+      <div class="page-container py-4">
         <div class="d-flex align-items-start flex-wrap gap-2 mb-3">
           <div class="me-auto">
             <h3 class="mb-1">
@@ -31,7 +31,7 @@
         </p>
         <div v-else class="row g-3">
           <!-- folders: a › b › ... -->
-          <div class="col-lg-3">
+          <div class="col-lg-3 col-xxl-2">
             <div class="card shadow-sm tree-card">
               <div class="card-body p-2">
                 <div class="tree-special" :class="{ active: currentKey === '*' }" @click="selectTab('*')">
@@ -55,7 +55,7 @@
             </div>
           </div>
 
-          <div class="col-lg-9">
+          <div class="col-lg-9 col-xxl-10">
             <!-- where we are -->
             <nav class="crumbs mb-2" aria-label="breadcrumb">
               <a href="#" @click.prevent="selectTab('*')">{{ $t('parents.all') }}</a>
@@ -267,7 +267,8 @@ export default {
       open: new Set(),
       deep: true,
       page: 1,
-      perPage: 16,
+      // 4 rows: 6 cards a row on wide screens, 4 otherwise
+      perPage: window.innerWidth >= 1400 ? 24 : 16,
       newCategoryName: "",
       newCategoryParents: [],
       newCategoryColor: null,

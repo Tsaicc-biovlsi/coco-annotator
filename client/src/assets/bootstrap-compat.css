@@ -58,3 +58,20 @@ label {
 .list-group {
   --bs-list-group-border-color: rgba(0, 0, 0, 0.125);
 }
+
+/* Pages use the screen width (Bootstrap's .container stops at 1320 px,
+   leaving wide empty margins on big monitors) */
+.page-container {
+  width: 100%;
+  max-width: 1840px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+@media (max-width: 575.98px) {
+  .page-container {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
