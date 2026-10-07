@@ -590,6 +590,7 @@ def import_annotations(task_id, dataset_id, coco_json):
                 annotation_model.isrbbox = True
                 annotation_model.rbbox = rbbox
             annotation_model.import_task = task_id  # lets the activity log take the import back
+            annotation_model.source = 'import'      # statistics count these apart from people
             annotation_model.save()
             created_annotations += 1
 

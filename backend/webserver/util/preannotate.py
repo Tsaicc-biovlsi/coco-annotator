@@ -81,7 +81,7 @@ class CategoryResolver:
         return True
 
 
-def apply_predictions(image, predictions, resolver, username=None, task_id=None):
+def apply_predictions(image, predictions, resolver, username=None, task_id=None, model_name=None):
     """Save predictions as annotations of ``image``. Returns how many."""
     created = 0
     category_ids = set(image.category_ids or [])
@@ -104,6 +104,9 @@ def apply_predictions(image, predictions, resolver, username=None, task_id=None)
             annotation.keypoints = p["keypoints"]
         if task_id is not None:
             annotation.import_task = task_id  # the activity log can take the run back
+        annotation.source = 'model'           # statistics count these apart from people
+        if model_name:
+            annotation.model = model_name
         annotation.save()
         if username:
             annotation.update(creator=username)
@@ -129,7 +132,7 @@ def annotate_image(image, model_name, conf=0.25, create_missing=True, user=None)
     predictions = yolo.predict(model_name, image.path, conf=conf)
     resolver = CategoryResolver(dataset, create_missing=create_missing, user=user)
     created = apply_predictions(image, predictions, resolver,
-                                username=user.username if user else None)
+                                username=user.username if user else None, model_name=model_name)
     if created:
         from . import activity
         activity.record('auto_annotate', user, dataset_id=image.dataset_id, image_id=image.id,
@@ -164,7 +167,8 @@ def _run_dataset(task_id, dataset_id, model_name, conf, skip_annotated,
             try:
                 predictions = yolo.predict(model_name, image.path, conf=conf)
                 created = apply_predictions(image, predictions, resolver,
-                                            username=user.username if user else None, task_id=task_id)
+                                            username=user.username if user else None, task_id=task_id,
+                                            model_name=model_name)
                 total_created += created
                 if created:
                     task.info(f"{image.file_name}: {created} annotations")

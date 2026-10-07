@@ -201,7 +201,12 @@
     "totalImages": "Total of {images} images displayed on {pages} pages.",
     "upload": "Upload",
     "uploadCocoAnnotaitons": "Upload annotations (COCO / YOLO)",
-    "username": "Username"
+    "username": "Username",
+    "modelSource": "Model {name}",
+    "unknownModel": "(name not recorded)",
+    "importSource": "Imported",
+    "ranBy": "run by {names}",
+    "perUserHint": "People's numbers count only what they drew; model runs and imports are listed apart. Model results from before this update mostly cannot be told apart and still count for whoever ran the model."
   },
   "datasetCard": {
     "addUsernames": "Add usernames",

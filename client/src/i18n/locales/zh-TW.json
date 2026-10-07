@@ -201,7 +201,12 @@
     "totalImages": "共 {images} 張圖片，分 {pages} 頁顯示。",
     "upload": "上傳",
     "uploadCocoAnnotaitons": "上傳標註（COCO / YOLO）",
-    "username": "使用者名稱"
+    "username": "使用者名稱",
+    "modelSource": "模型 {name}",
+    "unknownModel": "（未記錄名稱）",
+    "importSource": "匯入",
+    "ranBy": "由 {names} 執行",
+    "perUserHint": "使用者的數字只算自己畫的標註；用模型自動標註和匯入的另外列出。這次更新之前用模型產生的標註大多無法分辨，仍算在執行模型的人身上。"
   },
   "datasetCard": {
     "addUsernames": "新增使用者名稱",

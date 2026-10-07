@@ -283,19 +283,7 @@ class DatasetStats(Resource):
 
 
 
-        user_stats = dict()
-
-        for user in dataset.get_users():
-            user_annots = AnnotationModel.objects(dataset_id=dataset_id, deleted=False, creator=user.username)
-            image_count = dict()
-            for annot in user_annots:
-                image_count[annot.image_id] = image_count.get(annot.image_id, 0) + 1
-
-            user_stats[user.username] = {
-                "annotations":  len(user_annots),
-                "images": len(image_count)
-            }
-
+        user_stats, sources = _annotation_sources(dataset)
 
         for category in dataset.categories:
 
@@ -326,9 +314,45 @@ class DatasetStats(Resource):
             },
             'categories': category_count,
             'images_per_category': image_category_count,
-            'users': user_stats
+            'users': user_stats,
+            # annotations not drawn by a member: model runs and imports
+            'sources': sources
         }
         return stats
+
+
+def _annotation_sources(dataset):
+    """Annotations per member (drawn by hand), per model, and imported."""
+    from database import ActivityModel
+    live = AnnotationModel.objects(dataset_id=dataset.id, deleted=False)
+
+    # runs from before annotations were marked: the activity log knows their task
+    for entry in ActivityModel.objects(dataset_id=dataset.id, action__in=['auto_annotate', 'import'],
+                                       task_id__ne=None).only('action', 'task_id', 'detail'):
+        if entry.action == 'auto_annotate':
+            AnnotationModel.objects(import_task=entry.task_id, source__exists=False).update(
+                set__source='model', set__model=(entry.detail or {}).get('model'))
+        else:
+            AnnotationModel.objects(import_task=entry.task_id, source__exists=False).update(set__source='import')
+
+    def summary(query):
+        return {'annotations': query.count(), 'images': len(query.distinct('image_id'))}
+
+    members = [u.username for u in dataset.get_users()]
+    by_hand = live.filter(source__nin=['model', 'import'])
+    users = {name: summary(by_hand.filter(creator=name)) for name in members}
+
+    sources = []
+    models = live.filter(source='model')
+    for name in sorted(n for n in models.distinct('model') if n) + [None]:
+        query = models.filter(model=name) if name else models.filter(model__exists=False)
+        if query.count():
+            sources.append({'kind': 'model', 'name': name, **summary(query),
+                            'by': sorted(c for c in query.distinct('creator') if c and c != 'system')})
+    imported = live.filter(Q(source='import') | (Q(source__nin=['model', 'import']) & Q(creator__nin=members)))
+    if imported.count():
+        sources.append({'kind': 'import', 'name': None, **summary(imported)})
+    return users, sources
 
 
 @api.route('/<int:dataset_id>')

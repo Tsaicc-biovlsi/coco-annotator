@@ -241,6 +241,22 @@
                   <span class="col-4">{{stats.users[stat]["annotations"].toFixed(0)}}</span>
                   <span class="col-4">{{stats.users[stat]["images"].toFixed(0)}}</span>
                 </div>
+                <!-- not drawn by a member: model runs, imports -->
+                <div
+                  v-for="(src, i) in (stats.sources || [])"
+                  :key="'src' + i"
+                  class="row source-row"
+                  :class="{ 'border-top pt-1 mt-1': i === 0 }"
+                >
+                  <strong class="col-4">
+                    <i class="fa" :class="src.kind === 'model' ? 'fa-magic' : 'fa-upload'" />
+                    {{ src.kind === 'model' ? $t('dataset.modelSource', { name: src.name || $t('dataset.unknownModel') }) : $t('dataset.importSource') }}:
+                    <div v-if="src.by && src.by.length" class="small text-muted fw-normal">{{ $t('dataset.ranBy', { names: src.by.join('、') }) }}</div>
+                  </strong>
+                  <span class="col-4">{{ src.annotations }}</span>
+                  <span class="col-4">{{ src.images }}</span>
+                </div>
+                <div class="small text-muted mt-2">{{ $t('dataset.perUserHint') }}</div>
               </div>
 
             </div>
