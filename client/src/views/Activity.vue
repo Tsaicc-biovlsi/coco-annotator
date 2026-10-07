@@ -222,7 +222,7 @@
         </template>
 
         <div v-if="data && data.pages > 1" class="d-flex justify-content-center mt-3">
-          <Pagination :pages="data.pages" @pagechange="p => load(p)" />
+          <Pagination :pages="data.pages" :current="page" @pagechange="p => load(p)" />
         </div>
       </div>
     </div>

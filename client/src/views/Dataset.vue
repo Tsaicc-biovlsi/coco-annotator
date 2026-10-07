@@ -59,11 +59,11 @@
             {{ $t('dataset.noImagesFoundInDirectory') }}
           </p>
           <div v-else>
-            <Pagination :pages="pages" @pagechange="updatePage" />
+            <Pagination :pages="pages" :current="page" @pagechange="updatePage" />
             <div class="row">
               <ImageCard v-for="image in images" :key="image.id" :image="image" :category-map="categoryMap" />
             </div>
-            <Pagination :pages="pages" @pagechange="updatePage" />
+            <Pagination :pages="pages" :current="page" @pagechange="updatePage" />
           </div>
 
         </div>
@@ -794,6 +794,7 @@ export default {
   data() {
     return {
       userAvatar,
+      page: 1,
       pages: 1,
       limit: 52,
       imageCount: 0,
@@ -884,6 +885,8 @@ export default {
   methods: {
     ...mapMutations(["addProcess", "removeProcess"]),
     updatePage(page) {
+      // both pagers (above and below the images) show this page
+      this.page = page || 1;
       let process = "Loading images from dataset";
       this.addProcess(process);
 
