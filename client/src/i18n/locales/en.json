@@ -703,7 +703,9 @@
     "filterAssignee": "Assignee",
     "all": "All",
     "assignedToMe": "Assigned to me",
-    "onlyApproved": "Only images that were approved"
+    "onlyApproved": "Only images that were approved",
+    "submitOnNext": "When going to the next image (N or →), submit it if it has annotations",
+    "submittedOnNext": "Submitted {name}"
   },
   "imageClass": {
     "title": "Image class",

@@ -116,3 +116,18 @@ def test_assign_filters_progress_and_export(review_world):
     assert sorted(i["file_name"] for i in coco["images"]) == ["r0.jpg", "r1.jpg"]
     row = owner.get(f"/api/dataset/{ds}/exports").get_json()[0]
     assert row["only_approved"] is True
+
+
+def test_submit_skip_empty(world):
+    from database import ImageModel
+    c = world["client"]
+    image = ImageModel.objects(dataset_id=world["dataset"]["id"], deleted=False).first()
+    ImageModel.objects(id=image.id).update(set__num_annotations=0, unset__image_class=True, set__status="unlabeled")
+    r = c.post(f"/api/review/image/{image.id}", json={"action": "submit", "skip_empty": True})
+    assert r.status_code == 200 and r.get_json()["skipped"] is True
+    assert ImageModel.objects(id=image.id).first().status == "unlabeled"
+    ImageModel.objects(id=image.id).update(set__num_annotations=2)
+    r = c.post(f"/api/review/image/{image.id}", json={"action": "submit", "skip_empty": True})
+    assert r.status_code == 200 and not r.get_json().get("skipped")
+    assert ImageModel.objects(id=image.id).first().status == "labeled"
+    ImageModel.objects(id=image.id).update(set__status="unlabeled")

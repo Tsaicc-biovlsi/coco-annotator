@@ -76,7 +76,11 @@
       </div>
     </div>
 
-    <div class="form-check form-switch mt-2 small">
+    <div v-if="canEdit" class="form-check form-switch mt-2 small">
+      <input id="reviewSubmitOnNext" v-model="submitOnNext" class="form-check-input" type="checkbox" />
+      <label class="form-check-label" for="reviewSubmitOnNext">{{ $t('review.submitOnNext') }}</label>
+    </div>
+    <div class="form-check form-switch mt-1 small">
       <input id="reviewAutoNext" v-model="autoNext" class="form-check-input" type="checkbox" />
       <label class="form-check-label" for="reviewAutoNext">
         {{ canReview ? $t('review.autoNextReview') : $t('review.autoNextWork') }}
@@ -89,6 +93,7 @@
 import axios from "axios";
 
 const AUTO_NEXT_KEY = "review/autoNext";
+const SUBMIT_ON_NEXT_KEY = "review/submitOnNext";
 
 export function statusClass(status) {
   return {
@@ -117,7 +122,13 @@ export default {
     } catch {
       // storage unavailable: keep the default
     }
-    return { busy: false, rejecting: false, note: "", autoNext };
+    let submitOnNext = false;
+    try {
+      submitOnNext = localStorage.getItem(SUBMIT_ON_NEXT_KEY) === "true";
+    } catch {
+      // storage unavailable: off
+    }
+    return { busy: false, rejecting: false, note: "", autoNext, submitOnNext };
   },
   computed: {
     status() {
@@ -128,6 +139,13 @@ export default {
     autoNext(value) {
       try {
         localStorage.setItem(AUTO_NEXT_KEY, String(value));
+      } catch {
+        // ignore
+      }
+    },
+    submitOnNext(value) {
+      try {
+        localStorage.setItem(SUBMIT_ON_NEXT_KEY, String(value));
       } catch {
         // ignore
       }
@@ -160,6 +178,24 @@ export default {
         this.$toastr.error(data.message || String(error));
       } finally {
         this.busy = false;
+      }
+    },
+    /**
+     * Called when moving to the next image (N or the arrow), after saving:
+     * with the switch on, an image that has annotations and is not
+     * submitted yet is submitted. Never stops the move.
+     */
+    async submitBeforeNext() {
+      if (!this.submitOnNext || !this.canEdit || !(this.status === "unlabeled" || this.status === "rejected")) return;
+      try {
+        const r = await axios.post(`/api/review/image/${this.imageId}`, { action: "submit", skip_empty: true });
+        if (!r.data.skipped) {
+          this.$emit("updated", r.data);
+          this.$toastr.success(this.$t("review.submittedOnNext", { name: this.filename }));
+        }
+      } catch (error) {
+        const data = (error.response && error.response.data) || {};
+        this.$toastr.error(data.message || String(error));
       }
     },
     async goNext(mode) {

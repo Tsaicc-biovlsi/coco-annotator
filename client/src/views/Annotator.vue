@@ -114,6 +114,7 @@
 
       <ReviewBar
         v-if="image.id != null"
+        ref="reviewBar"
         :image-id="image.id"
         :dataset-id="dataset && dataset.id"
         :filename="image.filename"
@@ -373,6 +374,7 @@ export default {
   },
   data() {
     return {
+      goingNext: false,
       activeTool: "Select",
       paper: null,
       shapeOpacity: 0.6,
@@ -1194,8 +1196,26 @@ export default {
       }
     },
     nextImage() {
-      if(this.image.next != null)
-        this.$refs.filetitle.route(this.image.next);
+      if (this.image.next == null || this.goingNext) return;
+      const next = this.image.next;
+      const bar = this.$refs.reviewBar;
+      if (!bar || !bar.submitOnNext) {
+        this.$refs.filetitle.route(next);
+        return;
+      }
+      // save, submit if the switch is on, then move on
+      this.goingNext = true;
+      this.current.annotation = -1;
+      this.$nextTick(() => {
+        this.save(async () => {
+          try {
+            await bar.submitBeforeNext();
+          } finally {
+            this.goingNext = false;
+            this.$refs.filetitle.route(next);
+          }
+        });
+      });
     },
     previousImage() {
       if(this.image.previous != null)

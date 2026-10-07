@@ -23,6 +23,8 @@
 </template>
 
 <script>
+const NON_TEXT_INPUTS = ["checkbox", "radio", "range", "button", "submit", "reset", "color", "file"];
+
 export default {
   name: "CustomShortcut",
   props: {
@@ -48,10 +50,14 @@ export default {
     function(e) {
       let target = e.target.tagName.toLowerCase();
 
-      if (target === "input") return;
-      if (target === "textarea") return;
+      // typing in a text box is not a shortcut; a focused switch / checkbox /
+      // slider (just clicked in the sidebar) must not block them though
+      if (target === "input" && !NON_TEXT_INPUTS.includes((e.target.type || "").toLowerCase())) return;
+      if (target === "textarea" || target === "select" || e.target.isContentEditable) return;
 
       e.preventDefault();
+      // so that e.g. Space does not also flip the focused switch
+      if (target === "input") e.target.blur();
       this.shortcut.function();
     },
     onkeydown(e) {
@@ -102,7 +108,7 @@ export default {
   },
   unmounted() {
     window.removeEventListener("keydown", this.onKeydown);
-    window.removeEventListener("keydup", this.onKeyup);
+    window.removeEventListener("keyup", this.onKeyup);
   }
 };
 </script>

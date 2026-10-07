@@ -24,6 +24,8 @@ status_args = reqparse.RequestParser()
 status_args.add_argument('action', location='json', required=True,
                          choices=('submit', 'approve', 'reject', 'reopen'))
 status_args.add_argument('note', location='json', default='')
+status_args.add_argument('skip_empty', location='json', type=bool, default=False,
+                         help='submit: do nothing for an image without annotations or image class')
 status_args.add_argument('image_ids', location='json', type=list, default=None,
                          help='Apply to several images of the same dataset')
 
@@ -108,6 +110,10 @@ class ImageStatus(Resource):
         dataset = _dataset(image.dataset_id)
         if dataset is None:
             return {'message': 'Invalid dataset'}, 400
+
+        if args.get('skip_empty') and args['action'] == 'submit' and not args.get('image_ids') \
+                and not (image.num_annotations or 0) and getattr(image, 'image_class', None) is None:
+            return {'success': True, 'count': 0, 'skipped': True, **image_review_info(image)}
 
         images = [image]
         if args.get('image_ids'):

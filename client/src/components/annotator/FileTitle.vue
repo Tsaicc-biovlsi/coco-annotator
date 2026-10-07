@@ -10,7 +10,7 @@
       v-show="nextimage != null"
       class="fa fa-arrow-right image-arrows"
       style="float:right"
-      @click="route(nextimage)"
+      @click="$parent.nextImage ? $parent.nextImage() : route(nextimage)"
     />
 
     <h6 class="text-center" style="color: white;">

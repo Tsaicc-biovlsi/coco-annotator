@@ -831,7 +831,9 @@
     "filterAssignee": "負責人",
     "all": "全部",
     "assignedToMe": "指派給我",
-    "onlyApproved": "只匯出已審核的圖片"
+    "onlyApproved": "只匯出已審核的圖片",
+    "submitOnNext": "按 N 或 → 換下一張時，自動送審有標註的圖",
+    "submittedOnNext": "已送審 {name}"
   },
   "imageClass": {
     "title": "整張圖類別",
