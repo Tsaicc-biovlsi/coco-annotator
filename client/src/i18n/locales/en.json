@@ -787,8 +787,8 @@
     "seconds": "s",
     "max": "At most per video",
     "frames": "frames",
-    "hint": "Frames are saved as JPG in a sub-folder named after the video, e.g. clip/clip_000m01s000.jpg (the name is the time). The video itself is deleted after extraction.",
-    "emptyHint": "Optional. mp4, mov, avi, mkv, webm…: one frame every N seconds or N frames is added to the dataset.",
+    "hint": "After upload each video shows its length, fps and frame count; drag the slider or type a time (min:sec) to choose the part to use. Frames are saved as JPG in a folder named after the video (file names are times); the video is deleted afterwards.",
+    "emptyHint": "Optional. Pick several videos at once (mp4, mov, avi, mkv, webm…), set each one's start and end, then save a frame every N seconds or N frames.",
     "stage": {
       "upload": "Uploading {name}",
       "extract": "Extracting frames {name}"
@@ -800,8 +800,24 @@
     "everySuffix": "",
     "unit": "Unit",
     "frameUnit": "frames",
-    "secondsExample": "One frame every {n} s",
-    "framesExample": "Frames 0, {n}, … (one every {n} video frames, whatever the fps)"
+    "addMore": "Add videos",
+    "totalVideos": "{n} videos",
+    "totalDuration": "Total length",
+    "totalFrames": "Total frames",
+    "selected": "Selected",
+    "expectedTotal": "Frames to save",
+    "uploadingN": "{n} still uploading",
+    "noPreview": "No preview for this format",
+    "remove": "Remove",
+    "uploading": "Uploading",
+    "waiting": "Waiting",
+    "duration": "Length",
+    "start": "Start",
+    "end": "End",
+    "useCurrent": "Use the preview's current time",
+    "wholeVideo": "Whole video",
+    "expected": "≈ {n} frames",
+    "addedN": "{n} frames added"
   },
   "datasetTask": {
     "label": "Planned task",

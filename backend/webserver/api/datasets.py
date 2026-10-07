@@ -63,11 +63,18 @@ export.add_argument('only_approved', type=inputs.boolean, default=False, help='O
 export.add_argument('folder', default='', help='YOLO: folder in the zip that holds train / val / test (default: dataset name)')
 
 video_upload = reqparse.RequestParser()
-video_upload.add_argument('video', location='files', type=FileStorage, required=True, help='Video file')
+video_upload.add_argument('video', location='files', type=FileStorage, required=False,
+                          help='Video file (or upload_id of a video sent to /dataset/video/stage)')
+video_upload.add_argument('upload_id', location='form', default=None,
+                          help='A video uploaded earlier with /dataset/video/stage')
 video_upload.add_argument('every_seconds', location='form', type=float, default=1.0,
                           help='Save one frame every N seconds')
 video_upload.add_argument('every_frames', location='form', type=int, default=None,
                           help='Save one frame every N video frames (instead of every_seconds)')
+video_upload.add_argument('start_seconds', location='form', type=float, default=0.0,
+                          help='Start of the part to use (seconds)')
+video_upload.add_argument('end_seconds', location='form', type=float, default=None,
+                          help='End of the part to use (seconds; the end of the video if empty)')
 video_upload.add_argument('max_frames', location='form', type=int, default=1000,
                           help='Stop after this many frames')
 
@@ -868,11 +875,19 @@ class DatasetVideo(Resource):
         if not current_user.can_edit(dataset):
             return {'message': 'You do not have permission to edit this dataset'}, 403
 
-        video = args['video']
-        name = os.path.basename((video.filename or 'video').replace('\\', '/'))
-        ext = os.path.splitext(name)[1].lower()
-        if ext not in VIDEO_EXTENSIONS:
-            return {'message': 'Unsupported video type: ' + (ext or name)}, 400
+        video = args.get('video')
+        found = None
+        if video is None:
+            from ..util.video import staged
+            found = staged(args.get('upload_id'), current_user)
+            if found is None:
+                return {'message': 'Send a video file or the upload_id of an uploaded video'}, 400
+            name = found[1]['name']
+        else:
+            name = os.path.basename((video.filename or 'video').replace('\\', '/'))
+            ext = os.path.splitext(name)[1].lower()
+            if ext not in VIDEO_EXTENSIONS:
+                return {'message': 'Unsupported video type: ' + (ext or name)}, 400
         every = args.get('every_seconds') or 1.0
         every_frames = args.get('every_frames')
         if every_frames is not None:
@@ -880,20 +895,61 @@ class DatasetVideo(Resource):
                 return {'message': 'every_frames must be between 1 and 100000'}, 400
         elif not 0.04 <= every <= 3600:
             return {'message': 'every_seconds must be between 0.04 and 3600'}, 400
+        start_seconds = args.get('start_seconds') or 0.0
+        end_seconds = args.get('end_seconds')
+        if start_seconds < 0 or (end_seconds is not None and end_seconds <= start_seconds):
+            return {'message': 'start_seconds must be >= 0 and end_seconds after it'}, 400
         max_frames = args.get('max_frames') or 1000
         if not 1 <= max_frames <= 20000:
             return {'message': 'max_frames must be between 1 and 20000'}, 400
 
-        # kept in a hidden folder until the frames are extracted, then deleted
-        upload_dir = os.path.join(dataset.directory, '.uploads')
-        os.makedirs(upload_dir, exist_ok=True)
-        path = os.path.join(upload_dir, uuid.uuid4().hex + ext)
-        video.save(path)
+        if found is not None:
+            path = found[0]
+            try:
+                os.remove(os.path.join(os.path.dirname(path), args['upload_id'] + '.json'))
+            except OSError:
+                pass
+        else:
+            # kept in a hidden folder until the frames are extracted, then deleted
+            upload_dir = os.path.join(dataset.directory, '.uploads')
+            os.makedirs(upload_dir, exist_ok=True)
+            path = os.path.join(upload_dir, uuid.uuid4().hex + ext)
+            video.save(path)
 
         return import_video(dataset, path, name, every_seconds=every, every_frames=every_frames,
+                            start_seconds=start_seconds, end_seconds=end_seconds,
                             max_frames=max_frames,
                             user=current_user, socket=socketio,
                             background=not Config.CELERY_TASK_ALWAYS_EAGER)
+
+
+stage_upload = reqparse.RequestParser()
+stage_upload.add_argument('video', location='files', type=FileStorage, required=True, help='Video file')
+
+
+@api.route('/video/stage')
+class VideoStage(Resource):
+
+    @api.expect(stage_upload)
+    @login_required
+    def post(self):
+        """ Upload a video before importing it: returns its length, fps and frame count """
+        from ..util.video import stage
+        args = stage_upload.parse_args()
+        try:
+            return stage(args['video'], current_user)
+        except ValueError as e:
+            return {'message': str(e)}, 400
+
+
+@api.route('/video/stage/<string:upload_id>')
+class VideoStageId(Resource):
+
+    @login_required
+    def delete(self, upload_id):
+        """ Drop an uploaded video that will not be imported """
+        from ..util.video import discard
+        return {'success': discard(upload_id, current_user)}
 
 
 @api.route('/<int:dataset_id>/scan')

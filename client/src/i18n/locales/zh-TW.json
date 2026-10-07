@@ -915,8 +915,8 @@
     "seconds": "秒",
     "max": "每支影片最多",
     "frames": "張",
-    "hint": "影格會存成 JPG，放在以影片命名的子資料夾，例如 影片名稱/影片名稱_000m01s000.jpg（檔名是時間點）。上傳完影片就會刪掉，只留下影格。",
-    "emptyHint": "選填。mp4、mov、avi、mkv、webm 等格式，每隔固定秒數或幀數擷取一張影格加入資料集。",
+    "hint": "每支影片上傳後會顯示長度、fps 和總幀數，可以拖曳滑桿或輸入時間（分:秒）設定要擷取的開始與結束。影格存成 JPG，放在以影片命名的子資料夾（檔名是時間點）；擷取完影片就會刪掉。",
+    "emptyHint": "選填。可以一次選多支影片（mp4、mov、avi、mkv、webm…），每支可以設定開始與結束時間，再每隔固定秒數或幀數擷取影格。",
     "stage": {
       "upload": "上傳 {name}",
       "extract": "擷取影格 {name}"
@@ -928,8 +928,24 @@
     "everySuffix": "取一張",
     "unit": "單位",
     "frameUnit": "幀",
-    "secondsExample": "每 {n} 秒存一張影格",
-    "framesExample": "每 {n} 幀存一張（第 0、{n}… 幀），不受影片 fps 影響"
+    "addMore": "再加影片",
+    "totalVideos": "{n} 支影片",
+    "totalDuration": "總長",
+    "totalFrames": "總幀數",
+    "selected": "選取範圍",
+    "expectedTotal": "預計擷取",
+    "uploadingN": "還有 {n} 支上傳中",
+    "noPreview": "瀏覽器無法預覽此格式",
+    "remove": "移除",
+    "uploading": "上傳中",
+    "waiting": "等待上傳",
+    "duration": "長度",
+    "start": "開始",
+    "end": "結束",
+    "useCurrent": "用預覽目前的時間",
+    "wholeVideo": "整支影片",
+    "expected": "約 {n} 張",
+    "addedN": "已加入 {n} 張影格"
   },
   "datasetTask": {
     "label": "預計任務",

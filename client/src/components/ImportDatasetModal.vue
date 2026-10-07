@@ -1,6 +1,6 @@
 <template>
   <div class="modal fade" tabindex="-1" role="dialog" id="importDataset">
-    <div class="modal-dialog" role="document">
+    <div class="modal-dialog" :class="{ 'modal-lg': videoState.count }" role="document">
       <div class="modal-content text-start">
         <div class="modal-header">
           <h5 class="modal-title">{{ $t('importDataset.title') }}</h5>
@@ -66,67 +66,7 @@
             </div>
 
             <div class="mb-3">
-              <label class="form-label">{{ $t('video.title') }}</label>
-              <div class="d-flex gap-2 flex-wrap align-items-center">
-                <button type="button" class="btn btn-outline-primary btn-sm" :disabled="running" @click="$refs.videos.click()">
-                  <i class="fa fa-film" /> {{ $t('video.choose') }}
-                </button>
-                <button v-if="videos.length" type="button" class="btn btn-link btn-sm" :disabled="running" @click="videos = []">
-                  {{ $t('importDataset.clear') }}
-                </button>
-              </div>
-              <input ref="videos" type="file" multiple :accept="videoAccept" class="d-none" @change="addVideos" />
-              <template v-if="videos.length">
-                <div class="form-text">{{ videos.map(v => v.name).join('、') }}（{{ videoSize }}）</div>
-                <div class="row g-2 mt-1">
-                  <div class="col-6">
-                    <label class="form-label small mb-0" for="videoEvery">{{ $t('video.everyLabel') }}</label>
-                    <div class="input-group input-group-sm">
-                      <span class="input-group-text">{{ $t('video.everyPrefix') }}</span>
-                      <input
-                        v-if="videoUnit === 'seconds'"
-                        id="videoEvery"
-                        v-model.number="videoEvery"
-                        type="number" min="0.04" max="3600" step="0.5"
-                        class="form-control"
-                        :disabled="running"
-                      />
-                      <input
-                        v-else
-                        id="videoEvery"
-                        v-model.number="videoEveryFrames"
-                        type="number" min="1" max="100000" step="1"
-                        class="form-control"
-                        :disabled="running"
-                      />
-                      <select v-model="videoUnit" class="form-select unit-select" :disabled="running" :aria-label="$t('video.unit')">
-                        <option value="seconds">{{ $t('video.seconds') }}</option>
-                        <option value="frames">{{ $t('video.frameUnit') }}</option>
-                      </select>
-                      <span class="input-group-text">{{ $t('video.everySuffix') }}</span>
-                    </div>
-                    <div class="form-text mt-0">
-                      {{ videoUnit === 'frames' ? $t('video.framesExample', { n: videoEveryFrames || 1 }) : $t('video.secondsExample', { n: videoEvery || 1 }) }}
-                    </div>
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label small mb-0" for="videoMax">{{ $t('video.max') }}</label>
-                    <div class="input-group input-group-sm">
-                      <input id="videoMax" v-model.number="videoMax" type="number" min="1" max="20000" step="100" class="form-control" :disabled="running" />
-                      <span class="input-group-text">{{ $t('video.frames') }}</span>
-                    </div>
-                  </div>
-                </div>
-                <div class="form-text">{{ $t('video.hint') }}</div>
-              </template>
-              <div v-else class="form-text">{{ $t('video.emptyHint') }}</div>
-              <div v-if="videoStage" class="mt-2">
-                <div class="progress" style="height: 18px">
-                  <div class="progress-bar" :class="{ 'bg-info': videoStage.step === 'extract' }" :style="{ width: videoStage.pct + '%' }">
-                    {{ $t('video.stage.' + videoStage.step, { name: videoStage.name }) }} {{ Math.round(videoStage.pct) }}%
-                  </div>
-                </div>
-              </div>
+              <VideoList ref="videoList" :disabled="running" @change="videoState = $event" />
             </div>
 
             <div class="mb-3">
@@ -184,6 +124,7 @@ import { showModal, hideModal } from "@/libs/modal";
 import Dataset, { isYoloFile } from "@/models/datasets";
 import { zipSync, strToU8 } from "fflate";
 import TaskPicker from "@/components/TaskPicker.vue";
+import VideoList from "@/components/VideoList.vue";
 
 const IMAGE_EXT = [".gif", ".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"];
 const PARALLEL_UPLOADS = 4;
@@ -211,7 +152,7 @@ function isImage(file) {
 
 export default {
   name: "ImportDatasetModal",
-  components: { TaskPicker },
+  components: { TaskPicker, VideoList },
   emits: ["done"],
   data() {
     return {
@@ -221,13 +162,7 @@ export default {
       images: [],
       coco: null,
       newTask: "",
-      videos: [],
-      videoEvery: 1,
-      videoEveryFrames: 10,
-      videoUnit: "seconds",
-      videoMax: 1000,
-      videoStage: null,
-      videoAccept: ".mp4,.mov,.avi,.mkv,.webm,.m4v,.mpg,.mpeg,.wmv,video/*",
+      videoState: { count: 0, ready: 0, busy: false, valid: true },
       yoloLabels: [],
       yoloNames: null,
       yoloTask: "auto",
@@ -243,19 +178,14 @@ export default {
     },
     canRun() {
       const hasTarget = this.target !== "new" || this.newName.trim().length > 0;
-      const everyOk = this.videoUnit === "frames"
-        ? Number.isInteger(this.videoEveryFrames) && this.videoEveryFrames >= 1
-        : this.videoEvery >= 0.04;
-      const videosOk = !this.videos.length || (everyOk && this.videoMax >= 1);
+      // videos must have finished uploading (their length is known) before the import
+      const v = this.videoState;
+      const videosOk = !v.count || (!v.busy && v.valid);
       return hasTarget && videosOk &&
-        (this.images.length > 0 || this.videos.length > 0 || this.coco || this.yoloLabels.length > 0 || this.target === "new");
+        (this.images.length > 0 || v.ready > 0 || this.coco || this.yoloLabels.length > 0 || this.target === "new");
     },
     percent() {
       return this.progress.total ? Math.round((100 * this.progress.done) / this.progress.total) : 0;
-    },
-    videoSize() {
-      const mb = this.videos.reduce((n, f) => n + f.size, 0) / 1024 / 1024;
-      return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb.toFixed(1)} MB`;
     },
     totalSize() {
       const mb = this.images.reduce((n, f) => n + f.size, 0) / 1024 / 1024;
@@ -269,8 +199,7 @@ export default {
       this.newTask = "";
       this.images = [];
       this.coco = null;
-      this.videos = [];
-      this.videoStage = null;
+      if (this.$refs.videoList) this.$refs.videoList.clear();
       this.yoloLabels = [];
       this.yoloNames = null;
       this.yoloTask = "auto";
@@ -339,41 +268,10 @@ export default {
       }
       return new File([zipSync(entries, { level: 6 })], "labels.zip", { type: "application/zip" });
     },
-    addVideos(event) {
-      const seen = new Set(this.videos.map(f => f.name));
-      for (const file of event.target.files) {
-        if (!seen.has(file.name)) {
-          seen.add(file.name);
-          this.videos.push(file);
-        }
-      }
-      event.target.value = "";
-    },
-    /** Upload each video, then follow its frame-extraction task */
     async importVideos(datasetId) {
-      let frames = 0;
-      for (const video of this.videos) {
-        this.videoStage = { step: "upload", name: video.name, pct: 0 };
-        const form = new FormData();
-        form.append("video", video);
-        if (this.videoUnit === "frames") form.append("every_frames", this.videoEveryFrames);
-        else form.append("every_seconds", this.videoEvery);
-        form.append("max_frames", this.videoMax);
-        const r = await axios.post(`/api/dataset/${datasetId}/video`, form, {
-          headers: { "Content-Type": "multipart/form-data" },
-          onUploadProgress: e => {
-            if (e.total) this.videoStage.pct = (100 * e.loaded) / e.total;
-          }
-        });
-        this.videoStage = { step: "extract", name: video.name, pct: 0 };
-        const task = await this.waitForTask(r.data.id, pct => (this.videoStage.pct = pct));
-        if (task && task.errors) this.$toastr.error(this.$t("video.failed", { name: video.name }));
-        const added = await axios.get(`/api/dataset/${datasetId}/data`, { params: { folder: r.data.folder, limit: 1 } })
-          .then(res => res.data.total).catch(() => 0);
-        frames += added;
-      }
-      this.videoStage = null;
-      if (this.videos.length) this.$toastr.success(this.$t("video.done", { n: frames, videos: this.videos.length }));
+      const frames = await this.$refs.videoList.importInto(datasetId, this.waitForTask);
+      this.$toastr.success(this.$t("video.done", { n: frames, videos: this.videoState.ready }));
+      this.$refs.videoList.reset();
     },
     async waitForTask(id, onProgress) {
       for (;;) {
@@ -391,7 +289,7 @@ export default {
       try {
         if (this.target === "new") datasetId = await this.createDataset();
         if (this.images.length) await this.uploadAll(datasetId);
-        if (this.videos.length) await this.importVideos(datasetId);
+        if (this.videoState.ready) await this.importVideos(datasetId);
 
         let importTask = null;
         const annotations = this.coco || (this.yoloLabels.length ? await this.yoloZip() : null);
@@ -420,7 +318,6 @@ export default {
         this.$toastr.error(data.message || String(error), this.$t("importDataset.title"));
       } finally {
         this.running = false;
-        this.videoStage = null;
       }
     }
   }
@@ -428,8 +325,4 @@ export default {
 </script>
 
 <style scoped>
-.unit-select {
-  max-width: 5.5rem;
-  flex: 0 0 auto;
-}
 </style>

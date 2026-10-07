@@ -76,3 +76,67 @@ def test_video_every_n_frames(world, tmp_path):
     names = [i.file_name for i in ImageModel.objects(dataset_id=ds).order_by("file_name")]
     assert names == ["cam_000m00s000.jpg", "cam_000m00s700.jpg", "cam_000m01s400.jpg",
                      "cam_000m02s100.jpg", "cam_000m02s800.jpg"]
+
+
+def test_video_start_end(world, tmp_path):
+    from database import ImageModel
+    c = world["client"]
+    ds = c.post("/api/dataset/", json={"name": "video_trim_ds"}).get_json()["id"]
+    data = _video_bytes(tmp_path)   # 30 frames at 10 fps = 3 s
+
+    r = c.post(f"/api/dataset/{ds}/video", data={"video": (io.BytesIO(data), "t.avi"),
+                                                "start_seconds": "2", "end_seconds": "1"},
+               content_type="multipart/form-data")
+    assert r.status_code == 400
+
+    # 0.5 s to 2.0 s, one every 0.5 s: 0.5, 1.0, 1.5, 2.0
+    r = c.post(f"/api/dataset/{ds}/video", data={"video": (io.BytesIO(data), "t.avi"), "every_seconds": "0.5",
+                                                "start_seconds": "0.5", "end_seconds": "2"},
+               content_type="multipart/form-data")
+    assert r.status_code == 200, r.data
+    names = [i.file_name for i in ImageModel.objects(dataset_id=ds).order_by("file_name")]
+    assert names == ["t_000m00s500.jpg", "t_000m01s000.jpg", "t_000m01s500.jpg", "t_000m02s000.jpg"]
+
+    # from 2.5 s to the end, every 2 frames: frames 25, 27, 29
+    r = c.post(f"/api/dataset/{ds}/video", data={"video": (io.BytesIO(data), "u.avi"), "every_frames": "2",
+                                                "start_seconds": "2.5"},
+               content_type="multipart/form-data")
+    names = [i.file_name for i in ImageModel.objects(dataset_id=ds, file_name__startswith="u_").order_by("file_name")]
+    assert names == ["u_000m02s500.jpg", "u_000m02s700.jpg", "u_000m02s900.jpg"]
+
+
+def test_video_stage_then_import(world, tmp_path):
+    from database import ImageModel
+    from webserver import app
+    c = world["client"]
+    ds = c.post("/api/dataset/", json={"name": "video_stage_ds"}).get_json()["id"]
+    data = _video_bytes(tmp_path)   # 30 frames at 10 fps
+
+    r = c.post("/api/dataset/video/stage", data={"video": (io.BytesIO(b"x"), "a.txt")},
+               content_type="multipart/form-data")
+    assert r.status_code == 400
+    r = c.post("/api/dataset/video/stage", data={"video": (io.BytesIO(data), "lane cam.avi")},
+               content_type="multipart/form-data")
+    info = r.get_json()
+    assert r.status_code == 200 and info["frames"] == 30 and info["fps"] == 10 and info["duration"] == 3
+    assert info["width"] == 160 and info["name"] == "lane cam.avi"
+
+    # another user cannot use it
+    other = app.test_client()
+    other.post("/api/user/register", json={"username": "stage_other", "password": "pw", "name": "O"})
+    assert other.post(f"/api/dataset/{ds}/video", data={"upload_id": info["upload_id"]},
+                      content_type="multipart/form-data").status_code == 400
+
+    r = c.post(f"/api/dataset/{ds}/video", data={"upload_id": info["upload_id"], "every_seconds": "1",
+                                                "start_seconds": "1"},
+               content_type="multipart/form-data")
+    assert r.status_code == 200, r.data
+    names = [i.file_name for i in ImageModel.objects(dataset_id=ds).order_by("file_name")]
+    assert names == ["lane_cam_000m01s000.jpg", "lane_cam_000m02s000.jpg"]
+    # used up
+    assert c.post(f"/api/dataset/{ds}/video", data={"upload_id": info["upload_id"]},
+                  content_type="multipart/form-data").status_code == 400
+
+    r = c.post("/api/dataset/video/stage", data={"video": (io.BytesIO(data), "b.avi")},
+               content_type="multipart/form-data")
+    assert c.delete(f"/api/dataset/video/stage/{r.get_json()['upload_id']}").get_json()["success"]
