@@ -153,7 +153,7 @@ class DatasetAssign(Resource):
         dataset = _dataset(dataset_id)
         if dataset is None:
             return {'message': 'Invalid dataset id'}, 400
-        if not dataset.can_review(current_user):
+        if not dataset.can_assign(current_user):
             return {'message': 'Only the owner or reviewers can assign images'}, 403
 
         members = {u.username for u in dataset.get_users()}
@@ -225,6 +225,8 @@ class DatasetProgress(Resource):
             'reviewers': list(dataset.reviewers or []),
             'can_review': dataset.can_review(current_user),
             'is_owner': dataset.is_owner(current_user),
+            'is_creator': dataset.is_creator(current_user),
+            'can_assign': dataset.can_assign(current_user),
             'me': current_user.username,
             'owner': dataset.owner,
         }
@@ -241,8 +243,8 @@ class DatasetReviewers(Resource):
         dataset = _dataset(dataset_id)
         if dataset is None:
             return {'message': 'Invalid dataset id'}, 400
-        if not dataset.is_owner(current_user):
-            return {'message': 'Only the owner can choose reviewers'}, 403
+        if not dataset.is_creator(current_user):
+            return {'message': 'Only the creator of the dataset can choose reviewers'}, 403
         members = {u.username for u in dataset.get_users()}
         reviewers = sorted({u for u in args.get('reviewers') or [] if u in members})
         before = sorted(dataset.reviewers or [])

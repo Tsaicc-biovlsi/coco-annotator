@@ -86,7 +86,7 @@
     </div>
 
     <!-- assign -->
-    <div v-if="progress && progress.can_review" class="card my-3 p-3 shadow-sm">
+    <div v-if="progress && (progress.can_assign ?? progress.can_review)" class="card my-3 p-3 shadow-sm">
       <h6 class="border-bottom pb-2"><b>{{ $t('review.assignTitle') }}</b></h6>
       <div class="small text-muted mb-2">{{ $t('review.assignHint') }}</div>
       <div class="d-flex flex-wrap gap-3 mb-2">
@@ -111,7 +111,7 @@
     </div>
 
     <!-- reviewers -->
-    <div v-if="progress && progress.is_owner" class="card my-3 p-3 shadow-sm">
+    <div v-if="progress && (progress.is_creator ?? progress.is_owner)" class="card my-3 p-3 shadow-sm">
       <h6 class="border-bottom pb-2"><b>{{ $t('review.reviewersTitle') }}</b></h6>
       <div class="small text-muted mb-2">{{ $t('review.reviewersHint') }}</div>
       <div class="d-flex flex-wrap gap-3 mb-2">

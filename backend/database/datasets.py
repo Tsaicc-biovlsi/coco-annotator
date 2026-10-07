@@ -157,7 +157,16 @@ class DatasetModel(DynamicDocument):
     def can_edit(self, user):
         return user.username in self.users or self.is_owner(user)
 
+    def is_creator(self, user):
+        """The person who created the dataset (being an admin is not enough)."""
+        return bool(self.owner) and user.username.lower() == self.owner.lower()
+
     def can_review(self, user):
+        """Approve / reject: only the creator and the reviewers the creator chose
+        (not admins as such)."""
+        return self.is_creator(user) or user.username in (self.reviewers or [])
+
+    def can_assign(self, user):
         return self.is_owner(user) or user.username in (self.reviewers or [])
     
     def permissions(self, user):

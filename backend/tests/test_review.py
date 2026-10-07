@@ -149,3 +149,25 @@ def test_reviewer_submit_is_approved(review_world):
     assert l1.post(f"/api/review/image/{img}", json={"action": "submit"}).get_json()["status"] == "labeled"
     owner.post(f"/api/review/dataset/{w['ds']}/reviewers", json={"reviewers": []})
     owner.post(f"/api/review/image/{img}", json={"action": "reopen"})
+
+
+def test_admin_is_not_a_reviewer(review_world):
+    from webserver import app
+    from webserver.util.passwords import hash_password
+    from database import UserModel
+    w = review_world
+    img = w["images"][2]["id"]
+    if UserModel.objects(username="boss").first() is None:
+        UserModel(username="boss", password=hash_password("pw"), name="Boss", is_admin=True).save()
+    admin = app.test_client()
+    assert admin.post("/api/user/login", json={"username": "boss", "password": "pw"}).status_code == 200
+
+    w["labeler1"].post(f"/api/review/image/{img}", json={"action": "submit"})
+    assert admin.post(f"/api/review/image/{img}", json={"action": "approve"}).status_code == 403
+    assert admin.post(f"/api/review/dataset/{w['ds']}/reviewers", json={"reviewers": ["boss"]}).status_code == 403
+    progress = admin.get(f"/api/review/dataset/{w['ds']}/progress").get_json()
+    assert progress["can_review"] is False and progress["is_creator"] is False and progress["can_assign"] is True
+    # the creator can let someone review
+    w["owner"].post(f"/api/review/image/{img}", json={"action": "approve"})
+    assert w["owner"].get(f"/api/review/image/{img}").get_json()["status"] == "approved"
+    w["owner"].post(f"/api/review/image/{img}", json={"action": "reopen"})
