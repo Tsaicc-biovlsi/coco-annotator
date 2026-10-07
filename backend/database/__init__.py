@@ -12,6 +12,7 @@ from .users import *
 from .tasks import *
 from .activity import *
 from .model_info import *
+from .roles import RoleModel
 
 import json
 

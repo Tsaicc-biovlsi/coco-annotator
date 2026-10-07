@@ -1018,7 +1018,7 @@ export default {
     },
     createScanTask() {
       if (this.scan.id != null) {
-        this.$router.push({ path: "/tasks", query: { id: this.scan.id } });
+        this.openTask(this.scan.id);
         return;
       }
 
@@ -1036,7 +1036,7 @@ export default {
     },
     exportModal() {
       if (this.exporting.id != null) {
-        this.$router.push({ path: "/tasks", query: { id: this.exporting.id } });
+        this.openTask(this.exporting.id);
         return;
       }
       this.prepareExportCategories();
@@ -1123,9 +1123,17 @@ export default {
           this.axiosReqestError("Exporting COCO", error.response.data.message);
         });
     },
+    /** A running task: open it on the Tasks page, or just say it is still running */
+    openTask(id) {
+      if (this.$store.getters["user/canPage"]("tasks")) {
+        this.$router.push({ path: "/tasks", query: { id } });
+      } else {
+        this.$toastr.info(this.$t("dataset.taskStillRunning"));
+      }
+    },
     modelModal() {
       if (this.preannotating.id != null) {
-        this.$router.push({ path: "/tasks", query: { id: this.preannotating.id } });
+        this.openTask(this.preannotating.id);
         return;
       }
       this.$refs.modelRun.open();
@@ -1149,7 +1157,7 @@ export default {
     },
     importModal() {
       if (this.importing.id != null) {
-        this.$router.push({ path: "/tasks", query: { id: this.importing.id } });
+        this.openTask(this.importing.id);
         return;
       }
 

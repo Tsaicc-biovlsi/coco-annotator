@@ -23,7 +23,8 @@
     "save": "儲存",
     "username": "使用者名稱",
     "users": "使用者",
-    "you": "（你）"
+    "you": "（你）",
+    "title": "管理面板"
   },
   "annotation": {
     "category": "類別",
@@ -208,7 +209,8 @@
     "unknownModel": "（未記錄名稱）",
     "importSource": "匯入",
     "ranBy": "由 {names} 執行",
-    "perUserHint": "使用者的數字只算自己畫的標註；用模型自動標註和匯入的另外列出。這次更新之前用模型產生的標註大多無法分辨，仍算在執行模型的人身上。"
+    "perUserHint": "使用者的數字只算自己畫的標註；用模型自動標註和匯入的另外列出。這次更新之前用模型產生的標註大多無法分辨，仍算在執行模型的人身上。",
+    "taskStillRunning": "這個工作還在進行中，完成後按鈕就會恢復。"
   },
   "datasetCard": {
     "addUsernames": "新增使用者名稱",
@@ -1178,5 +1180,46 @@
     "lastUsed": "上次 {time}（{user}）",
     "neverUsed": "還沒用過",
     "saved": "已儲存 {name}"
+  },
+  "noPageAccess": {
+    "title": "你沒有「{page}」頁面的權限",
+    "body": "請管理員在管理面板替你的身分開啟這個權限。",
+    "back": "回到資料集"
+  },
+  "roles": {
+    "title": "身分",
+    "role": "身分",
+    "users": "人數",
+    "add": "新增身分",
+    "delete": "刪除身分",
+    "newPlaceholder": "新身分名稱，例如：助教",
+    "help": "身分決定看得到哪些頁面、能管理什麼。勾選即允許，改了馬上生效。",
+    "groupPages": "頁面",
+    "groupManage": "管理",
+    "adminsOnly": "只有管理員能修改身分。",
+    "cannotChangeOwn": "無法變更自己的身分。",
+    "confirmDelete": "刪除身分「{name}」？這個身分的 {n} 位使用者會改成一般使用者。",
+    "builtin": {
+      "admin": "管理員",
+      "user": "一般使用者",
+      "adminHint": "永遠擁有全部權限",
+      "userHint": "新帳號的預設身分"
+    },
+    "perm": {
+      "activity": "活動紀錄",
+      "models": "模型",
+      "tasks": "任務",
+      "manage_models": "管理模型",
+      "manage_users": "管理使用者",
+      "all_datasets": "看全部資料集"
+    },
+    "permHelp": {
+      "activity": "可以開「活動紀錄」頁（含垃圾桶）",
+      "models": "可以開「模型」頁",
+      "tasks": "可以開「任務」頁（自己的工作進度本來就看得到）",
+      "manage_models": "上傳、開關、改名、下載、刪除模型",
+      "manage_users": "可以進管理面板：新增、編輯、刪除非管理員帳號（不能設定管理員）",
+      "all_datasets": "像管理員一樣看得到所有資料集（要編輯仍須是成員）"
+    }
   }
 }

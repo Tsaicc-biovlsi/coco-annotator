@@ -6,6 +6,13 @@ import os
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _pages_allowed(monkeypatch):
+    """These test the log itself; who may open the page: test_page_access.py"""
+    from database import UserModel
+    monkeypatch.setattr(UserModel, "can_page", lambda self, page: True)
+
+
 @pytest.fixture(scope="module")
 def trash_world(world, dataset_directory):
     from PIL import Image

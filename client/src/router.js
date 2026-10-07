@@ -36,12 +36,14 @@ export default createRouter({
     {
       path: "/activity",
       name: "activity",
-      component: Activity
+      component: Activity,
+      meta: { page: "activity" }
     },
     {
       path: "/models",
       name: "models",
-      component: Models
+      component: Models,
+      meta: { page: "models" }
     },
     {
       path: "/trash",
@@ -77,12 +79,14 @@ export default createRouter({
     {
       path: "/admin/panel",
       name: "admin",
-      component: AdminPanel
+      component: AdminPanel,
+      meta: { page: "manage_users" }
     },
     {
       path: "/tasks",
       name: "tasks",
-      component: Tasks
+      component: Tasks,
+      meta: { page: "tasks" }
     },
     { path: "/:pathMatch(.*)*", component: PageNotFound }
   ]

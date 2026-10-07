@@ -23,6 +23,8 @@ class UserModel(DynamicDocument, UserMixin):
 
     preferences = DictField(default={})
     permissions = ListField(defualt=[])
+    # 身分 (database/roles.py); admins are role "admin" and keep is_admin
+    role = StringField(default=None)
 
     # meta = {'allow_inheritance': True}
 
@@ -38,10 +40,31 @@ class UserModel(DynamicDocument, UserMixin):
         return cls._get_collection().count_documents({})
 
     @property
+    def role_key(self):
+        from .roles import ADMIN, DEFAULT
+        return ADMIN if self.is_admin else (self.role if self.role and self.role != ADMIN else DEFAULT)
+
+    def perms(self):
+        """What this user's role allows (see database/roles.py), cached per request."""
+        cached = getattr(self, '_perms_cache', None)
+        if cached is None or cached[0] != self.role_key:
+            from .roles import RoleModel
+            cached = (self.role_key, RoleModel.permissions_of(self.role_key))
+            object.__setattr__(self, '_perms_cache', cached)
+        return cached[1]
+
+    def has_perm(self, perm):
+        return bool(self.is_admin) or perm in self.perms()
+
+    def can_page(self, page):
+        """Activity log, Models and Tasks pages."""
+        return self.has_perm(page)
+
+    @property
     def datasets(self):
         self._update_last_seen()
 
-        if self.is_admin:
+        if self.is_admin or self.has_perm('all_datasets'):
             return DatasetModel.objects
 
         return DatasetModel.objects(Q(owner=self.username) | Q(users__contains=self.username))
@@ -50,7 +73,7 @@ class UserModel(DynamicDocument, UserMixin):
     def categories(self):
         self._update_last_seen()
 
-        if self.is_admin:
+        if self.is_admin or self.has_perm('all_datasets'):
             return CategoryModel.objects
 
         dataset_ids = self.datasets.distinct('categories')
@@ -60,7 +83,7 @@ class UserModel(DynamicDocument, UserMixin):
     def images(self):
         self._update_last_seen()
 
-        if self.is_admin:
+        if self.is_admin or self.has_perm('all_datasets'):
             return ImageModel.objects
 
         dataset_ids = self.datasets.distinct('id')
@@ -70,7 +93,7 @@ class UserModel(DynamicDocument, UserMixin):
     def annotations(self):
         self._update_last_seen()
 
-        if self.is_admin:
+        if self.is_admin or self.has_perm('all_datasets'):
             return AnnotationModel.objects
 
         image_ids = self.images.distinct('id')

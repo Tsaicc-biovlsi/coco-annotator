@@ -165,13 +165,15 @@ class YoloModels(Resource):
         """ Your models (.pt files in the models folder) with task and classes.
         ?all=1 (Models page): also turned-off models, with usage. """
         from flask import request
+        manage = request.args.get('all') in ('1', 'true')
+        if manage and not current_user.can_page('models'):
+            return {"message": "You do not have access to the Models page", "code": "no_page"}, 403
         if not yolo.installed:
             return {"installed": False, "models": [], "sam": sam.status()}
-        manage = request.args.get('all') in ('1', 'true')
         models = _with_meta(yolo.list(), include_usage=manage)
         if not manage:
             models = [m for m in models if m['enabled']]
-        result = {"installed": True, "models": models, "can_manage": bool(current_user.is_admin)}
+        result = {"installed": True, "models": models, "can_manage": current_user.has_perm('manage_models')}
         if manage:
             result.update({"device": yolo.device_name(), "directory": yolo.directory, "sam": sam.status()})
         return result
@@ -190,7 +192,7 @@ class YoloUpload(Resource):
     @api.expect(yolo_upload)
     def post(self):
         """ Add a model (admins only: loading a .pt file runs code from it) """
-        if not current_user.is_admin:
+        if not current_user.has_perm('manage_models'):
             return {"message": "Only admins can add models"}, 403
         if not yolo.installed:
             return {"disabled": True, "message": "Model support is not installed on this server"}, 400
@@ -218,7 +220,7 @@ class YoloModel(Resource):
     @login_required
     def delete(self, name):
         """ Remove a model file (admins only) """
-        if not current_user.is_admin:
+        if not current_user.has_perm('manage_models'):
             return {"message": "Only admins can remove models"}, 403
         try:
             yolo.delete(name)
@@ -232,7 +234,7 @@ class YoloModel(Resource):
     def put(self, name):
         """ Change a model's display name, note, on/off, default confidence (admins only) """
         from flask import request
-        if not current_user.is_admin:
+        if not current_user.has_perm('manage_models'):
             return {"message": "Only admins can change models"}, 403
         try:
             yolo.path_for(name)
@@ -259,7 +261,7 @@ class YoloModelDownload(Resource):
     @login_required
     def get(self, name):
         """ The .pt file (admins only) """
-        if not current_user.is_admin:
+        if not current_user.has_perm('manage_models'):
             return {"message": "Only admins can download models"}, 403
         try:
             path = yolo.path_for(name)

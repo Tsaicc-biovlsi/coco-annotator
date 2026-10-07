@@ -5,7 +5,8 @@ from ..util.passwords import hash_password, check_password, check_and_upgrade
 import re
 import secrets
 
-from database import UserModel, DatasetModel
+from database import UserModel, DatasetModel, RoleModel
+from database.roles import ADMIN, DEFAULT, PERMISSIONS
 from ..util.query_util import fix_ids
 
 api = Namespace('admin', description='Admin related operations')
@@ -18,6 +19,7 @@ create_user = reqparse.RequestParser()
 create_user.add_argument('name', default="", location='json')
 create_user.add_argument('password', default="", location='json')
 create_user.add_argument('isAdmin', type=bool, default=None, location='json')
+create_user.add_argument('role', default=None, location='json', help='Role key (身分)')
 
 register = reqparse.RequestParser()
 register.add_argument('username', required=True, location='json')
@@ -25,11 +27,13 @@ register.add_argument('password', required=True, location='json')
 register.add_argument('email', location='json')
 register.add_argument('name', location='json')
 register.add_argument('isAdmin', type=bool, default=False, location='json')
+register.add_argument('role', default=None, location='json', help='Role key (身分)')
 
 
 bulk_users = reqparse.RequestParser()
 bulk_users.add_argument('users', location='json', type=list, required=True,
                         help='[{"username": "B12345678", "name": "...", "password": "(optional)"}]')
+bulk_users.add_argument('role', location='json', default=None, help='Role key for the new accounts')
 bulk_users.add_argument('datasetId', location='json', type=int, default=None,
                         help='Optional dataset to share with the new (and existing) accounts')
 
@@ -46,6 +50,44 @@ def _is_last_admin(user):
     return user.is_admin and UserModel.objects(is_admin=True).count() <= 1
 
 
+DENIED = {"success": False, "message": "Access denied"}, 401
+
+
+def _manages_users():
+    """Admins, or a role with "manage_users" (who cannot touch admins)."""
+    return current_user.has_perm('manage_users')
+
+
+def _may_touch(user):
+    return bool(current_user.is_admin) or not user.is_admin
+
+
+def _pick_role(key, is_admin=None):
+    """Role to give: (key, error). Only admins hand out the admin role."""
+    if key is None and is_admin is not None:
+        key = ADMIN if is_admin else DEFAULT
+    if key is None:
+        return None, None
+    if RoleModel.objects(key=key).first() is None and key not in (ADMIN, DEFAULT):
+        return None, ({"success": False, "message": "Unknown role"}, 400)
+    if key == ADMIN and not current_user.is_admin:
+        return None, ({"success": False, "message": "Only admins can make admins."}, 403)
+    return key, None
+
+
+def _set_role(user, key):
+    user.role = key
+    user.is_admin = key == ADMIN
+
+
+def _user_out(user):
+    out = fix_ids(user)
+    out.pop('password', None)
+    out.pop('permissions', None)
+    out['role'] = user.role_key
+    return out
+
+
 @api.route('/users')
 class Users(Resource):
 
@@ -54,8 +96,8 @@ class Users(Resource):
     def get(self):
         """ Get list of all users """
 
-        if not current_user.is_admin:
-            return {"success": False, "message": "Access denied"}, 401
+        if not _manages_users():
+            return DENIED
 
         args = users.parse_args()
         per_page = args['limit']
@@ -72,7 +114,7 @@ class Users(Resource):
             "pages": pages,
             "page": page,
             "per_page": per_page,
-            "users": fix_ids(user_model.all())
+            "users": [_user_out(u) for u in user_model.all()]
         }
 
 
@@ -83,10 +125,13 @@ class UsersBulk(Resource):
     @api.expect(bulk_users)
     def post(self):
         """ Create many accounts at once (student IDs like B12345678) """
-        if not current_user.is_admin:
-            return {"success": False, "message": "Access denied"}, 401
+        if not _manages_users():
+            return DENIED
 
         args = bulk_users.parse_args()
+        role, error = _pick_role(args.get('role'))
+        if error:
+            return error
         dataset = None
         if args.get('datasetId') is not None:
             dataset = DatasetModel.objects(id=args['datasetId'], deleted=False).first()
@@ -114,6 +159,8 @@ class UsersBulk(Resource):
             password = password or _new_password()
             user = UserModel(username=username, name=name or username,
                              password=hash_password(password), is_admin=False)
+            if role:
+                _set_role(user, role)
             user.save()
             created.append({"username": username, "name": user.name, "password": password})
 
@@ -135,10 +182,13 @@ class User(Resource):
     def post(self):
         """ Create a new user """
 
-        if not current_user.is_admin:
-            return {"success": False, "message": "Access denied"}, 401
+        if not _manages_users():
+            return DENIED
 
         args = register.parse_args()
+        role, error = _pick_role(args.get('role'), bool(args.get('isAdmin')))
+        if error:
+            return error
         username = args.get('username')
 
         if UserModel.objects(username__iexact=username).first():
@@ -149,13 +199,10 @@ class User(Resource):
         user.password = hash_password(args.get('password'))
         user.name = args.get('name', "")
         user.email = args.get('email', "")
-        user.is_admin = args.get('isAdmin', False)
+        _set_role(user, role or DEFAULT)
         user.save()
 
-        user_json = fix_ids(current_user)
-        del user_json['password']
-
-        return {'success': True, 'user': user_json}
+        return {'success': True, 'user': _user_out(user)}
 
 
 @api.route('/user/<string:username>')
@@ -165,28 +212,28 @@ class Username(Resource):
     def get(self, username):
         """ Get a users """
 
-        if not current_user.is_admin:
-            return {"success": False, "message": "Access denied"}, 401
+        if not _manages_users():
+            return DENIED
 
         user = UserModel.objects(username__iexact=username).first()
         if user is None:
             return {"success": False, "message": "User not found"}, 400
 
-        user_json = fix_ids(user)
-        user_json.pop('password', None)
-        return user_json
+        return _user_out(user)
 
     @api.expect(create_user)
     @login_required
     def patch(self, username):
         """ Edit a user """
 
-        if not current_user.is_admin:
-            return {"success": False, "message": "Access denied"}, 401
+        if not _manages_users():
+            return DENIED
 
         user = UserModel.objects(username__iexact=username).first()
         if user is None:
             return {"success": False, "message": "User not found"}, 400
+        if not _may_touch(user):
+            return {"success": False, "message": "Only admins can edit admins."}, 403
 
         args = create_user.parse_args()
         name = args.get('name')
@@ -197,31 +244,32 @@ class Username(Resource):
         if len(password) > 0:
             user.password = hash_password(password)
 
-        is_admin = args.get('isAdmin')
-        if is_admin is not None and bool(is_admin) != bool(user.is_admin):
-            if not is_admin:
-                if user.username.lower() == current_user.username.lower():
-                    return {"success": False, "message": "You cannot remove your own admin rights."}, 400
-                if _is_last_admin(user):
-                    return {"success": False, "message": "At least one admin is required."}, 400
-            user.is_admin = bool(is_admin)
+        role, error = _pick_role(args.get('role'), args.get('isAdmin'))
+        if error:
+            return error
+        if role is not None and role != user.role_key:
+            if user.username.lower() == current_user.username.lower():
+                return {"success": False, "message": "You cannot change your own role."}, 400
+            if user.is_admin and _is_last_admin(user):
+                return {"success": False, "message": "At least one admin is required."}, 400
+            _set_role(user, role)
 
         user.save()
 
-        user_json = fix_ids(user)
-        user_json.pop('password', None)
-        return user_json
+        return _user_out(user)
 
     @login_required
     def delete(self, username):
         """ Delete a user """
 
-        if not current_user.is_admin:
-            return {"success": False, "message": "Access denied"}, 401
+        if not _manages_users():
+            return DENIED
 
         user = UserModel.objects(username__iexact=username).first()
         if user is None:
             return {"success": False, "message": "User not found"}, 400
+        if not _may_touch(user):
+            return {"success": False, "message": "Only admins can delete admins."}, 403
 
         if user.username.lower() == current_user.username.lower():
             return {"success": False, "message": "You cannot delete your own account."}, 400
@@ -231,3 +279,90 @@ class Username(Resource):
         user.delete()
         return {"success": True}
 
+
+
+role_args = reqparse.RequestParser()
+role_args.add_argument('name', location='json', default=None)
+role_args.add_argument('permissions', location='json', type=list, default=None)
+
+
+def _roles_out():
+    counts = {}
+    for u in UserModel.objects.only('is_admin', 'role'):
+        counts[u.role_key] = counts.get(u.role_key, 0) + 1
+    return {"roles": [r.to_dict(users=counts.get(r.key, 0)) for r in RoleModel.all_ordered()],
+            "permissions": list(PERMISSIONS)}
+
+
+@api.route('/roles')
+class Roles(Resource):
+
+    @login_required
+    def get(self):
+        """ Roles (身分), what each allows and how many users have it """
+        if not _manages_users():
+            return DENIED
+        return _roles_out()
+
+    @login_required
+    @api.expect(role_args)
+    def post(self):
+        """ Add a role (admins only) """
+        if not current_user.is_admin:
+            return DENIED
+        args = role_args.parse_args()
+        name = (args.get('name') or '').strip()
+        if not name:
+            return {"success": False, "message": "A role needs a name."}, 400
+        if RoleModel.objects(name__iexact=name).first():
+            return {"success": False, "message": "A role with this name already exists."}, 400
+        n = 1
+        while RoleModel.objects(key=f"r{n}").first():
+            n += 1
+        RoleModel(key=f"r{n}", name=name, permissions=RoleModel.clean_permissions(args.get('permissions')),
+                  order=100 + n).save()
+        return {"success": True, "key": f"r{n}", **_roles_out()}
+
+
+@api.route('/roles/<string:key>')
+class Role(Resource):
+
+    @login_required
+    @api.expect(role_args)
+    def put(self, key):
+        """ Rename a role or change what it allows (admins only; the admin role is fixed) """
+        if not current_user.is_admin:
+            return DENIED
+        RoleModel.ensure_builtin()
+        role = RoleModel.objects(key=key).first()
+        if role is None:
+            return {"success": False, "message": "Unknown role"}, 400
+        if key == ADMIN:
+            return {"success": False, "message": "The admin role always has every permission."}, 400
+        args = role_args.parse_args()
+        name = args.get('name')
+        if name is not None and not role.builtin:
+            name = name.strip()
+            if not name:
+                return {"success": False, "message": "A role needs a name."}, 400
+            if RoleModel.objects(name__iexact=name, key__ne=key).first():
+                return {"success": False, "message": "A role with this name already exists."}, 400
+            role.name = name
+        if args.get('permissions') is not None:
+            role.permissions = RoleModel.clean_permissions(args.get('permissions'))
+        role.save()
+        return {"success": True, **_roles_out()}
+
+    @login_required
+    def delete(self, key):
+        """ Remove a role; its users become regular users (admins only) """
+        if not current_user.is_admin:
+            return DENIED
+        role = RoleModel.objects(key=key).first()
+        if role is None:
+            return {"success": False, "message": "Unknown role"}, 400
+        if role.builtin:
+            return {"success": False, "message": "Built-in roles cannot be removed."}, 400
+        moved = UserModel.objects(role=key).update(set__role=DEFAULT)
+        role.delete()
+        return {"success": True, "moved": moved, **_roles_out()}

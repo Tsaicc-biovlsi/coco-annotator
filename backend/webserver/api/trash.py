@@ -52,6 +52,8 @@ class TrashList(Resource):
     @login_required
     def get(self):
         """ Trash entries (one per delete action), newest first """
+        if not current_user.can_page('activity'):
+            return {'message': 'You do not have access to the activity log', 'code': 'no_page'}, 403
         args = list_args.parse_args()
         trash.purge_expired()
         return trash.list_groups(current_user, args['type'], args.get('dataset_id'), args.get('deleted_by'),
@@ -81,6 +83,8 @@ class TrashPurge(Resource):
     @login_required
     def post(self):
         """ Permanently delete items (image files and dataset folders too) """
+        if not current_user.can_page('activity'):
+            return {'message': 'You do not have access to the activity log', 'code': 'no_page'}, 403
         args = items_args.parse_args()
         n = trash.purge(current_user, args['items'])
         _log('purge', args, n)
@@ -93,6 +97,8 @@ class TrashEmpty(Resource):
     @login_required
     def post(self):
         """ Permanently delete everything in the user's trash """
+        if not current_user.can_page('activity'):
+            return {'message': 'You do not have access to the activity log', 'code': 'no_page'}, 403
         n = trash.empty(current_user)
         if n:
             activity.record('purge', current_user, counts={'items': n}, detail={'empty': True})
@@ -105,6 +111,8 @@ class TrashPreview(Resource):
     @login_required
     def get(self):
         """ Image (or the area around some annotations) with the shapes outlined """
+        if not current_user.can_page('activity'):
+            return {'message': 'You do not have access to the activity log', 'code': 'no_page'}, 403
         try:
             image_id = int(request.args.get('image_id'))
             ann_ids = [int(i) for i in request.args.get('annotations', '').split(',') if i]

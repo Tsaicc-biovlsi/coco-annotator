@@ -11,6 +11,16 @@ logger = logging.getLogger('gunicorn.error')
 
 api = Namespace('user', description='User related operations')
 
+
+def user_json(user):
+    """The signed-in user for the client, with their role and what it allows."""
+    out = fix_ids(user)
+    out.pop('password', None)
+    out.pop('permissions', None)
+    out['role'] = user.role_key
+    out['perms'] = sorted(user.perms())
+    return out
+
 register = reqparse.RequestParser()
 register.add_argument('username', required=True, location='json')
 register.add_argument('password', required=True, location='json')
@@ -31,13 +41,10 @@ class User(Resource):
     @login_required
     def get(self):
         """ Get information of current user """
-        if Config.LOGIN_DISABLED:
+        if Config.LOGIN_DISABLED and not current_user.is_authenticated:
             return current_user.to_json()
 
-        user_json = fix_ids(current_user)
-        del user_json['password']
-
-        return {'user': user_json}
+        return {'user': user_json(current_user)}
 
 
 @api.route('/password')
@@ -84,10 +91,7 @@ class UserRegister(Resource):
 
         login_user(user)
 
-        user_json = fix_ids(current_user)
-        del user_json['password']
-
-        return {'success': True, 'user': user_json}
+        return {'success': True, 'user': user_json(current_user)}
 
 
 @api.route('/login')
@@ -105,12 +109,9 @@ class UserLogin(Resource):
         if check_and_upgrade(user, args.get('password')):
             login_user(user)
 
-            user_json = fix_ids(current_user)
-            del user_json['password']
-            
             logger.info(f'User {current_user.username} has LOGIN')
 
-            return {'success': True, 'user': user_json}
+            return {'success': True, 'user': user_json(current_user)}
 
         return {'success': False, 'message': 'Could not authenticate user'}, 400
 

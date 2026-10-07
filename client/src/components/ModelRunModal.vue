@@ -84,7 +84,7 @@
             <div v-else class="form-text mt-2">{{ $t('modelRun.datasetHint') }}</div>
           </form>
 
-          <div v-if="!loading && installed" class="upload-section small">
+          <div v-if="!loading && installed && $store.getters['user/canPage']('models')" class="upload-section small">
             <RouterLink to="/models" data-bs-dismiss="modal">
               <i class="fa fa-cubes" /> {{ isAdmin ? $t('modelRun.manageModels') : $t('modelRun.seeModels') }}
             </RouterLink>
@@ -157,7 +157,7 @@ export default {
   },
   computed: {
     isAdmin() {
-      return this.$store.getters["user/isAdmin"];
+      return this.$store.getters["user/can"]("manage_models");
     },
     selected() {
       return this.models.find(m => m.name === this.options.model);

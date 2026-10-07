@@ -1,5 +1,5 @@
 from flask_restx import Namespace, Resource
-from flask_login import login_required
+from flask_login import login_required, current_user
 
 from ..util import query_util
 from database import TaskModel
@@ -8,12 +8,23 @@ from database import TaskModel
 api = Namespace('tasks', description='Task related operations')
 
 
+def _task(task_id):
+    """A task this user may see: any with Tasks page access, else their own."""
+    query = TaskModel.objects(id=task_id)
+    if not current_user.can_page('tasks'):
+        query = query.filter(creator=current_user.username)
+    return query.first()
+
+
 @api.route('/')
 class Task(Resource):
     @login_required
     def get(self):
-        """ Returns all tasks """
-        query = TaskModel.objects.only(
+        """ Returns all tasks (only your own without access to the Tasks page) """
+        query = TaskModel.objects
+        if not current_user.can_page('tasks'):
+            query = query.filter(creator=current_user.username)
+        query = query.only(
             'group', 'id', 'name', 'completed', 'progress',
             'priority', 'creator', 'desciption', 'errors',
             'warnings'
@@ -26,7 +37,7 @@ class TaskId(Resource):
     @login_required
     def delete(self, task_id):
         """ Deletes task """
-        task = TaskModel.objects(id=task_id).first()
+        task = _task(task_id)
 
         if task is None:
             return {"message": "Invalid task id"}, 400
@@ -43,8 +54,8 @@ class TaskId(Resource):
     @login_required
     def get(self, task_id):
         """ Deletes task """
-        task = TaskModel.objects(id=task_id).first()
+        task = _task(task_id)
         if task is None:
             return {"message": "Invalid task id"}, 400
-        
+
         return {'logs': task.logs}

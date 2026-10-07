@@ -8,6 +8,14 @@ import numpy as np
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _pages_allowed(monkeypatch):
+    """These test the log itself; who may open the page: test_page_access.py"""
+    from database import UserModel
+    monkeypatch.setattr(UserModel, "can_page", lambda self, page: True)
+
+
+
 def _compound(polygon, width, height):
     pts = np.array(polygon).reshape(-1, 2) - [width / 2, height / 2]
     return ["CompoundPath", {"applyMatrix": True, "children": [

@@ -20,7 +20,7 @@
       >
         <li>
           <a
-            v-show="$store.getters['user/isAdmin']"
+            v-show="$store.getters['user/can']('manage_users')"
             class="dropdown-item"
             href="#"
           >

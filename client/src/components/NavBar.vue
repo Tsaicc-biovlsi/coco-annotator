@@ -40,17 +40,17 @@
         <li class="nav-item" :class="{ active: $route.name === 'categories' }">
           <RouterLink class="nav-link" to="/categories">{{ $t('navBar.categories') }}</RouterLink>
         </li>
-        <li class="nav-item" :class="{ active: $route.name === 'activity' }">
+        <li v-if="canPage('activity')" class="nav-item" :class="{ active: $route.name === 'activity' }">
           <RouterLink class="nav-link" to="/activity">{{ $t('navBar.activity') }}</RouterLink>
         </li>
-        <li class="nav-item" :class="{ active: $route.name === 'models' }">
+        <li v-if="canPage('models')" class="nav-item" :class="{ active: $route.name === 'models' }">
           <RouterLink class="nav-link" to="/models">{{ $t('navBar.models') }}</RouterLink>
         </li>
-        <li class="nav-item" :class="{ active: $route.name === 'tasks' }">
+        <li v-if="canPage('tasks')" class="nav-item" :class="{ active: $route.name === 'tasks' }">
           <RouterLink class="nav-link" to="/tasks">{{ $t('navBar.tasks') }}</RouterLink>
         </li>
         <li
-          v-show="$store.getters['user/isAdmin']"
+          v-show="$store.getters['user/can']('manage_users')"
           class="nav-item"
           :class="{ active: $route.name === 'admin' }"
         >
@@ -89,6 +89,11 @@ export default {
       color: "white",
       backendStatus: "Connection unknown"
     };
+  },
+  methods: {
+    canPage(page) {
+      return this.$store.getters["user/canPage"](page);
+    }
   },
   computed: {
     version() {

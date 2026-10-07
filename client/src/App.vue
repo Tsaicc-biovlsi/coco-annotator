@@ -1,17 +1,22 @@
 <template>
   <div id="app">
     <NavBar v-show="showNavBar" />
-    <RouterView :key="$route.fullPath" />
+    <template v-if="pageNeeded">
+      <NoPageAccess v-if="pageBlocked" :page="pageNeeded" />
+      <RouterView v-else-if="$store.state.user.user" :key="$route.fullPath" />
+    </template>
+    <RouterView v-else :key="$route.fullPath" />
   </div>
 </template>
 
 <script>
 import NavBar from "@/components/NavBar.vue";
+import NoPageAccess from "@/components/NoPageAccess.vue";
 import { mapMutations } from "vuex";
 
 export default {
   name: "App",
-  components: { NavBar },
+  components: { NavBar, NoPageAccess },
   methods: {
     ...mapMutations("user", ["setUserInfo"]),
     ...mapMutations("info", ["getServerInfo", "socket"]),
@@ -25,6 +30,14 @@ export default {
     return { loader: null };
   },
   computed: {
+    /** Activity log, Models and Tasks need permission for non-admins */
+    pageNeeded() {
+      return (this.$route.meta && this.$route.meta.page) || null;
+    },
+    pageBlocked() {
+      if (!this.pageNeeded || !this.$store.state.user.user) return false;
+      return !this.$store.getters["user/canPage"](this.pageNeeded);
+    },
     showNavBar() {
       let notShow = ["authentication", "setup"];
       return notShow.indexOf(this.$route.name) === -1;

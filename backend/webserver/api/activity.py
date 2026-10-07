@@ -41,6 +41,8 @@ class ActivityList(Resource):
     @login_required
     def get(self):
         """ Activity lines, newest first, with counts per group """
+        if not current_user.can_page('activity'):
+            return {'message': 'You do not have access to the activity log', 'code': 'no_page'}, 403
         args = list_args.parse_args()
         trash.purge_expired()
         _backfill_once()
@@ -54,6 +56,8 @@ class ActivityUndo(Resource):
     @login_required
     def post(self, activity_id):
         """ Send what an import created to the trash """
+        if not current_user.can_page('activity'):
+            return {'message': 'You do not have access to the activity log', 'code': 'no_page'}, 403
         entry = activity.visible(current_user).filter(id=activity_id, action__in=['import', 'video', 'auto_annotate'], task_id__ne=None).first()
         if entry is None:
             return {'message': 'Invalid activity id'}, 400

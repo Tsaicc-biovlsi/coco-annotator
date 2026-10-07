@@ -57,7 +57,14 @@ def test_manage_models(world, fake_models):
         UserModel(username="viewer", password=hash_password("pw"), name="V", is_admin=False).save()
     v = app.test_client()
     v.post("/api/user/login", json={"username": "viewer", "password": "pw"})
+    # Models page needs to be given; running a model does not
+    assert v.get("/api/model/yolo?all=1").status_code == 403
+    assert v.get("/api/model/yolo").status_code == 200
+    from database import RoleModel
+    RoleModel(key="seemodels", name="See models", permissions=["models"]).save()
+    UserModel.objects(username="viewer").update(set__role="seemodels")
     assert v.get("/api/model/yolo?all=1").get_json()["can_manage"] is False
     assert v.put("/api/model/yolo/model/boats.pt", json={"enabled": False}).status_code == 403
     assert v.get("/api/model/yolo/model/boats.pt/download").status_code == 403
     UserModel.objects(username="smoke").update(set__is_admin=False)
+    RoleModel.objects(key="seemodels").delete()

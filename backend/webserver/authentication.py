@@ -43,12 +43,27 @@ class AnonymousUser(AnonymousUserMixin):
     def update(self, *args, **kwargs):
         pass
 
+    # login turned off: one shared user, nothing to hide
+    role_key = 'admin'
+
+    def perms(self):
+        from database.roles import PERMISSIONS
+        return set(PERMISSIONS)
+
+    def has_perm(self, perm):
+        return True
+
+    def can_page(self, page):
+        return True
+
     def to_json(self):
         return {
             "admin": False,
             "username": self.username,
             "name": self.name,
             "is_admin": self.is_admin,
+            "role": "admin",
+            "perms": sorted(self.perms()),
             "anonymous": True
         }
 

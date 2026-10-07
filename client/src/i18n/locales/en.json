@@ -23,7 +23,8 @@
     "save": "Save",
     "username": "Username",
     "users": "Users",
-    "you": "(you)"
+    "you": "(you)",
+    "title": "Admin panel"
   },
   "annotation": {
     "category": "Category",
@@ -208,7 +209,8 @@
     "unknownModel": "(name not recorded)",
     "importSource": "Imported",
     "ranBy": "run by {names}",
-    "perUserHint": "People's numbers count only what they drew; model runs and imports are listed apart. Model results from before this update mostly cannot be told apart and still count for whoever ran the model."
+    "perUserHint": "People's numbers count only what they drew; model runs and imports are listed apart. Model results from before this update mostly cannot be told apart and still count for whoever ran the model.",
+    "taskStillRunning": "This task is still running; the button comes back when it is done."
   },
   "datasetCard": {
     "addUsernames": "Add usernames",
@@ -1048,5 +1050,46 @@
     "lastUsed": "last {time} ({user})",
     "neverUsed": "never used",
     "saved": "Saved {name}"
+  },
+  "noPageAccess": {
+    "title": "You do not have access to {page}",
+    "body": "Ask an admin to give your role this permission in the admin panel.",
+    "back": "Back to datasets"
+  },
+  "roles": {
+    "title": "Roles",
+    "role": "Role",
+    "users": "Users",
+    "add": "Add role",
+    "delete": "Remove role",
+    "newPlaceholder": "New role name, e.g. Teaching assistant",
+    "help": "A role decides which pages someone sees and what they may manage. Tick to allow; changes apply right away.",
+    "groupPages": "Pages",
+    "groupManage": "Management",
+    "adminsOnly": "Only admins can change roles.",
+    "cannotChangeOwn": "You cannot change your own role.",
+    "confirmDelete": "Remove the role \"{name}\"? Its {n} user(s) become regular users.",
+    "builtin": {
+      "admin": "Admin",
+      "user": "Regular user",
+      "adminHint": "Everything, always",
+      "userHint": "Default for new accounts"
+    },
+    "perm": {
+      "activity": "Activity log",
+      "models": "Models",
+      "tasks": "Tasks",
+      "manage_models": "Manage models",
+      "manage_users": "Manage users",
+      "all_datasets": "See all datasets"
+    },
+    "permHelp": {
+      "activity": "Open the Activity log page (with the trash)",
+      "models": "Open the Models page",
+      "tasks": "Open the Tasks page (everyone still sees their own task progress)",
+      "manage_models": "Upload, turn on/off, rename, download and delete models",
+      "manage_users": "Open the admin panel: create, edit and delete non-admin accounts (cannot make admins)",
+      "all_datasets": "See every dataset, like an admin (editing still needs to be a member)"
+    }
   }
 }
