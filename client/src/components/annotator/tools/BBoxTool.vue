@@ -95,13 +95,10 @@ export default {
       if (!this.color.auto) return;
 
       this.color.circle.position = point;
-      let raster = this.$parent.image.raster;
-      let color = raster.getAverageColor(this.color.circle);
+      // sampled from a small copy of the image (see libs/colorSampler.js)
+      let color = this.$parent.averageColor(point, this.color.radius);
       if (color) {
-        this.polygon.pathOptions.strokeColor = invertColor(
-          color.toCSS(true),
-          this.color.blackOrWhite
-        );
+        this.polygon.pathOptions.strokeColor = invertColor(color, this.color.blackOrWhite);
       }
     },
     checkAnnotationExist() {

@@ -49,7 +49,8 @@ export default {
       this.$parent.current.annotation = -1;
 
       this.$nextTick(() => {
-        this.$parent.save(() => {
+        const go = this.$parent.saveIfChanged || this.$parent.save;
+        go.call(this.$parent, () => {
           this.$router.push({ name: "annotate", params: { identifier } });
         });
       });

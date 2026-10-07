@@ -267,6 +267,10 @@
 
 <script>
 import paper from "paper";
+import { makeColorSampler } from "@/libs/colorSampler";
+
+// images already asked for ahead of time (the browser keeps them)
+const prefetched = new Set();
 import axios from "axios";
 import { hideModal } from "@/libs/modal";
 import UndoAction, { restoreAnnotations } from "@/undo";
@@ -438,6 +442,7 @@ export default {
         pending: null,
         since: 0,
         saving: false,
+        prefs: null,
         timer: null
       },
       hammer: null,
@@ -459,6 +464,16 @@ export default {
       if (this.$refs.settings) parts.push(JSON.stringify(this.$refs.settings.exportMetadata()));
       return parts.join("\n#\n");
     },
+    /** Tool settings and zoom, saved with the annotations */
+    prefsSignature() {
+      const r = this.$refs;
+      const tools = ["bbox", "rbbox", "sam", "polygon", "eraser", "brush", "magicwand", "select", "settings"];
+      try {
+        return JSON.stringify([tools.map(t => (r[t] ? r[t].export() : null)), this.activeTool, this.zoom]);
+      } catch (e) {
+        return null;
+      }
+    },
     isDirty() {
       return this.autosave.saved !== null && this.changeSignature() !== this.autosave.saved;
     },
@@ -472,6 +487,7 @@ export default {
       const signature = this.changeSignature();
       if (a.saved === null) {
         a.saved = signature; // baseline right after loading
+        a.prefs = this.prefsSignature();
         return;
       }
       if (signature === a.saved) {
@@ -500,6 +516,18 @@ export default {
         }
       }
     },
+    /**
+     * Leaving the image: save, unless nothing changed since the last (auto)save;
+     * then switching does not wait for the server to store the same thing again.
+     */
+    saveIfChanged(callback) {
+      const a = this.autosave;
+      if (!a.saving && a.saved !== null && !this.isDirty() && this.prefsSignature() === a.prefs) {
+        if (callback != null) callback();
+        return;
+      }
+      this.save(callback);
+    },
     save(callback, options = {}) {
       let process = options.auto ? "Autosaving" : "Saving";
       this.addProcess(process);
@@ -507,11 +535,13 @@ export default {
       let data = this.buildSaveData(options);
       // what is being saved now (export may have simplified the shapes)
       let signature = this.changeSignature();
+      let prefs = this.prefsSignature();
 
       axios
         .post("/api/annotator/data", JSON.stringify(data))
         .then(() => {
           this.autosave.saved = signature;
+          this.autosave.prefs = prefs;
           //TODO: updateUser
           if (callback != null) callback();
         })
@@ -677,12 +707,17 @@ export default {
         this.image.ratio = (width * height) / 1000000;
         this.removeProcess(process);
 
-        let tempCtx = document.createElement("canvas").getContext("2d");
-        tempCtx.canvas.width = width;
-        tempCtx.canvas.height = height;
-        tempCtx.drawImage(this.image.raster.image, 0, 0);
-
-        this.image.data = tempCtx.getImageData(0, 0, width, height);
+        // full-size pixels are only needed by the magic wand: made when it is picked
+        // (copying a 12 MP photo takes about a second)
+        this.image.data = null;
+        // after the first paint (the image is decoded by then)
+        this.colorSampler = null;
+        const raster = this.image.raster;
+        setTimeout(() => {
+          if (this.image.raster === raster) this.colorSampler = makeColorSampler(raster.image, width, height);
+        }, 400);
+        if (this.activeTool === "Magic Wand") this.ensureImageData();
+        this.prefetchNeighbours();
         let fontSize = width * 0.025;
 
         let positionTopLeft = new paper.Point(
@@ -706,6 +741,31 @@ export default {
 
         this.loading.image = false;
       };
+    },
+    /** Pixels of the whole image for the magic wand (once per image) */
+    ensureImageData() {
+      const raster = this.image.raster;
+      if (this.image.data || !raster || !raster.loaded) return;
+      const ctx = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+      ctx.canvas.width = raster.width;
+      ctx.canvas.height = raster.height;
+      ctx.drawImage(raster.image, 0, 0);
+      this.image.data = ctx.getImageData(0, 0, raster.width, raster.height);
+    },
+    /** "#rrggbb" of the image around a point, for tools that pick a contrasting stroke */
+    averageColor(point, radius) {
+      return this.colorSampler ? this.colorSampler.average(point, radius) : null;
+    },
+    /** Start downloading the next and previous images so switching shows them at once */
+    prefetchNeighbours() {
+      if (!this.image.raster || !this.image.raster.loaded || this.loading.data) return;
+      [this.image.next, this.image.previous].forEach(id => {
+        if (id == null || prefetched.has(id)) return;
+        prefetched.add(id);
+        const img = new Image();
+        img.src = "/api/image/" + id;
+        if (prefetched.size > 50) prefetched.clear();
+      });
     },
     setPreferences(preferences) {
       let refs = this.$refs;
@@ -763,6 +823,7 @@ export default {
 
           this.$nextTick(() => {
             this.showAll();
+            this.prefetchNeighbours();
           });
 
           if (callback != null) callback();
@@ -1287,6 +1348,9 @@ export default {
     }
   },
   watch: {
+    activeTool(tool) {
+      if (tool === "Magic Wand") setTimeout(() => this.ensureImageData(), 0);
+    },
     doneLoading(done) {
       if (done) {
         if (this.loading.loader) {
@@ -1419,7 +1483,7 @@ export default {
         image_id: this.image.id,
         active: false
       });
-      this.save(next);
+      this.saveIfChanged(next);
     });
   },
   mounted() {

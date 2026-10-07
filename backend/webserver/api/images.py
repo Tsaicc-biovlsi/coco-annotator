@@ -154,6 +154,11 @@ class ImageId(Resource):
         width = args.get('width')
         height = args.get('height')
 
+        # the annotator: the file itself when possible (no re-encoding on every
+        # open; ETag lets the browser reuse a prefetched copy)
+        if not thumbnail and not width and not height and not as_attachment:
+            return send_file(image.display_path(), max_age=0, conditional=True, etag=True)
+
         # small thumbnails (dataset pages) come from a file cache
         if thumbnail and width and width <= 512 and not as_attachment:
             path = image.small_thumbnail(width, height or image.height)

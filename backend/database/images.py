@@ -201,6 +201,43 @@ class ImageModel(DynamicDocument):
             os.replace(tmp, path)
         return path
 
+    # formats every browser shows as they are
+    BROWSER_FORMATS = {'JPEG', 'PNG', 'WEBP', 'GIF'}
+    BROWSER_MODES = {'RGB', 'RGBA', 'L', 'LA', 'P'}
+
+    def display_path(self):
+        """File for the annotator: the original when a browser can show it
+        as is (no re-encoding, cacheable), else a JPEG made once and kept.
+
+        Photos with an EXIF rotation are re-encoded too: annotations use the
+        stored pixel layout, and browsers would turn the original upright."""
+        try:
+            with Image.open(self.path) as pil_image:
+                orientation = pil_image.getexif().get(0x0112, 1)
+                if pil_image.format in self.BROWSER_FORMATS and pil_image.mode in self.BROWSER_MODES \
+                        and orientation in (None, 1):
+                    return self.path
+        except Exception:
+            pass
+
+        source = self.path
+        base, _ = os.path.splitext(self.thumbnail_path())
+        path = f"{base}.display.jpg"
+
+        def fresh():
+            return os.path.isfile(path) and os.path.getmtime(path) >= os.path.getmtime(source)
+
+        if fresh():
+            return path
+        with _thumbnail_lock(path):
+            if fresh():
+                return path
+            with Image.open(source) as pil_image:
+                tmp = f"{path}.{os.getpid()}.{threading.get_ident()}.tmp"
+                pil_image.convert("RGB").save(tmp, "JPEG", quality=90)
+            os.replace(tmp, path)
+        return path
+
     def thumbnail_path(self):
         folders = self.path.split('/')
         folders.insert(len(folders)-1, self.THUMBNAIL_DIRECTORY)
