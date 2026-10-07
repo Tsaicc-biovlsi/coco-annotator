@@ -8,6 +8,7 @@ import secrets
 from database import UserModel, DatasetModel, RoleModel
 from database.roles import ADMIN, DEFAULT, PERMISSIONS
 from ..util.query_util import fix_ids
+from ..util import activity
 
 api = Namespace('admin', description='Admin related operations')
 
@@ -78,6 +79,12 @@ def _pick_role(key, is_admin=None):
 def _set_role(user, key):
     user.role = key
     user.is_admin = key == ADMIN
+
+
+def _role_name(key):
+    """A custom role's name for the activity log (built-in ones are translated there)"""
+    role = RoleModel.objects(key=key).first() if key and key not in (ADMIN, DEFAULT) else None
+    return role.name if role else None
 
 
 def _user_out(user):
@@ -165,6 +172,12 @@ class UsersBulk(Resource):
             user.save()
             created.append({"username": username, "name": user.name, "password": password})
 
+        if created:
+            activity.record('user_bulk', current_user, dataset_id=dataset.id if dataset else None,
+                            counts={'users': len(created), 'existing': len(existing)},
+                            detail={'names': [u['username'] for u in created][:200], 'role': role or DEFAULT,
+                                    'role_name': _role_name(role), 'shared': bool(dataset)},
+                            text=' '.join(u['username'] for u in created[:200]))
         if dataset is not None:
             members = list(dataset.users or [])
             for username in [u["username"] for u in created] + existing:
@@ -203,6 +216,9 @@ class User(Resource):
         _set_role(user, role or DEFAULT)
         user.must_change_password = True
         user.save()
+        activity.record('user_create', current_user, detail={'name': user.username, 'display': user.name or None,
+                                                             'role': user.role_key,
+                                                             'role_name': _role_name(user.role_key)}, text=f"{user.username} {user.name or ''}")
 
         return {'success': True, 'user': _user_out(user)}
 
@@ -238,12 +254,16 @@ class Username(Resource):
             return {"success": False, "message": "Only admins can edit admins."}, 403
 
         args = create_user.parse_args()
+        changes, role_from = [], user.role_key
         name = args.get('name')
         if len(name) > 0:
+            if name != user.name:
+                changes.append('name')
             user.name = name
 
         password = args.get('password')
         if len(password) > 0:
+            changes.append('password')
             user.password = hash_password(password)
             # a password set by someone else: they choose their own at next login
             if user.username.lower() != current_user.username.lower():
@@ -258,8 +278,16 @@ class Username(Resource):
             if user.is_admin and _is_last_admin(user):
                 return {"success": False, "message": "At least one admin is required."}, 400
             _set_role(user, role)
+            changes.append('role')
 
         user.save()
+        if changes:
+            activity.record('user_update', current_user, text=f"{user.username} {user.name or ''}", detail={
+                'name': user.username, 'changes': changes, 'display': user.name or None,
+                'role_from': role_from if 'role' in changes else None,
+                'role_to': user.role_key if 'role' in changes else None,
+                'role_from_name': _role_name(role_from) if 'role' in changes else None,
+                'role_to_name': _role_name(user.role_key) if 'role' in changes else None})
 
         return _user_out(user)
 
@@ -281,7 +309,10 @@ class Username(Resource):
         if _is_last_admin(user):
             return {"success": False, "message": "At least one admin is required."}, 400
 
+        username, display = user.username, user.name
         user.delete()
+        activity.record('user_delete', current_user, detail={'name': username, 'display': display or None},
+                        text=f"{username} {display or ''}")
         return {"success": True}
 
 
@@ -326,6 +357,7 @@ class Roles(Resource):
             n += 1
         RoleModel(key=f"r{n}", name=name, permissions=RoleModel.clean_permissions(args.get('permissions')),
                   order=100 + n).save()
+        activity.record('role_create', current_user, detail={'name': name, 'key': f"r{n}"}, text=name)
         return {"success": True, "key": f"r{n}", **_roles_out()}
 
 
@@ -345,6 +377,7 @@ class Role(Resource):
         if key == ADMIN:
             return {"success": False, "message": "The admin role always has every permission."}, 400
         args = role_args.parse_args()
+        old_name, old_perms = role.name, set(role.permissions or [])
         name = args.get('name')
         if name is not None and not role.builtin:
             name = name.strip()
@@ -356,6 +389,11 @@ class Role(Resource):
         if args.get('permissions') is not None:
             role.permissions = RoleModel.clean_permissions(args.get('permissions'))
         role.save()
+        new_perms = set(role.permissions or [])
+        if role.name != old_name or new_perms != old_perms:
+            activity.record('role_update', current_user, text=role.name or key, detail={
+                'key': key, 'name': role.name or None, 'old_name': old_name if role.name != old_name else None,
+                'added': sorted(new_perms - old_perms), 'removed': sorted(old_perms - new_perms)})
         return {"success": True, **_roles_out()}
 
     @login_required
@@ -369,5 +407,7 @@ class Role(Resource):
         if role.builtin:
             return {"success": False, "message": "Built-in roles cannot be removed."}, 400
         moved = UserModel.objects(role=key).update(set__role=DEFAULT)
+        activity.record('role_delete', current_user, detail={'name': role.name, 'key': key},
+                        counts={'users': moved}, text=role.name)
         role.delete()
         return {"success": True, "moved": moved, **_roles_out()}

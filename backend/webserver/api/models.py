@@ -211,6 +211,9 @@ class YoloUpload(Resource):
         meta.uploaded_by = current_user.username
         meta.uploaded_at = datetime.datetime.utcnow()
         meta.save()
+        from ..util import activity
+        activity.record('model_upload', current_user, detail={'name': info['name'], 'task': info.get('task'),
+                                                              'replaced': bool(overwrite)}, text=info['name'])
         return {"success": True, "model": info}
 
 
@@ -227,7 +230,12 @@ class YoloModel(Resource):
         except (ValueError, OSError):
             return {"message": "Unknown model"}, 400
         logger.info(f"User {current_user.username} removed model {name}")
+        meta = ModelInfoModel.objects(name=name).first()
+        display = meta.display_name if meta else ''
         ModelInfoModel.objects(name=name).delete()
+        from ..util import activity
+        activity.record('model_delete', current_user, detail={'name': name, 'display_name': display or None},
+                        text=f"{name} {display or ''}")
         return {"success": True}
 
     @login_required
@@ -242,6 +250,8 @@ class YoloModel(Resource):
             return {"message": "Unknown model"}, 400
         data = request.get_json(silent=True) or {}
         meta = ModelInfoModel.objects(name=name).first() or ModelInfoModel(name=name)
+        before = {'display_name': meta.display_name or '', 'note': meta.note or '', 'enabled': meta.enabled,
+                  'default_conf': meta.default_conf}
         if 'display_name' in data:
             meta.display_name = str(data['display_name'] or '').strip()[:100]
         if 'note' in data:
@@ -252,6 +262,15 @@ class YoloModel(Resource):
             conf = data['default_conf']
             meta.default_conf = None if conf in (None, '') else _conf(conf)
         meta.save()
+        after = {'display_name': meta.display_name or '', 'note': meta.note or '', 'enabled': meta.enabled,
+                 'default_conf': meta.default_conf}
+        changed = [k for k in after if after[k] != before[k]]
+        if changed:
+            from ..util import activity
+            activity.record('model_update', current_user, text=f"{name} {meta.display_name or ''}", detail={
+                'name': name, 'display_name': meta.display_name or None, 'changed': changed,
+                'enabled': meta.enabled if 'enabled' in changed else None,
+                'default_conf': meta.default_conf if 'default_conf' in changed else None})
         return {"success": True, "model": _with_meta([{"name": name}])[0]}
 
 

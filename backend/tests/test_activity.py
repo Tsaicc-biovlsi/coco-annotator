@@ -164,3 +164,39 @@ def test_legacy_backfill_visibility_and_expiry(act_world):
         set__updated_at=datetime.datetime.utcnow() - datetime.timedelta(days=91))
     trash.purge_expired(force=True)
     assert ActivityModel.objects(id=lines[0]["id"]).first() is None
+
+
+def test_admin_actions_are_logged(world):
+    """Accounts, roles, passwords and tasks show up in the activity log."""
+    from database import ActivityModel, TaskModel, UserModel
+    from webserver import app
+    from webserver.util.passwords import hash_password
+    UserModel.objects(username__in=["logboss", "LOGGED1", "D11111111"]).delete()
+    UserModel(username="logboss", password=hash_password("pw"), name="B", is_admin=True).save()
+    c = app.test_client()
+    c.post("/api/user/login", json={"username": "logboss", "password": "pw"})
+    start = ActivityModel.objects.count()
+
+    c.post("/api/admin/user/", json={"username": "LOGGED1", "password": "pw123", "name": "L"})
+    c.patch("/api/admin/user/LOGGED1", json={"name": "Logged", "password": "reset1"})
+    role = c.post("/api/admin/roles", json={"name": "LogRole"}).get_json()["key"]
+    c.put(f"/api/admin/roles/{role}", json={"permissions": ["tasks"]})
+    c.patch("/api/admin/user/LOGGED1", json={"name": "", "password": "", "role": role})
+    c.post("/api/admin/users/bulk", json={"users": [{"username": "D11111111"}]})
+    c.delete(f"/api/admin/roles/{role}")
+    c.delete("/api/admin/user/LOGGED1")
+    c.post("/api/user/password", json={"password": "pw", "new_password": "pw999"})
+    TaskModel(name="old", group="t", creator="logboss", completed=True).save()
+    c.delete("/api/tasks/completed")
+
+    actions = [a.action for a in ActivityModel.objects.order_by('id')[start:]]
+    for action in ("user_create", "user_update", "role_create", "role_update", "user_bulk", "role_delete",
+                   "user_delete", "password_change", "task_clear"):
+        assert action in actions, action
+    update = ActivityModel.objects(action="user_update", detail__name="LOGGED1").order_by('id')
+    assert update[0].detail["changes"] == ["name", "password"]
+    assert update[1].detail["role_from"] == "user" and update[1].detail["role_to"] == role
+
+    listed = c.get("/api/activity/", query_string={"group": "admin", "per_page": 100}).get_json()
+    assert {"user_delete", "role_create"} <= {e["action"] for e in listed["entries"]}
+    UserModel.objects(username__in=["logboss", "D11111111"]).delete()

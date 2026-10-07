@@ -64,8 +64,11 @@ class UserPassword(Resource):
             if new_password == args.get('password'):
                 return {'success': False, 'message': 'The new password must be different.',
                         'code': 'same'}, 400
+            first = bool(getattr(current_user, 'must_change_password', False))
             current_user.update(password=hash_password(new_password), new=False,
                                 must_change_password=False)
+            from ..util import activity
+            activity.record('password_change', current_user, detail={'first_login': first or None})
             return {'success': True}
 
         return {'success': False, 'message': 'Password does not match current passowrd'}, 400

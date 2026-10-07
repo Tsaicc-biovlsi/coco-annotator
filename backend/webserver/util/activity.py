@@ -28,6 +28,10 @@ GROUPS = {
     'dataset': ['dataset_create', 'dataset_update', 'dataset_share', 'category_create',
                 'category_update', 'reviewers'],
     'review': ['review', 'assign'],
+    # accounts, roles, models, tasks
+    'admin': ['user_create', 'user_bulk', 'user_update', 'user_delete', 'password_change',
+              'role_create', 'role_update', 'role_delete', 'model_upload', 'model_update',
+              'model_delete', 'task_delete', 'task_clear'],
 }
 
 

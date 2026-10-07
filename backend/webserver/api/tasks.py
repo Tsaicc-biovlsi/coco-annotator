@@ -48,6 +48,9 @@ class TasksCompleted(Resource):
             query = query.filter(creator=current_user.username)
         n = query.count()
         query.delete()
+        if n:
+            from ..util import activity
+            activity.record('task_clear', current_user, counts={'items': n})
         return {"success": True, "deleted": n}
 
 
@@ -63,8 +66,11 @@ class TaskId(Resource):
 
         if not task.completed:
             return {"message": "Task is not completed"}, 400
-        
+
+        name = task.name
         task.delete()
+        from ..util import activity
+        activity.record('task_delete', current_user, detail={'name': name, 'task': task_id}, text=name)
         return {"success": True}
 
 

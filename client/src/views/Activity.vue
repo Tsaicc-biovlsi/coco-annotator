@@ -233,7 +233,7 @@
 import axios from "axios";
 import Pagination from "@/components/Pagination.vue";
 
-const GROUPS = ["all", "annotate", "import", "delete", "trash", "dataset", "review"];
+const GROUPS = ["all", "annotate", "import", "delete", "trash", "dataset", "review", "admin"];
 const GROUP_ICONS = {
   all: "fa-th-list",
   annotate: "fa-pencil",
@@ -241,9 +241,13 @@ const GROUP_ICONS = {
   delete: "fa-trash-o",
   trash: "fa-trash",
   dataset: "fa-database",
-  review: "fa-check-square-o"
+  review: "fa-check-square-o",
+  admin: "fa-shield"
 };
+const ADMIN_ACTIONS = ["user_create", "user_bulk", "user_update", "user_delete", "password_change", "role_create",
+  "role_update", "role_delete", "model_upload", "model_update", "model_delete", "task_delete", "task_clear"];
 const ACTION_GROUP = {
+  ...Object.fromEntries(ADMIN_ACTIONS.map(a => [a, "admin"])),
   annotate: "annotate", copy: "annotate", auto_annotate: "annotate",
   import: "import", video: "import", upload: "import", scan: "import", export: "import",
   delete: "delete", restore: "delete", purge: "delete", undo_import: "delete",
@@ -257,7 +261,11 @@ const ICONS = {
   export: "fa-download", delete: "fa-trash-o", restore: "fa-undo", purge: "fa-times",
   undo_import: "fa-reply", dataset_create: "fa-plus", dataset_update: "fa-cog",
   dataset_share: "fa-users", category_create: "fa-tag", category_update: "fa-tag",
-  reviewers: "fa-user-secret", review: "fa-check-square-o", assign: "fa-share"
+  reviewers: "fa-user-secret", review: "fa-check-square-o", assign: "fa-share",
+  user_create: "fa-user-plus", user_bulk: "fa-users", user_update: "fa-user", user_delete: "fa-user-times",
+  password_change: "fa-key", role_create: "fa-id-badge", role_update: "fa-id-badge", role_delete: "fa-id-badge",
+  model_upload: "fa-cubes", model_update: "fa-cubes", model_delete: "fa-cubes", task_delete: "fa-tasks",
+  task_clear: "fa-tasks"
 };
 
 export default {
@@ -457,9 +465,58 @@ export default {
             n: c.images || 0,
             people: Object.entries(d.people || {}).map(([u, n]) => `${u} ${n}`).join("、")
           });
+        case "user_create":
+          return t("userCreate", { name: this.who(d), role: this.roleLabel(d.role, d.role_name) });
+        case "user_bulk":
+          return t("userBulk", { n: c.users || 0, names: this.names(d.names || []), role: this.roleLabel(d.role, d.role_name) }) +
+            (d.dataset_name ? t("userBulkShared", { name: d.dataset_name }) : "") +
+            (c.existing ? t("userBulkExisting", { n: c.existing }) : "");
+        case "user_update": {
+          const parts = (d.changes || []).map(k => k === "role"
+            ? t("roleChanged", { from: this.roleLabel(d.role_from, d.role_from_name), to: this.roleLabel(d.role_to, d.role_to_name) })
+            : t("changed_" + k));
+          return t("userUpdate", { name: this.who(d), what: parts.join("、") });
+        }
+        case "user_delete":
+          return t("userDelete", { name: this.who(d) });
+        case "password_change":
+          return d.first_login ? t("passwordFirst") : t("passwordChange");
+        case "role_create":
+          return t("roleCreate", { name: d.name });
+        case "role_update": {
+          const parts = [];
+          if (d.old_name) parts.push(t("roleRenamed", { old: d.old_name }));
+          if (d.added && d.added.length) parts.push(t("permsAdded", { names: d.added.map(p => this.$t("roles.perm." + p)).join("、") }));
+          if (d.removed && d.removed.length) parts.push(t("permsRemoved", { names: d.removed.map(p => this.$t("roles.perm." + p)).join("、") }));
+          return t("roleUpdate", { name: this.roleLabel(d.key, d.name), what: parts.join("；") });
+        }
+        case "role_delete":
+          return t("roleDelete", { name: d.name, n: c.users || 0 });
+        case "model_upload":
+          return t(d.replaced ? "modelReplace" : "modelUpload", { name: d.name });
+        case "model_update": {
+          const parts = (d.changed || []).map(k => k === "enabled" ? t(d.enabled ? "modelOn" : "modelOff")
+            : k === "default_conf" ? t("modelConf", { v: d.default_conf ?? "–" }) : t("modelChanged_" + k));
+          return t("modelUpdate", { name: d.display_name || d.name, what: parts.join("、") });
+        }
+        case "model_delete":
+          return t("modelDelete", { name: d.display_name ? `${d.display_name}（${d.name}）` : d.name });
+        case "task_delete":
+          return t("taskDelete", { name: this.$taskName(d.name || "") });
+        case "task_clear":
+          return t("taskClear", { n: c.items || 0 });
         default:
           return e.action;
       }
+    },
+    /** "B12345678（王小明）" */
+    who(d) {
+      return d.display && d.display !== d.name ? `${d.name}（${d.display}）` : d.name;
+    },
+    roleLabel(key, name) {
+      if (!key) return this.$t("roles.builtin.user");
+      if (key === "admin" || key === "user") return this.$t("roles.builtin." + key);
+      return name || key;
     },
     chips(e) {
       const d = e.detail || {};
@@ -655,6 +712,9 @@ export default {
 }
 .action-icon.g-review {
   background: #d97706;
+}
+.action-icon.g-admin {
+  background: #343a40;
 }
 .preview {
   width: 96px;
