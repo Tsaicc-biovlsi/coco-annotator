@@ -11,11 +11,28 @@ class CategoryModel(DynamicDocument):
                        "keypoint_edges", "keypoint_labels", "keypoint_colors"]
 
     id = SequenceField(primary_key=True)
-    name = StringField(required=True, unique_with=['creator'])
+    #: the same name can be used again under another parent (e.g. "person" in
+    #: each group of a course): unique per creator and first parent
+    name = StringField(required=True, unique_with=['creator', 'supercategory'])
     #: COCO's single parent: the first of ``supercategories``
     supercategory = StringField(default='')
-    #: all parent categories (a category can be in several groups)
+    #: all parent categories (a category can be in several groups). A parent
+    #: is a path: "Course/Group 1" is "Group 1" inside "Course" (any depth)
     supercategories = ListField(StringField(), default=[])
+
+    #: the unique index of older versions (name per creator only)
+    OLD_UNIQUE_INDEX = 'name_1_creator_1'
+
+    @classmethod
+    def drop_old_unique_index(cls):
+        """Older databases have a unique (name, creator) index that would still
+        refuse the same name under another parent."""
+        try:
+            collection = cls._get_collection()
+            if cls.OLD_UNIQUE_INDEX in collection.index_information():
+                collection.drop_index(cls.OLD_UNIQUE_INDEX)
+        except Exception:  # pragma: no cover
+            pass
     color = StringField(default=None)
     metadata = DictField(default={})
 
@@ -28,15 +45,28 @@ class CategoryModel(DynamicDocument):
     keypoint_colors = ListField(default=[])
 
     @staticmethod
-    def parse_parents(value):
-        """A list or "a, b、c" -> unique, trimmed parent names (in order)."""
+    def normalize_path(value):
+        """ "Course / Group 1 " -> "Course/Group 1" (a parent path, any depth)"""
+        import re
+        parts = [p.strip() for p in re.split(r"[/／]", str(value or ''))]
+        return '/'.join(p for p in parts if p)
+
+    @staticmethod
+    def ancestors(path):
+        """ "a/b/c" -> ["a", "a/b", "a/b/c"] """
+        parts = [p for p in str(path or '').split('/') if p]
+        return ['/'.join(parts[:i + 1]) for i in range(len(parts))]
+
+    @classmethod
+    def parse_parents(cls, value):
+        """A list or "a, b、c" -> unique, trimmed parent paths (in order)."""
         import re
         if value is None:
             return []
         items = value if isinstance(value, (list, tuple)) else re.split(r"[,，、;；\n]+", str(value))
         out = []
         for item in items:
-            name = str(item or '').strip()
+            name = cls.normalize_path(item)
             if name and name not in out:
                 out.append(name)
         return out[:20]
@@ -51,13 +81,26 @@ class CategoryModel(DynamicDocument):
 
     @classmethod
     def bulk_create(cls, categories):
+        """Category ids for a list of ids (existing categories) and names
+        (found, or created without a parent)."""
 
         if not categories:
             return []
 
         category_ids = []
         for category in categories:
-            category_model = CategoryModel.objects(name=category).first()
+            if isinstance(category, int) or (isinstance(category, str) and category.isdigit()
+                                             and CategoryModel.objects(id=int(category)).first()):
+                category_model = CategoryModel.objects(id=int(category)).first()
+                if category_model is None:
+                    continue
+            else:
+                # the same name can exist under several parents: the one without a
+                # parent, or the only one of that name; else a new one (no parent)
+                category_model = CategoryModel.objects(name=category, supercategory__in=['', None]).first()
+                if category_model is None:
+                    same = CategoryModel.objects(name=category)
+                    category_model = same.first() if same.count() == 1 else None
 
             if category_model is not None and category_model.deleted:
                 # in the trash: picking it again brings it back
@@ -68,7 +111,7 @@ class CategoryModel(DynamicDocument):
                 new_category = CategoryModel(name=category)
                 new_category.save()
                 category_ids.append(new_category.id)
-            else:
+            elif category_model.id not in category_ids:
                 category_ids.append(category_model.id)
 
         return category_ids

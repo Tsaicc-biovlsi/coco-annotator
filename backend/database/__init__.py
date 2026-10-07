@@ -56,6 +56,7 @@ def ensure_indexes():
     MongoDB builds them once; on an existing database with many images and
     annotations this can take a few seconds on the first start.
     """
+    CategoryModel.drop_old_unique_index()
     for model in (ImageModel, AnnotationModel, DatasetModel, CategoryModel,
                   UserModel, TaskModel, ExportModel, ActivityModel):
         model.ensure_indexes()

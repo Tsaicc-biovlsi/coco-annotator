@@ -55,7 +55,7 @@
         <span class="color-dot flex-shrink-0" :style="{ backgroundColor: category.color || '#999' }" />
         <label :for="'exportCat' + category.id" class="flex-grow-1 mb-0 text-truncate" :title="category.name">
           {{ category.name }}
-          <span v-if="parentsOf(category).length" class="parent-hint">{{ parentsOf(category).join('、') }}</span>
+          <span v-if="parentsOf(category).length" class="parent-hint">{{ parentsOf(category).map(p => pathLabel(p)).join('、') }}</span>
         </label>
         <span class="small text-nowrap" :class="usable(category.id) ? 'text-muted' : 'text-warning-emphasis'">
           <template v-if="!counts"><i class="fa fa-spinner fa-spin" /></template>
@@ -106,7 +106,7 @@
  * "categories" in COCO). Counts come from /api/dataset/<id>/category_counts.
  */
 import ParentChips from "@/components/ParentChips.vue";
-import { matchesSearch, parentsOf } from "@/libs/parents";
+import { matchesSearch, parentsOf, pathLabel } from "@/libs/parents";
 
 export default {
   name: "ExportCategories",
@@ -150,6 +150,7 @@ export default {
   },
   methods: {
     parentsOf,
+    pathLabel,
     isSelected(id) {
       return this.selected.includes(id);
     },

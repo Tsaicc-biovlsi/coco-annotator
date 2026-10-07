@@ -1,94 +1,123 @@
 <template>
   <div>
     <div style="padding-top: 55px" />
-    <div
-      class="album py-5 bg-light"
-      style="overflow: auto; height: calc(100vh - 55px)"
-    >
-      <div class="container">
-        <h2 class="text-center">
-          {{ $t('categories.categories') }}
-          <i
-            class="fa fa-question-circle help-icon"
-            data-bs-toggle="modal"
-            data-bs-target="#helpCategories"
-            aria-hidden="true"
-          />
-        </h2>
-
-        <p class="text-center">
-          <i18n-t keypath="categories.loaded" tag="span"><template #n><strong>{{ categoryCount }}</strong></template></i18n-t>
-        </p>
-
-        <div class="row justify-content-md-center">
-          <div
-            class="col-md-auto btn-group"
-            role="group"
-            style="padding-bottom: 20px"
-          >
-            <button
-              type="button"
-              class="btn btn-success"
-              data-bs-toggle="modal"
-              data-bs-target="#createCategories"
-            >
-              {{ $t('categories.create') }}
-            </button>
-            <button type="button" class="btn btn-secondary" @click="updatePage">
-              {{ $t('categories.refresh') }}
-            </button>
+    <div class="bg-light categories-page" style="overflow: auto; height: calc(100vh - 55px)">
+      <div class="container-xl py-4">
+        <div class="d-flex align-items-start flex-wrap gap-2 mb-3">
+          <div class="me-auto">
+            <h3 class="mb-1">
+              <i class="fa fa-tags" /> {{ $t('categories.categories') }}
+              <i
+                class="fa fa-question-circle help-icon"
+                data-bs-toggle="modal"
+                data-bs-target="#helpCategories"
+                aria-hidden="true"
+              />
+            </h3>
+            <div class="small text-muted">
+              <i18n-t keypath="categories.loaded" tag="span"><template #n><strong>{{ categoryCount }}</strong></template></i18n-t>
+            </div>
           </div>
+          <button type="button" class="btn btn-sm btn-success" @click="openCreate(selectedPath ? [selectedPath] : [])">
+            <i class="fa fa-plus" /> {{ $t('categories.create') }}
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" :title="$t('categories.refresh')" @click="updatePage">
+            <i class="fa fa-refresh" />
+          </button>
         </div>
 
-        <hr />
-
-        <p v-if="categories.length < 1" class="text-center">
-          {{ $t('categories.youNeedToCreateA') }}
+        <p v-if="categories.length < 1" class="text-center text-muted py-5">
+          <i class="fa fa-tags fa-3x d-block mb-2" />{{ $t('categories.youNeedToCreateA') }}
         </p>
-        <div v-else>
-          <!-- one tab per parent category -->
-          <ul v-if="grouped" class="nav nav-tabs mb-3 parent-tabs">
-            <li v-for="g in tabs" :key="g.key" class="nav-item">
-              <a href="#" class="nav-link" :class="{ active: g.key === currentKey }" @click.prevent="selectTab(g.key)">
-                <i class="fa" :class="g.key === '*' ? 'fa-th' : g.parent ? 'fa-folder-o' : 'fa-file-o'" />
-                {{ g.label }}
-                <span class="badge rounded-pill text-bg-secondary ms-1">{{ g.items.length }}</span>
-              </a>
-            </li>
-          </ul>
-
-          <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-            <input
-              v-model="search"
-              class="form-control form-control-sm search-box"
-              :placeholder="$t('parents.searchCategories')"
-            />
-            <button
-              v-if="current && current.parent"
-              type="button"
-              class="btn btn-sm btn-outline-success"
-              @click="openCreate([current.parent])"
-            ><i class="fa fa-plus" /> {{ $t('parents.addHere', { name: current.parent }) }}</button>
-            <span v-if="currentItems.length" class="small text-muted ms-auto">
-              {{ $t('parents.showing', { from: pageStart + 1, to: Math.min(pageStart + perPage, currentItems.length), n: currentItems.length }) }}
-            </span>
+        <div v-else class="row g-3">
+          <!-- folders: course › group › ... -->
+          <div class="col-lg-3">
+            <div class="card shadow-sm tree-card">
+              <div class="card-body p-2">
+                <div class="tree-special" :class="{ active: currentKey === '*' }" @click="selectTab('*')">
+                  <i class="fa fa-fw fa-th-large" /> <span class="flex-grow-1">{{ $t('parents.all') }}</span>
+                  <span class="count">{{ shown.length }}</span>
+                </div>
+                <CategoryTree
+                  v-if="tree.children.length"
+                  :nodes="tree.children"
+                  :selected="selectedPath"
+                  :open="open"
+                  @select="p => selectTab('p:' + p)"
+                  @toggle="toggleOpen"
+                />
+                <div v-if="noParent.length" class="tree-special" :class="{ active: currentKey === '-' }" @click="selectTab('-')">
+                  <i class="fa fa-fw fa-file-o" /> <span class="flex-grow-1">{{ $t('parents.none') }}</span>
+                  <span class="count">{{ noParent.length }}</span>
+                </div>
+              </div>
+              <div class="card-footer small text-muted bg-transparent">{{ $t('tree.hint') }}</div>
+            </div>
           </div>
 
-          <div class="row">
-            <CategoryCard
-              v-for="category in pageItems"
-              :key="currentKey + '-' + category.id"
-              :category="category"
-              :uid="'-' + currentIndex"
-              :group-parent="current ? current.parent : null"
-              :known-parents="knownParents"
-              @changed="updatePage"
-            />
-          </div>
-          <p v-if="!currentItems.length" class="text-center text-muted">{{ $t('exportCategories.noMatch') }}</p>
+          <div class="col-lg-9">
+            <!-- where we are -->
+            <nav class="crumbs mb-2" aria-label="breadcrumb">
+              <a href="#" @click.prevent="selectTab('*')">{{ $t('parents.all') }}</a>
+              <template v-if="currentKey === '-'">
+                <i class="fa fa-angle-right" /> <span>{{ $t('parents.none') }}</span>
+              </template>
+              <template v-for="(a, i) in crumbs" :key="a">
+                <i class="fa fa-angle-right" />
+                <a v-if="i < crumbs.length - 1" href="#" @click.prevent="selectTab('p:' + a)">{{ pathName(a) }}</a>
+                <strong v-else>{{ pathName(a) }}</strong>
+              </template>
+            </nav>
 
-          <div v-if="pageCount > 1" class="d-flex justify-content-center">
-            <Pagination :key="currentKey + '|' + search + '|' + pageCount" :pages="pageCount" @pagechange="p => (page = p)" />
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+              <div class="input-group input-group-sm search-box">
+                <span class="input-group-text"><i class="fa fa-search" /></span>
+                <input v-model="search" class="form-control" :placeholder="$t('parents.searchCategories')" />
+              </div>
+              <div v-if="node && node.children.length" class="form-check form-switch m-0">
+                <input id="catDeep" v-model="deep" type="checkbox" class="form-check-input" role="switch" />
+                <label class="form-check-label small" for="catDeep">{{ $t('tree.includeBelow') }}</label>
+              </div>
+              <button
+                v-if="selectedPath"
+                type="button"
+                class="btn btn-sm btn-outline-success"
+                @click="openCreate([selectedPath])"
+              ><i class="fa fa-plus" /> {{ $t('parents.addHere', { name: pathName(selectedPath) }) }}</button>
+              <span v-if="currentItems.length" class="small text-muted ms-auto">
+                {{ $t('parents.showing', { from: pageStart + 1, to: Math.min(pageStart + perPage, currentItems.length), n: currentItems.length }) }}
+              </span>
+            </div>
+
+            <!-- the folders inside this one -->
+            <div v-if="node && node.children.length && !search" class="row g-2 mb-3">
+              <div v-for="child in node.children" :key="child.path" class="col-6 col-md-4 col-xl-3">
+                <button type="button" class="folder-tile w-100 text-start" @click="selectTab('p:' + child.path)">
+                  <i class="fa fa-folder" />
+                  <span class="text-truncate flex-grow-1">{{ child.name }}</span>
+                  <span class="count">{{ child.all.length }}</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="row">
+              <CategoryCard
+                v-for="category in pageItems"
+                :key="currentKey + '-' + category.id"
+                :category="category"
+                :uid="'-' + currentKey"
+                :group-parent="selectedPath"
+                :known-parents="knownParents"
+                @changed="updatePage"
+              />
+            </div>
+            <p v-if="!currentItems.length" class="text-center text-muted py-4">
+              {{ node && node.children.length && !deep ? $t('tree.onlyFolders') : $t('exportCategories.noMatch') }}
+            </p>
+
+            <div v-if="pageCount > 1" class="d-flex justify-content-center">
+              <Pagination :key="currentKey + '|' + search + '|' + deep + '|' + pageCount" :pages="pageCount" @pagechange="p => (page = p)" />
+            </div>
           </div>
         </div>
       </div>
@@ -211,7 +240,8 @@ import CategoryCard from "@/components/cards/CategoryCard.vue";
 import KeypointsDefinition from "@/components/KeypointsDefinition.vue";
 import ParentInput from "@/components/ParentInput.vue";
 import Pagination from "@/components/Pagination.vue";
-import { allParents, groupByParent, matchesSearch } from "@/libs/parents";
+import CategoryTree from "@/components/CategoryTree.vue";
+import { allParents, ancestors, buildTree, findNode, matchesSearch, parentsOf, pathName } from "@/libs/parents";
 import { Modal } from "bootstrap";
 
 import { mapMutations } from "vuex";
@@ -226,14 +256,16 @@ function readTab() {
 
 export default {
   name: "Categories",
-  components: { CategoryCard, KeypointsDefinition, ParentInput, Pagination },
+  components: { CategoryCard, CategoryTree, KeypointsDefinition, ParentInput, Pagination },
   mixins: [toastrs],
   data() {
     return {
       docsUrl: docsSection("第一次使用"),
       categoryCount: 0,
       search: "",
-      tab: readTab(),
+      tab: readTab() || "*",
+      open: new Set(),
+      deep: true,
       page: 1,
       perPage: 16,
       newCategoryName: "",
@@ -254,32 +286,39 @@ export default {
     knownParents() {
       return allParents(this.categories);
     },
-    /** with no parents at all the page is one plain list */
-    grouped() {
-      return this.knownParents.length > 0;
-    },
-    /** one tab per parent, then "no parent", then all */
-    tabs() {
+    shown() {
       const q = this.search.trim();
-      const shown = this.categories.filter(c => matchesSearch(c, q));
-      const tabs = groupByParent(shown).map(g => ({
-        ...g, key: g.parent === null ? "-" : "p:" + g.parent, label: g.parent === null ? this.$t("parents.none") : g.parent
-      }));
-      tabs.push({ key: "*", parent: null, label: this.$t("parents.all"), items: shown });
-      return tabs;
+      return this.categories.filter(c => matchesSearch(c, q));
     },
+    tree() {
+      return buildTree(this.shown);
+    },
+    noParent() {
+      return this.shown.filter(c => !parentsOf(c).length);
+    },
+    /** "*" all, "-" no parent, "p:<path>" a folder (back to all when it is gone) */
     currentKey() {
-      if (!this.grouped) return "*";
-      return this.tabs.some(t => t.key === this.tab) ? this.tab : this.tabs[0].key;
+      if (this.tab === "-") return this.noParent.length ? "-" : "*";
+      if (this.tab.startsWith("p:")) {
+        const fullTree = buildTree(this.categories);
+        return findNode(fullTree, this.tab.slice(2)) ? this.tab : "*";
+      }
+      return "*";
     },
-    currentIndex() {
-      return this.tabs.findIndex(t => t.key === this.currentKey);
+    selectedPath() {
+      return this.currentKey.startsWith("p:") ? this.currentKey.slice(2) : null;
     },
-    current() {
-      return this.tabs[this.currentIndex] || null;
+    node() {
+      return this.selectedPath ? findNode(this.tree, this.selectedPath) : null;
+    },
+    crumbs() {
+      return this.selectedPath ? ancestors(this.selectedPath) : [];
     },
     currentItems() {
-      return this.current ? this.current.items : [];
+      if (this.currentKey === "*") return this.shown;
+      if (this.currentKey === "-") return this.noParent;
+      if (!this.node) return [];
+      return this.deep ? this.node.all : this.node.items;
     },
     pageCount() {
       return Math.max(1, Math.ceil(this.currentItems.length / this.perPage));
@@ -302,6 +341,9 @@ export default {
   watch: {
     search() {
       this.page = 1;
+    },
+    deep() {
+      this.page = 1;
     }
   },
   methods: {
@@ -315,12 +357,31 @@ export default {
         .then(response => {
           this.categories = response.data.categories;
           this.categoryCount = response.data.pagination.total;
+          if (!this.open.size) {
+            // first load: top folders open, and the way to the remembered one
+            const open = new Set(buildTree(this.categories).children.map(n => n.path));
+            if (this.tab.startsWith("p:")) ancestors(this.tab.slice(2)).forEach(a => open.add(a));
+            this.open = open;
+          }
         })
         .finally(() => this.removeProcess(process));
+    },
+    pathName,
+    toggleOpen(path) {
+      const open = new Set(this.open);
+      if (open.has(path)) open.delete(path);
+      else open.add(path);
+      this.open = open;
     },
     selectTab(key) {
       this.tab = key;
       this.page = 1;
+      if (key.startsWith("p:")) {
+        // the folder and the ones above it are shown open
+        const open = new Set(this.open);
+        ancestors(key.slice(2)).forEach(a => open.add(a));
+        this.open = open;
+      }
       try {
         localStorage.setItem("categories.tab", key);
       } catch {
@@ -350,9 +411,10 @@ export default {
           this.updatePage();
         })
         .catch(error => {
+          const data = (error.response && error.response.data) || {};
           this.axiosReqestError(
-            "Creating Category",
-            error.response.data.message
+            this.$t("categories.creatingACategory"),
+            data.code === "exists" ? this.$t("parents.existsHere") : data.message
           );
         });
     },
@@ -376,16 +438,71 @@ export default {
   color: black;
 }
 
+.categories-page {
+  text-align: left;
+}
 .search-box {
-  max-width: 320px;
+  max-width: 300px;
 }
-
-.parent-tabs {
+.tree-card {
+  position: sticky;
+  top: 0;
+  max-height: calc(100vh - 120px);
+  overflow: auto;
+}
+.tree-special {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.tree-special:hover {
+  background: #eef1f5;
+}
+.tree-special.active {
+  background: #2a78d6;
+  color: #fff;
+}
+.count {
+  font-size: 0.72rem;
+  color: #868e96;
+  background: #e9ecef;
+  border-radius: 999px;
+  padding: 0 7px;
+}
+.tree-special.active .count {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+}
+.crumbs {
+  font-size: 0.95rem;
+  display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
 }
-
-.parent-tabs .nav-link {
-  padding: 6px 12px;
+.crumbs .fa-angle-right {
+  color: #adb5bd;
+}
+.folder-tile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #e3e7ec;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.9rem;
+}
+.folder-tile:hover {
+  border-color: #2a78d6;
+  background: #f4f8fe;
+}
+.folder-tile .fa-folder {
+  color: #e0a526;
 }
 
 .help-icon {

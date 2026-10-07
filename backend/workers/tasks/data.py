@@ -428,7 +428,15 @@ def import_annotations(task_id, dataset_id, coco_json):
 
         category_name = category.get('name')
         category_id = category.get('id')
-        category_model = categories.filter(name__iexact=category_name).first()
+        # the same name can exist under several parents: the dataset's own
+        # category first, then one under the file's parent, then any
+        file_parents = CategoryModel.parse_parents(category.get('supercategories') or category.get('supercategory'))
+        category_model = categories.filter(id__in=list(dataset.categories or []), name__iexact=category_name,
+                                           deleted=False).first()
+        if category_model is None and file_parents:
+            category_model = categories.filter(name__iexact=category_name, supercategory=file_parents[0]).first()
+        if category_model is None:
+            category_model = categories.filter(name__iexact=category_name).first()
 
         if category_model is None:
             # expected when importing new classes, not a problem

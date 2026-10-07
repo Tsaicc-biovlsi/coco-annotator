@@ -18,7 +18,7 @@
       <span class="small text-muted me-auto">
         {{ $t('categoryPicker.selected', { n: modelValue.length, total: rows.length }) }}
       </span>
-      <button type="button" class="btn btn-outline-secondary btn-sm py-0" :disabled="!rows.length" @click="select(rows.map(r => r.name))">
+      <button type="button" class="btn btn-outline-secondary btn-sm py-0" :disabled="!rows.length" @click="select(rows.map(r => r.key))">
         {{ $t('exportCategories.all') }}
       </button>
       <button type="button" class="btn btn-outline-secondary btn-sm py-0" :disabled="!modelValue.length" @click="select([])">
@@ -30,7 +30,6 @@
       class="mb-1"
       :categories="categories"
       :selected="modelValue"
-      :key-of="c => c.name"
       @update:selected="select"
     />
 
@@ -50,42 +49,42 @@
         </li>
         <li
           v-for="row in section.rows"
-          :key="section.key + '/' + row.name"
+          :key="section.key + '/' + row.key"
           class="list-group-item d-flex align-items-center gap-2 py-1 px-2"
-          :class="{ 'text-muted': !isSelected(row.name) }"
+          :class="{ 'text-muted': !isSelected(row.key) }"
         >
           <input
-            :id="'catpick-' + section.key + '-' + row.name"
+            :id="'catpick-' + section.key + '-' + row.key"
             type="checkbox"
             class="form-check-input m-0 flex-shrink-0"
-            :checked="isSelected(row.name)"
-            @change="toggle(row.name)"
+            :checked="isSelected(row.key)"
+            @change="toggle(row.key)"
           />
           <span
             class="badge class-index"
-            :class="isSelected(row.name) ? 'text-bg-primary' : 'text-bg-light text-muted'"
+            :class="isSelected(row.key) ? 'text-bg-primary' : 'text-bg-light text-muted'"
             :title="$t('categoryPicker.order')"
-          >{{ isSelected(row.name) ? modelValue.indexOf(row.name) : '–' }}</span>
+          >{{ isSelected(row.key) ? modelValue.indexOf(row.key) : '–' }}</span>
           <span class="color-dot flex-shrink-0" :style="{ backgroundColor: row.color || '#adb5bd' }" />
-          <label :for="'catpick-' + section.key + '-' + row.name" class="flex-grow-1 mb-0 text-truncate" :title="row.name">
+          <label :for="'catpick-' + section.key + '-' + row.key" class="flex-grow-1 mb-0 text-truncate" :title="row.name">
             {{ row.name }}
-            <span v-if="section.key === 'selected'" class="parent-hint">{{ row.parents.join('、') }}</span>
+            <span v-if="section.key === 'selected' || filter" class="parent-hint">{{ row.parents.map(p => pathLabel(p)).join('、') }}</span>
           </label>
           <span v-if="row.isNew" class="badge text-bg-success">{{ $t('categoryPicker.new') }}</span>
-          <span v-if="isSelected(row.name) && !filter" class="btn-group btn-group-sm flex-shrink-0">
+          <span v-if="isSelected(row.key) && !filter" class="btn-group btn-group-sm flex-shrink-0">
             <button
               type="button"
               class="btn btn-link btn-sm p-0 px-1"
-              :disabled="modelValue.indexOf(row.name) === 0"
+              :disabled="modelValue.indexOf(row.key) === 0"
               :title="$t('exportCategories.moveUp')"
-              @click="move(row.name, -1)"
+              @click="move(row.key, -1)"
             ><i class="fa fa-chevron-up" /></button>
             <button
               type="button"
               class="btn btn-link btn-sm p-0 px-1"
-              :disabled="modelValue.indexOf(row.name) === modelValue.length - 1"
+              :disabled="modelValue.indexOf(row.key) === modelValue.length - 1"
               :title="$t('exportCategories.moveDown')"
-              @click="move(row.name, 1)"
+              @click="move(row.key, 1)"
             ><i class="fa fa-chevron-down" /></button>
           </span>
           <button
@@ -93,7 +92,7 @@
             type="button"
             class="btn btn-link btn-sm p-0 text-danger"
             :title="$t('categoryPicker.remove')"
-            @click="removeNew(row.name)"
+            @click="removeNew(row.key)"
           ><i class="fa fa-times" /></button>
         </li>
       </template>
@@ -112,7 +111,7 @@
  * v-model is the ordered list of selected names.
  */
 import ParentChips from "@/components/ParentChips.vue";
-import { groupByParent, matchesSearch, parentsOf } from "@/libs/parents";
+import { groupByParent, matchesSearch, parentsOf, pathLabel } from "@/libs/parents";
 
 export default {
   name: "CategoryPicker",
@@ -127,17 +126,20 @@ export default {
     return { newText: "", filter: "", added: [] };
   },
   computed: {
-    /** selected first (in their order), then the rest by name */
+    /**
+     * selected first (in their order), then the rest by name. A row's key is
+     * the category id, or the typed name for a new one (the same name can
+     * exist under several parents).
+     */
     rows() {
-      const existing = new Map(this.categories.map(c => [c.name, c]));
       const all = [
-        ...this.added.filter(n => !existing.has(n)).map(name => ({ name, isNew: true, parents: [] })),
-        ...this.categories.map(c => ({ name: c.name, color: c.color, isNew: false, parents: parentsOf(c),
+        ...this.added.map(name => ({ key: name, name, isNew: true, parents: [] })),
+        ...this.categories.map(c => ({ key: c.id, name: c.name, color: c.color, isNew: false, parents: parentsOf(c),
           supercategories: parentsOf(c) }))
       ];
-      const byName = new Map(all.map(r => [r.name, r]));
-      const selected = this.modelValue.filter(n => byName.has(n)).map(n => byName.get(n));
-      const rest = all.filter(r => !this.modelValue.includes(r.name))
+      const byKey = new Map(all.map(r => [r.key, r]));
+      const selected = this.modelValue.filter(k => byKey.has(k)).map(k => byKey.get(k));
+      const rest = all.filter(r => !this.modelValue.includes(r.key))
         .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
       return [...selected, ...rest];
     },
@@ -148,8 +150,8 @@ export default {
     /** the selected ones (in order) first, then the rest grouped by parent */
     sections() {
       const rows = this.visibleRows;
-      const selected = rows.filter(r => this.isSelected(r.name));
-      const rest = rows.filter(r => !this.isSelected(r.name));
+      const selected = rows.filter(r => this.isSelected(r.key));
+      const rest = rows.filter(r => !this.isSelected(r.key));
       const groups = groupByParent(rest);
       const grouped = groups.some(g => g.parent !== null);
       const out = [];
@@ -159,25 +161,32 @@ export default {
       groups.forEach(g => out.push({
         key: "p:" + (g.parent || ""),
         parent: g.parent,
-        label: grouped ? (g.parent || this.$t("parents.none")) : (selected.length ? this.$t("parents.others") : ""),
+        label: grouped ? (g.parent ? pathLabel(g.parent) : this.$t("parents.none")) : (selected.length ? this.$t("parents.others") : ""),
         rows: g.items
       }));
       return out;
     }
   },
   methods: {
-    isSelected(name) {
-      return this.modelValue.includes(name);
+    pathLabel,
+    isSelected(key) {
+      return this.modelValue.includes(key);
     },
-    select(names) {
-      this.$emit("update:modelValue", [...names]);
+    select(keys) {
+      this.$emit("update:modelValue", [...keys]);
     },
-    toggle(name) {
-      this.select(this.isSelected(name) ? this.modelValue.filter(n => n !== name) : [...this.modelValue, name]);
+    toggle(key) {
+      this.select(this.isSelected(key) ? this.modelValue.filter(k => k !== key) : [...this.modelValue, key]);
     },
-    move(name, step) {
+    /** what the dataset summary shows for a key */
+    labelOf(key) {
+      const row = this.rows.find(r => r.key === key);
+      if (!row) return String(key);
+      return row.parents.length ? `${row.name}（${pathLabel(row.parents[0])}）` : row.name;
+    },
+    move(key, step) {
       const order = [...this.modelValue];
-      const from = order.indexOf(name);
+      const from = order.indexOf(key);
       const to = from + step;
       if (to < 0 || to >= order.length) return;
       [order[from], order[to]] = [order[to], order[from]];
@@ -190,11 +199,16 @@ export default {
     addNew() {
       const names = this.parse(this.newText);
       if (!names.length) return;
-      const known = new Set(this.categories.map(c => c.name));
-      names.forEach(n => {
-        if (!known.has(n) && !this.added.includes(n)) this.added.push(n);
+      // a typed name picks the existing category without a parent, or the only
+      // one of that name; otherwise it is a new category
+      const keys = names.map(n => {
+        const same = this.categories.filter(c => c.name === n);
+        const pick = same.find(c => !parentsOf(c).length) || (same.length === 1 ? same[0] : null);
+        if (pick) return pick.id;
+        if (!this.added.includes(n)) this.added.push(n);
+        return n;
       });
-      this.select([...this.modelValue, ...names.filter(n => !this.modelValue.includes(n))]);
+      this.select([...this.modelValue, ...keys.filter(k => !this.modelValue.includes(k))]);
       this.newText = "";
     },
     onPaste(event) {

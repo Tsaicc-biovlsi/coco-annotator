@@ -163,7 +163,7 @@
         >
           <template v-for="(category, index) in categories" :key="category.id + '-category'">
           <div v-if="groupTitle(index) !== null && !search" class="parent-title">
-            <i class="fa fa-folder-open-o" /> {{ groupTitle(index) || $t('parents.none') }}
+            <i class="fa fa-folder-open-o" /> {{ groupTitle(index) ? pathLabel(groupTitle(index)) : $t('parents.none') }}
           </div>
           <Category
             :simplify="simplify"
@@ -186,7 +186,7 @@
         <div v-show="mode == 'label'" style="overflow: auto; max-height: 100%">
           <template v-for="(category, index) in categories" :key="category.id + '-label'">
             <div v-if="groupTitle(index) !== null && !search" class="parent-title">
-              <i class="fa fa-folder-open-o" /> {{ groupTitle(index) || $t('parents.none') }}
+              <i class="fa fa-folder-open-o" /> {{ groupTitle(index) ? pathLabel(groupTitle(index)) : $t('parents.none') }}
             </div>
             <CLabel
               v-model:categoryIds="image.categoryIds"
@@ -274,7 +274,7 @@ const prefetched = new Set();
 import axios from "axios";
 import { hideModal } from "@/libs/modal";
 import UndoAction, { restoreAnnotations } from "@/undo";
-import { groupByParent, parentsOf } from "@/libs/parents";
+import { groupByParent, parentsOf, pathLabel } from "@/libs/parents";
 
 // save automatically this long after the last change (ms)
 const AUTOSAVE_DELAY = 2000;
@@ -870,6 +870,7 @@ export default {
       this.$refs.select.click();
     },
     /** parent name to show above the category at ``index`` ("" = no parent), or null for no title */
+    pathLabel,
     groupTitle(index) {
       return this.groupTitles[index] ?? null;
     },

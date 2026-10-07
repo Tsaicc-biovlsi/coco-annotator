@@ -477,7 +477,9 @@ class DatasetData(Resource):
         category_ids = {c for d in datasets for c in (d.categories or [])}
         parents_of = {c.id: c.parents() for c in CategoryModel.objects(id__in=list(category_ids))
                       .only('id', 'supercategory', 'supercategories')}
-        dataset_parents = {d.id: sorted({p for c in (d.categories or []) for p in parents_of.get(c, [])})
+        # a parent path counts for each of its levels ("Course" and "Course/Group 1")
+        dataset_parents = {d.id: sorted({a for c in (d.categories or []) for p in parents_of.get(c, [])
+                                         for a in CategoryModel.ancestors(p)})
                            for d in datasets}
         names = [d.name for d in datasets]
         q = (args.get('q') or '').strip().lower()

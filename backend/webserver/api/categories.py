@@ -62,14 +62,19 @@ class Category(Resource):
         keypoint_colors = args.get('keypoint_colors')
 
         # the same name in the creator's trash: bring that one back with the new settings
-        trashed = CategoryModel.objects(name=name, creator=current_user.username, deleted=True).first()
+        # (the one under the same parent first)
+        trashed_query = CategoryModel.objects(name=name, creator=current_user.username, deleted=True)
+        trashed = trashed_query.filter(supercategory=parents[0] if parents else '').first() or trashed_query.first()
         if trashed is not None:
             update = {'set__deleted': False, 'unset__deleted_date': True, 'unset__deleted_by': True,
                       'unset__delete_batch': True, 'set__supercategory': parents[0] if parents else '',
                       'set__supercategories': parents}
             if color:
                 update['set__color'] = color
-            trashed.update(**update)
+            try:
+                trashed.update(**update)
+            except NotUniqueError:
+                return {'code': 'exists', 'message': 'A category with this name already exists under this parent.'}, 400
             trashed.reload()
             from ..util import activity
             activity.record('restore', current_user, counts={'items': 1},
@@ -89,7 +94,8 @@ class Category(Resource):
             )
             category.save()
         except NotUniqueError as e:
-            return {'message': 'Category already exists. If it was deleted, restore or permanently delete it in the trash (activity log).'}, 400
+            return {'code': 'exists', 'message': 'A category with this name already exists under this parent. If it '
+                               'was deleted, restore or permanently delete it in the trash (activity log).'}, 400
 
         from ..util import activity
         activity.record('category_create', current_user, category_id=category.id,

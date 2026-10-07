@@ -6,19 +6,19 @@
       :key="g.parent"
       type="button"
       class="btn btn-sm parent-chip"
-      :class="g.state === 'all' ? 'btn-primary' : g.state === 'some' ? 'btn-outline-primary partial' : 'btn-outline-secondary'"
-      :title="g.items.map(c => c.name).join('、')"
+      :class="[g.state === 'all' ? 'btn-primary' : g.state === 'some' ? 'btn-outline-primary partial' : 'btn-outline-secondary', { sub: g.depth > 0 }]"
+      :title="g.label + '：' + g.items.map(c => c.name).join('、')"
       @click="toggle(g)"
     >
       <i class="fa" :class="g.state === 'all' ? 'fa-check-square-o' : g.state === 'some' ? 'fa-minus-square-o' : 'fa-square-o'" />
-      {{ g.parent }}
+      {{ g.depth > 0 ? '› ' + g.name : g.name }}
       <span class="small opacity-75">{{ g.chosen }}/{{ g.items.length }}</span>
     </button>
   </div>
 </template>
 
 <script>
-import { groupByParent } from "@/libs/parents";
+import { buildTree, pathLabel } from "@/libs/parents";
 
 /**
  * One button per parent category: adds all its categories to the selection
@@ -35,13 +35,17 @@ export default {
   emits: ["update:selected"],
   computed: {
     groups() {
+      // every folder of the tree (course, then its groups ...): picks all below it
       const chosen = new Set(this.selected);
-      return groupByParent(this.categories)
-        .filter(g => g.parent !== null)
-        .map(g => {
-          const n = g.items.filter(c => chosen.has(this.keyOf(c))).length;
-          return { ...g, chosen: n, state: n === 0 ? "none" : n === g.items.length ? "all" : "some" };
-        });
+      const out = [];
+      const walk = (node, depth) => node.children.forEach(child => {
+        const n = child.all.filter(c => chosen.has(this.keyOf(c))).length;
+        out.push({ parent: child.path, name: child.name, label: pathLabel(child.path), depth, items: child.all,
+          chosen: n, state: n === 0 ? "none" : n === child.all.length ? "all" : "some" });
+        walk(child, depth + 1);
+      });
+      walk(buildTree(this.categories), 0);
+      return out;
     }
   },
   methods: {
@@ -62,5 +66,8 @@ export default {
   padding: 0 8px;
   font-size: 0.8rem;
   border-radius: 999px;
+}
+.parent-chip.sub {
+  font-size: 0.75rem;
 }
 </style>

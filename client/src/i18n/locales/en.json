@@ -1041,7 +1041,7 @@
     }
   },
   "parents": {
-    "hint": "Click the parents you want (several allowed); type a new one below if it is missing. COCO export writes the first as supercategory.",
+    "hint": "Pick parents (several allowed); type a new one below, \"/\" makes levels, e.g. \"Course/Group 3\". The same name can be used again under another parent. COCO export writes the first one as supercategory.",
     "quick": "Add by parent:",
     "none": "No parent",
     "others": "Other categories",
@@ -1050,12 +1050,13 @@
     "searchCategories": "Search categories or parents…",
     "addHere": "New category under {name}",
     "noMatch": "No matching parent",
-    "findOrNew": "Search, or type a new parent",
-    "firstOne": "No parents yet: type a name to add one",
+    "findOrNew": "Search, or type a new one (e.g. Course/Group 3)",
+    "firstOne": "No parents yet: type one (\"/\" makes levels)",
     "addNew": "Add \"{name}\"",
     "picked": "Picked: {names}",
     "all": "All",
-    "showing": "{from}–{to} of {n}"
+    "showing": "{from}–{to} of {n}",
+    "existsHere": "There is already a category with this name under this parent (another parent can use the same name). If it was deleted, restore it from the trash in the activity log."
   },
   "models": {
     "title": "Models",
@@ -1145,5 +1146,12 @@
       "confirm": "The two new passwords do not match.",
       "too_short": "The new password needs at least 5 characters."
     }
+  },
+  "tree": {
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "hint": "Parents can have levels: \"Course/Group 1\" puts it in \"Group 1\" inside \"Course\".",
+    "includeBelow": "Include sub-folders",
+    "onlyFolders": "No categories directly here: turn on \"Include sub-folders\" or open a folder."
   }
 }

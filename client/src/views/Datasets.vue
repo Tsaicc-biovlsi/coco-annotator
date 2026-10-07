@@ -55,13 +55,32 @@
           <!-- one tab per parent category used by the datasets' categories -->
           <ul v-if="parents.length" class="nav nav-tabs mb-3 parent-tabs">
             <li v-for="t in tabs" :key="t.key" class="nav-item">
-              <a href="#" class="nav-link" :class="{ active: t.key === parent }" @click.prevent="selectTab(t.key)">
+              <a href="#" class="nav-link" :class="{ active: t.key === activeTop }" @click.prevent="selectTab(t.key)">
                 <i class="fa" :class="t.icon" />
                 {{ t.label }}
                 <span class="badge rounded-pill text-bg-secondary ms-1">{{ t.count }}</span>
               </a>
             </li>
           </ul>
+
+          <!-- deeper levels (course › group ›...): where we are, and the folders inside -->
+          <div v-if="subPath.length > 1 || subChildren.length" class="sub-levels d-flex flex-wrap align-items-center gap-1 mb-3">
+            <template v-for="(a, i) in subPath" :key="a">
+              <i v-if="i > 0" class="fa fa-angle-right text-muted" />
+              <a v-if="i < subPath.length - 1" href="#" class="small" @click.prevent="selectTab(a)">{{ pathName(a) }}</a>
+              <strong v-else class="small">{{ pathName(a) }}</strong>
+            </template>
+            <span v-if="subChildren.length" class="mx-1 text-muted">|</span>
+            <button
+              v-for="c in subChildren"
+              :key="c.name"
+              type="button"
+              class="btn btn-sm sub-chip btn-outline-secondary"
+              @click="selectTab(c.name)"
+            >
+              <i class="fa fa-folder-o" /> {{ pathName(c.name) }} <span class="opacity-75">{{ c.count }}</span>
+            </button>
+          </div>
 
           <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
             <input
@@ -185,8 +204,8 @@
                   <dt class="col-4">{{ $t('datasets.defaultCategories') }}</dt>
                   <dd class="col-8 mb-0">
                     <template v-if="create.categories.length">
-                      <span v-for="(name, i) in create.categories" :key="name" class="badge text-bg-light border me-1">
-                        {{ i }}. {{ name }}
+                      <span v-for="(key, i) in create.categories" :key="key" class="badge text-bg-light border me-1">
+                        {{ i }}. {{ $refs.categoryPicker ? $refs.categoryPicker.labelOf(key) : key }}
                       </span>
                     </template>
                     <span v-else class="text-muted">{{ $t('datasets.noCategoriesYet') }}</span>
@@ -284,6 +303,7 @@ import Pagination from "@/components/Pagination.vue";
 import ImportDatasetModal from "@/components/ImportDatasetModal.vue";
 import TaskPicker from "@/components/TaskPicker.vue";
 import CategoryPicker from "@/components/CategoryPicker.vue";
+import { ancestors, byName, pathName } from "@/libs/parents";
 import WizardSteps from "@/components/WizardSteps.vue";
 import { showModal, hideModal } from "@/libs/modal";
 
@@ -331,6 +351,7 @@ export default {
     };
   },
   methods: {
+    pathName,
     ...mapMutations(["addProcess", "removeProcess"]),
     selectTab(key) {
       this.parent = key;
@@ -453,9 +474,26 @@ export default {
       const name = this.create.name.trim();
       return name ? this.trashed.find(t => t.name === name) || null : null;
     },
+    /** the top-level tab of the current folder */
+    activeTop() {
+      if (!this.parent || this.parent === "-") return this.parent;
+      return this.parent.split("/")[0];
+    },
+    subPath() {
+      return this.parent && this.parent !== "-" ? ancestors(this.parent) : [];
+    },
+    /** folders one level inside the current one */
+    subChildren() {
+      if (!this.parent || this.parent === "-") return [];
+      const depth = this.parent.split("/").length + 1;
+      return this.parents.filter(p => p.name.startsWith(this.parent + "/") && p.name.split("/").length === depth)
+        .sort((a, b) => byName(a.name, b.name));
+    },
     tabs() {
       const tabs = [{ key: "", label: this.$t("parents.all"), icon: "fa-th", count: this.total }];
-      this.parents.forEach(p => tabs.push({ key: p.name, label: p.name, icon: "fa-folder-o", count: p.count }));
+      // top level only; deeper levels are shown under the tabs
+      this.parents.filter(p => !p.name.includes("/"))
+        .forEach(p => tabs.push({ key: p.name, label: p.name, icon: "fa-folder-o", count: p.count }));
       if (this.noParent) tabs.push({ key: "-", label: this.$t("parents.none"), icon: "fa-file-o", count: this.noParent });
       return tabs;
     },
@@ -488,6 +526,11 @@ export default {
 <style scoped>
 .search-box {
   max-width: 320px;
+}
+.sub-chip {
+  padding: 0 8px;
+  font-size: 0.8rem;
+  border-radius: 999px;
 }
 .parent-tabs {
   flex-wrap: wrap;

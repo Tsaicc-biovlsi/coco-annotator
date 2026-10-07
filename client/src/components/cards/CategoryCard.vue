@@ -25,8 +25,12 @@
           <p v-else>{{ $t('categoryCard.noAnnotationsUseThisCategory') }}</p>
         </div>
 
-        <div v-if="otherParents.length" class="parent-line text-truncate" :title="parents.join('、')">
-          <i class="fa fa-folder-o" /> {{ $t('parents.alsoIn', { names: otherParents.join('、') }) }}
+        <div v-if="below" class="parent-line text-truncate" :title="pathLabel(below)">
+          <i class="fa fa-folder-open-o" /> {{ pathLabel(below, groupParent) }}
+        </div>
+        <div v-if="otherParents.length" class="parent-line text-truncate" :title="otherParents.map(p => pathLabel(p)).join('、')">
+          <i class="fa fa-folder-o" />
+          {{ groupParent || below ? $t('parents.alsoIn', { names: otherParents.map(p => pathLabel(p)).join('、') }) : otherParents.map(p => pathLabel(p)).join('、') }}
         </div>
 
         <div class="dropdown-menu" :aria-labelledby="'dropdownCategory' + category.id + uid">
@@ -117,7 +121,7 @@ import toastrs from "@/mixins/toastrs";
 // import TagsInput from "@/components/TagsInput.vue";
 import KeypointsDefinition from "@/components/KeypointsDefinition.vue";
 import ParentInput from "@/components/ParentInput.vue";
-import { parentsOf } from "@/libs/parents";
+import { isUnder, parentsOf, pathLabel } from "@/libs/parents";
 
 
 export default {
@@ -152,8 +156,15 @@ export default {
     knownParents: { type: Array, default: () => [] }
   },
   computed: {
+    /** shown in a folder above its own: the folder (below this one) it is in */
+    below() {
+      if (!this.groupParent) return null;
+      const parents = parentsOf(this.category);
+      if (parents.includes(this.groupParent)) return null;
+      return parents.find(p => isUnder(p, this.groupParent)) || null;
+    },
     otherParents() {
-      return parentsOf(this.category).filter(p => p !== this.groupParent);
+      return parentsOf(this.category).filter(p => p !== this.groupParent && p !== this.below);
     },
     isFormValid() {
       return (
@@ -169,6 +180,7 @@ export default {
     this.resetCategorySettings();
   },
   methods: {
+    pathLabel,
     resetCategorySettings() {
       this.name = this.category.name;
       this.parents = parentsOf(this.category);

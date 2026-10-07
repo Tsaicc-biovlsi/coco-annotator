@@ -100,3 +100,40 @@ def test_recreate_deleted_category(world):
     c.delete(f"/api/category/{cat['id']}")
     c.post("/api/dataset/", json={"name": "myths", "categories": ["phoenix"]})
     assert CategoryModel.objects(id=cat["id"]).first().deleted is False
+
+
+def test_parent_paths_and_same_name_under_other_parents(world):
+    """Course / group / category trees: a name can repeat under another group."""
+    from database import CategoryModel
+    c = world["client"]
+    made = []
+    for group in ("第一組", "第二組"):
+        r = c.post("/api/category/", json={"name": "人", "supercategories": [f" 影像課程 / {group} "]})
+        assert r.status_code == 200, r.get_json()
+        made.append(r.get_json()["id"])
+    assert made[0] != made[1]
+    first = CategoryModel.objects(id=made[0]).first()
+    assert first.supercategories == ["影像課程/第一組"] and first.supercategory == "影像課程/第一組"
+    # the same name twice under one parent is still refused
+    assert c.post("/api/category/", json={"name": "人", "supercategories": ["影像課程/第一組"]}).status_code == 400
+    assert CategoryModel.ancestors("a/b/c") == ["a", "a/b", "a/b/c"]
+
+    # a dataset made from ids keeps exactly those categories
+    r = c.post("/api/dataset/", json={"name": "course_g2", "categories": [made[1]]})
+    assert r.status_code == 200 and r.get_json()["categories"] == [made[1]]
+
+    # Datasets page: tabs for each level of the path
+    data = c.get("/api/dataset/data", query_string={"limit": 50}).get_json()
+    names = {p["name"] for p in data["parents"]}
+    assert {"影像課程", "影像課程/第二組"} <= names
+    shown = c.get("/api/dataset/data", query_string={"limit": 50, "parent": "影像課程"}).get_json()
+    assert [d["name"] for d in shown["datasets"]] == ["course_g2"]
+    CategoryModel.objects(id__in=made).delete()
+
+
+def test_old_unique_index_dropped():
+    from database import CategoryModel
+    collection = CategoryModel._get_collection()
+    collection.create_index([("name", 1), ("creator", 1)], name="name_1_creator_1")
+    CategoryModel.drop_old_unique_index()
+    assert "name_1_creator_1" not in collection.index_information()
