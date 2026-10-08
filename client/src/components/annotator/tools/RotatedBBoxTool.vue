@@ -1,4 +1,5 @@
 <script>
+import { modalOpen } from "@/libs/modal";
 import paper from "paper";
 import tool from "@/mixins/toolBar/tool";
 
@@ -540,7 +541,7 @@ export default {
      * shortcuts (next/previous annotation) do not also fire.
      */
     onNudgeKey(e) {
-      if (!this.isActive || this.drawing || this.drag || this.pendingCommits) return;
+      if (!this.isActive || this.drawing || this.drag || this.pendingCommits || modalOpen()) return;
       let step = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
       if (!step) return;
       let tag = (e.target && e.target.tagName) || "";

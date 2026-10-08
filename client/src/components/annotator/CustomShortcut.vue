@@ -23,6 +23,7 @@
 </template>
 
 <script>
+import { modalOpen } from "@/libs/modal";
 const NON_TEXT_INPUTS = ["checkbox", "radio", "range", "button", "submit", "reset", "color", "file"];
 
 export default {
@@ -74,7 +75,7 @@ export default {
       if (parseInt(e.target.id) === this.uid) {
         e.preventDefault();
         this.keys = this.keysDown;
-      } else if (this.$route.name === "annotate") {
+      } else if (this.$route.name === "annotate" && !modalOpen()) {
         if (this.keysDown.sort().join(",") === this.keys.sort().join(",")) {
           this.function(e);
         }

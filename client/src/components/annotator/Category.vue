@@ -149,7 +149,7 @@
 </template>
 
 <script>
-import { onModalHidden } from "@/libs/modal";
+import { onModalHidden, closeModalsIn } from "@/libs/modal";
 import paper from "paper";
 
 import Annotations from "@/models/annotations";
@@ -574,6 +574,9 @@ export default {
         }
       }
     }
+  },
+  beforeUnmount() {
+    closeModalsIn(this.$el);
   },
   mounted() {
     this.initCategory();
