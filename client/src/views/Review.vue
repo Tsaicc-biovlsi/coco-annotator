@@ -53,6 +53,12 @@
         <label class="form-check-label" for="qrNames">{{ $t('quickReview.showNames') }} (L)</label>
       </div>
 
+      <span v-if="soloCat != null" class="solo-tag">
+        <i class="dot" :style="{ background: (categories[soloCat] && categories[soloCat].color) || '#00e5ff' }" />
+        {{ $t('quickReview.onlyCat', { name: catLabel(soloCat) }) }}
+        <button type="button" class="btn-close btn-close-white" :aria-label="$t('quickReview.soloOff')" @click="soloCat = null" />
+      </span>
+
       <div class="ms-auto d-flex align-items-center gap-2">
         <span class="small text-white-50">
           {{ total ? $t('quickReview.range', { from: (page - 1) * perPage + 1, to: Math.min(page * perPage, total), n: total }) : '' }}
@@ -107,7 +113,7 @@
             <g
               v-for="a in img.annotations"
               :key="a.id"
-              :class="{ dim: hover && hover.img === img.id && hover.cat !== a.category_id, lit: hover && hover.img === img.id && hover.cat === a.category_id }"
+              :class="{ dim: isDim(img, a.category_id), lit: isLit(img, a.category_id) }"
               @mouseenter="hover = { img: img.id, cat: a.category_id }"
             >
               <title>{{ catLabel(a.category_id) }}</title>
@@ -135,7 +141,7 @@
                 :font-size="l.size"
                 :stroke-width="l.size / 4"
                 :fill="l.color"
-                :class="{ dim: hover && hover.img === img.id && hover.cat !== l.cat }"
+                :class="{ dim: isDim(img, l.cat) }"
               >{{ l.text }}</text>
             </g>
           </g>
@@ -146,10 +152,11 @@
             v-for="c in catCounts(img)"
             :key="c.id"
             class="chip"
-            :class="{ off: hover && hover.img === img.id && hover.cat !== c.id }"
-            :title="catLabel(c.id)"
-            @mouseenter="hover = { img: img.id, cat: c.id }"
+            :class="{ off: isDim(img, c.id), on: soloCat === c.id }"
+            :title="catLabel(c.id) + ' — ' + $t(soloCat === c.id ? 'quickReview.soloOff' : 'quickReview.soloOn')"
+            @mouseenter="hover = { cat: c.id, all: true }"
             @mouseleave="hover = null"
+            @click.stop="toggleSolo(c.id)"
           >
             <i class="dot" :style="{ background: c.color }" />{{ c.name }}<b>{{ c.n }}</b>
           </span>
@@ -248,7 +255,10 @@ export default {
       showShapes: true,
       // category names on the shapes and a per-image list of categories
       showNames: (() => { try { return localStorage.getItem("review/showNames") !== "false"; } catch { return true; } })(),
+      // a category hovered (in one image, or every image from the category list)
       hover: null,
+      // a category clicked in a list: only that one shows in every image
+      soloCat: null,
       // the size of one picture on screen, for names that keep their size
       picPx: { w: 400, h: 300 },
       images: [],
@@ -439,6 +449,23 @@ export default {
       for (let i = 0; i + 2 < k.length; i += 3) if (k[i + 2] > 0) out.push([k[i], k[i + 1]]);
       return out;
     },
+    /** the category to show alone in this image, or null for all */
+    focusCat(img) {
+      if (this.hover && (this.hover.all || this.hover.img === img.id)) return this.hover.cat;
+      return this.soloCat;
+    },
+    isDim(img, cat) {
+      const f = this.focusCat(img);
+      return f != null && f !== cat;
+    },
+    isLit(img, cat) {
+      const f = this.focusCat(img);
+      return f != null && f === cat;
+    },
+    toggleSolo(cat) {
+      this.soloCat = this.soloCat === cat ? null : cat;
+      this.hover = null;
+    },
     catLabel(id) {
       const c = this.categories[id];
       if (!c) return this.$t("quickReview.noCategory");
@@ -611,6 +638,8 @@ export default {
       } else if (key === "enter" && img) {
         e.preventDefault();
         this.openImage(img);
+      } else if (key === "escape" && this.soloCat != null) {
+        this.soloCat = null;
       } else if (key === "0" || key === "escape") {
         this.resetZoom();
       } else if (key === "h") {
@@ -764,6 +793,25 @@ export default {
 .chip b {
   color: #adb5bd;
   font-weight: 600;
+}
+.chip {
+  cursor: pointer;
+}
+.chip.on {
+  box-shadow: inset 0 0 0 1.5px #ffc107;
+}
+.solo-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 193, 7, 0.15);
+  border: 1px solid #ffc107;
+  font-size: 0.8rem;
+}
+.solo-tag .btn-close {
+  font-size: 0.6rem;
 }
 .chip.off {
   opacity: 0.35;

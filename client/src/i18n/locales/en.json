@@ -1266,8 +1266,11 @@
     "gotIt": "Got it, close"
   },
   "quickReview": {
+    "soloOn": "Click: show only this category in every image",
+    "soloOff": "Click again: show every category",
+    "onlyCat": "Only: {name}",
     "showNames": "Category names",
-    "showNamesHint": "Write the category next to each shape and list the categories used on each image; hover one to light up only that category",
+    "showNamesHint": "Write the category next to each shape and list the categories used on each image; hover one to light up only that category in every image, click to keep it",
     "noCategory": "(no category)",
     "title": "Quick review",
     "back": "Back to the dataset",
