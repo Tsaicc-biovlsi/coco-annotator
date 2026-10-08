@@ -430,3 +430,10 @@ export default {
   }
 };
 </script>
+
+<style scoped>
+/* each coloured part fills the whole bar (Bootstrap gives it 1rem) */
+.progress-stacked > .progress {
+  height: 100%;
+}
+</style>
