@@ -854,7 +854,7 @@
     "notReady": "還有步驟沒完成，請點上方的步驟修改。",
     "classifyCount": "約 {images} 張圖（只含單一類別的圖）",
     "trainWith": "解壓後的訓練指令範例：",
-    "stepSplit": "切分與增強"
+    "augment": "資料增強"
   },
   "review": {
     "byFolder": "各資料夾進度",
@@ -1498,10 +1498,10 @@
     "removed": "已移出 {name}"
   },
   "exportAugment": {
-    "title": "資料增強（只增強訓練集）",
+    "title": "資料增強",
     "short": "資料增強",
     "off": "不增強：只輸出原圖和原本的標註。",
-    "copies": "每張訓練圖多產生",
+    "copies": "每張圖多產生",
     "copiesHint": "張增強版本（原圖保留）",
     "op": {
       "hflip": "水平翻轉",
@@ -1524,11 +1524,11 @@
       "noise": "加入輕微雜訊"
     },
     "pickOne": "至少勾選一種增強方式",
-    "summarySplit": "訓練集 {n} 張 × {copies} = 多 {total} 張增強圖；驗證集、測試集維持原圖。",
-    "summaryAll": "{n} 張 × {copies} = 多 {total} 張增強圖。",
-    "noSplitWarning": "沒有切分：所有圖片都會增強。如果之後自己再分驗證集，同一張圖的增強版本可能跑進驗證集，分數會虛高；建議在上面先切分。",
+    "summaryAll": "{n} 張 × {copies} = 多 {total} 張增強圖，共 {all} 張（下一步再一起切分）。",
     "withImages": "每張增強圖都會隨機套用勾選的方式（至少一種），標註會一起轉換；匯出會包含圖片（COCO 會變成 zip：images/ + json）。",
-    "summaryShort": "每張訓練圖 +{copies} 張（{ops}）",
-    "none": "不增強"
+    "summaryShort": "每張圖 +{copies} 張（{ops}）",
+    "none": "不增強",
+    "splitTogether": "先增強再切分：每張原圖和它的 {copies} 張增強圖一定分在同一組，同一張照片不會同時出現在訓練集和驗證集。",
+    "plus": "含增強圖 +{n} 張，共 {total} 張"
   }
 }

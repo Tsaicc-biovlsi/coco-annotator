@@ -55,15 +55,9 @@
 
       <div class="small mt-2" :class="chosen ? 'text-body' : 'text-danger'">
         <template v-if="!chosen">{{ $t('exportAugment.pickOne') }}</template>
-        <template v-else-if="splitOn">
-          {{ $t('exportAugment.summarySplit', { n: trainCount, copies: modelValue.copies, total: trainCount * modelValue.copies }) }}
-        </template>
         <template v-else>
-          {{ $t('exportAugment.summaryAll', { n: imageCount || 0, copies: modelValue.copies, total: (imageCount || 0) * modelValue.copies }) }}
+          {{ $t('exportAugment.summaryAll', { n: imageCount || 0, copies: modelValue.copies, total: (imageCount || 0) * modelValue.copies, all: (imageCount || 0) * (modelValue.copies + 1) }) }}
         </template>
-      </div>
-      <div v-if="!splitOn" class="small text-warning-emphasis mt-1">
-        <i class="fa fa-exclamation-triangle" /> {{ $t('exportAugment.noSplitWarning') }}
       </div>
       <div class="form-text mt-1">{{ $t('exportAugment.withImages') }}</div>
     </template>
@@ -98,9 +92,7 @@ export default {
   name: "ExportAugment",
   props: {
     modelValue: { type: Object, required: true },
-    imageCount: { type: Number, default: null },
-    trainCount: { type: Number, default: 0 },
-    splitOn: { type: Boolean, default: false }
+    imageCount: { type: Number, default: null }
   },
   emits: ["update:modelValue"],
   data() {

@@ -722,7 +722,7 @@
     "notReady": "A step is not finished yet; click it above to fix it.",
     "classifyCount": "about {images} images (single-category images only)",
     "trainWith": "After unzipping, train with e.g.:",
-    "stepSplit": "Split & augment"
+    "augment": "Augment"
   },
   "review": {
     "byFolder": "Progress per folder",
@@ -1366,10 +1366,10 @@
     "removed": "Removed {name}"
   },
   "exportAugment": {
-    "title": "Augment (training images only)",
+    "title": "Augmentation",
     "short": "Augmentation",
     "off": "No augmentation: only the original images and annotations.",
-    "copies": "Extra versions of each training image:",
+    "copies": "Extra versions of each image:",
     "copiesHint": "(the originals stay)",
     "op": {
       "hflip": "Horizontal flip",
@@ -1392,11 +1392,11 @@
       "noise": "A little random noise"
     },
     "pickOne": "Tick at least one augmentation",
-    "summarySplit": "{n} training images × {copies} = {total} extra images; validation and test stay original.",
-    "summaryAll": "{n} images × {copies} = {total} extra images.",
-    "noSplitWarning": "No split: every image is augmented. If you split later yourself, versions of one picture can end up in validation and inflate the scores; better split above first.",
+    "summaryAll": "{n} images × {copies} = {total} extra, {all} in all (split together in the next step).",
     "withImages": "Each version applies a random mix of the ticked operations (at least one) and transforms the annotations with it; the export includes the images (COCO becomes a zip: images/ + json).",
-    "summaryShort": "+{copies} per training image ({ops})",
-    "none": "None"
+    "summaryShort": "+{copies} per image ({ops})",
+    "none": "None",
+    "splitTogether": "Augment, then split: each picture and its {copies} augmented versions always go to the same part, so no picture is both in training and validation.",
+    "plus": "Plus {n} augmented, {total} in all"
   }
 }

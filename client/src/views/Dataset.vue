@@ -416,7 +416,7 @@
                   <i v-else-if="exporting.step > i + 1" class="fa fa-check" />
                   <template v-else>{{ i + 1 }}</template>
                 </span>
-                <span class="step-name">{{ $t('exportSteps.' + (name === 'split' ? 'stepSplit' : name)) }}</span>
+                <span class="step-name">{{ $t('exportSteps.' + name) }}</span>
               </li>
             </ol>
 
@@ -506,26 +506,29 @@
                 </div>
               </div>
 
-              <!-- step 4: split -->
+              <!-- step 4: augmentation (before the split) -->
               <div v-show="exporting.step === 4">
+                <ExportAugment v-model="exporting.augment" :image-count="exportImageCount" />
+              </div>
+
+              <!-- step 5: split (of the originals and their augmented versions) -->
+              <div v-show="exporting.step === 5">
                 <ExportSplit
                   v-model:enabled="exporting.split_on"
                   v-model:ratios="exporting.split"
                   v-model:seed="exporting.seed"
                   :image-count="exportImageCount"
+                  :per-image="exportVersions"
                   :yolo="exporting.format === 'yolo'"
                 />
-                <hr class="my-3" />
-                <ExportAugment
-                  v-model="exporting.augment"
-                  :image-count="exportImageCount"
-                  :train-count="exportSplitSizes.train || 0"
-                  :split-on="exporting.split_on"
-                />
+                <div v-if="exportAugmentPayload && exporting.split_on" class="form-text mt-2">
+                  <i class="fa fa-info-circle" />
+                  {{ $t('exportAugment.splitTogether', { copies: exportAugmentPayload.copies }) }}
+                </div>
               </div>
 
-              <!-- step 5: review -->
-              <div v-show="exporting.step === 5">
+              <!-- step 6: review -->
+              <div v-show="exporting.step === 6">
                 <div class="export-summary">
                   <dl class="row small mb-0">
                     <dt class="col-4">{{ $t('yolo.format') }}</dt>
@@ -564,7 +567,18 @@
                         <template v-else>
                           {{ $t('exportSteps.contentCount', { images: exportImageCount, annotations: exportAnnotationCount }) }}
                         </template>
+                        <div v-if="exportAugmentPayload" class="text-muted">
+                          {{ $t('exportAugment.plus', { n: exportTotalImages - exportImageCount, total: exportTotalImages }) }}
+                        </div>
                       </template>
+                    </dd>
+                    <dt class="col-4">{{ $t('exportAugment.short') }}</dt>
+                    <dd class="col-8">
+                      <template v-if="exportAugmentPayload">
+                        {{ $t('exportAugment.summaryShort', { copies: exportAugmentPayload.copies, ops: exportAugmentNames }) }}
+                      </template>
+                      <template v-else>{{ $t('exportAugment.none') }}</template>
+                      <a href="#" class="ms-1 small" @click.prevent="goToStep(4)">{{ $t('exportSteps.edit') }}</a>
                     </dd>
                     <dt class="col-4">{{ $t('exportSteps.split') }}</dt>
                     <dd class="col-8 mb-0">
@@ -576,16 +590,9 @@
                         <div class="text-muted">{{ $t('exportSplit.seed') }} {{ exporting.seed }}</div>
                       </template>
                       <template v-else>{{ $t('exportSteps.noSplit') }}</template>
-                      <a href="#" class="ms-1 small" @click.prevent="goToStep(4)">{{ $t('exportSteps.edit') }}</a>
+                      <a href="#" class="ms-1 small" @click.prevent="goToStep(5)">{{ $t('exportSteps.edit') }}</a>
                     </dd>
-                    <dt class="col-4">{{ $t('exportAugment.short') }}</dt>
-                    <dd class="col-8 mb-0">
-                      <template v-if="exportAugmentPayload">
-                        {{ $t('exportAugment.summaryShort', { copies: exportAugmentPayload.copies, ops: exportAugmentNames }) }}
-                      </template>
-                      <template v-else>{{ $t('exportAugment.none') }}</template>
-                      <a href="#" class="ms-1 small" @click.prevent="goToStep(4)">{{ $t('exportSteps.edit') }}</a>
-                    </dd>
+
                   </dl>
                 </div>
                 <template v-if="exporting.format === 'yolo'">
@@ -774,7 +781,7 @@ export default {
       },
       yoloTasks: ["detect", "segment", "obb", "pose"],
       exportYoloTasks: ["detect", "segment", "obb", "pose", "classify", "semantic"],
-      exportStepNames: ["format", "folder", "categories", "split", "review"],
+      exportStepNames: ["format", "folder", "categories", "augment", "split", "review"],
       importFile: null,
       importYoloTask: "auto",
       selected: {
@@ -997,7 +1004,8 @@ export default {
       if (this.stepSkipped(step)) return false;
       if (step > 2 && this.exporting.format === "yolo" && !this.exportFolderName) return false;
       if (step > 3 && !this.exporting.categories.length) return false;
-      if (step > 4 && this.exporting.split_on && !this.exportSplitValid) return false;
+      if (step > 4 && this.exporting.augment.enabled && !this.exportAugmentPayload) return false;
+      if (step > 5 && this.exporting.split_on && !this.exportSplitValid) return false;
       return true;
     },
     goToStep(step) {
@@ -1255,7 +1263,18 @@ export default {
       return { image: name + ext, label: name + ".txt" };
     },
     exportSplitSizes() {
-      return splitSizes(this.exportImageCount || 0, this.exporting.split);
+      // the originals are split; each takes its augmented versions along
+      const sizes = splitSizes(this.exportImageCount || 0, this.exporting.split);
+      return Object.fromEntries(Object.entries(sizes).map(([k, v]) => [k, v * this.exportVersions]));
+    },
+    exportVersions() {
+      return 1 + (this.exportAugmentPayload ? this.exportAugmentPayload.copies : 0);
+    },
+    /** originals plus their augmented versions */
+    exportTotalImages() {
+      if (this.exportImageCount == null) return null;
+      const copies = this.exportAugmentPayload ? this.exportAugmentPayload.copies : 0;
+      return this.exportImageCount * (1 + copies);
     },
     exportReady() {
       if (this.exporting.format === "yolo" && !this.exportFolderName) return false;

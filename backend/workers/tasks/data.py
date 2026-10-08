@@ -153,41 +153,39 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
             task.info(f"{len(empty)} images without annotations are skipped")
         coco['images'] = [img for img in coco['images'] if img['id'] in classes]
 
-    subsets = None
-    if split:
-        from geometry.yolo_format import split_images
-        subsets = split_images([img['id'] for img in coco['images']], split, seed)
-        split_counts = {name: sum(1 for v in subsets.values() if v == name) for name in ("train", "val", "test")}
-        task.info("Split (seed {}): {}".format(
-            seed, ", ".join(f"{k} {split[k]}% = {split_counts[k]} images" for k in split_counts)))
-
-    # augmentation: new versions of the training images (all of them without a split)
+    # augmentation first: new versions of every exported image
     from geometry.augment import parse_options, augment_coco
     aug = parse_options(augment)
-    aug_dir, aug_count = None, 0
+    aug_dir, aug_count, source = None, 0, {}
     if aug:
-        targets = [img for img in coco["images"] if not subsets or subsets.get(img["id"]) == "train"]
+        targets = list(coco["images"])
         names = ", ".join(f"{k}" + (f" {v}" if v is not True else "") for k, v in aug["ops"].items())
-        task.info(f"Augmenting {len(targets)} {'training ' if subsets else ''}images, "
-                  f"{aug['copies']} copies each ({names})")
-        if not subsets:
-            task.warning("No split: every image is augmented (keep originals of the same picture out of "
-                         "validation yourself)")
+        task.info(f"Augmenting {len(targets)} images, {aug['copies']} copies each ({names})")
         aug_dir = f"{directory}.augment-{timestamp}/"
         new_images, new_annotations, source = augment_coco(coco, targets, aug, seed, aug_dir, log=task.info)
         coco["images"].extend(new_images)
         coco["annotations"].extend(new_annotations)
         aug_count = len(new_images)
-        if subsets is not None:
-            for new_id in source:
-                subsets[new_id] = "train"
-            split_counts["train"] += aug_count
         if classes is not None:
             for new_id, old_id in source.items():
                 classes[new_id] = classes[old_id]
         # the new pictures only exist as files: they go into the export
         with_images = True
         task.info(f"Added {aug_count} augmented images ({len(new_annotations)} annotations)")
+
+    # then the split, by original picture: a picture and its augmented
+    # versions always land in the same part (no near-copies across parts)
+    subsets = None
+    if split:
+        from geometry.yolo_format import split_images
+        originals = [img['id'] for img in coco['images'] if img['id'] not in source]
+        subsets = split_images(originals, split, seed)
+        for new_id, old_id in source.items():
+            subsets[new_id] = subsets[old_id]
+        split_counts = {name: sum(1 for v in subsets.values() if v == name) for name in ("train", "val", "test")}
+        task.info("Split (seed {}){}: {}".format(
+            seed, " by original picture" if source else "",
+            ", ".join(f"{k} {split[k]}% = {split_counts[k]} images" for k in split_counts)))
 
     try:
         file_path, tags = _write_export(coco, fmt, yolo_task, with_images, subsets, split, classes,

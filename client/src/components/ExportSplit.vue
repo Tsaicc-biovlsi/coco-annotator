@@ -72,7 +72,7 @@
         {{ $t('exportSplit.invalid', { sum: total }) }}
       </div>
       <div v-else-if="imageCount != null" class="small text-muted mt-1">
-        {{ $t('exportSplit.estimate', { n: imageCount }) }}
+        {{ $t('exportSplit.estimate', { n: imageCount * perImage }) }}
       </div>
 
       <div class="d-flex align-items-center gap-2 mt-2">
@@ -126,6 +126,8 @@ export default {
     seed: { type: Number, default: 42 },
     /** images that will be exported (null while unknown) */
     imageCount: { type: Number, default: null },
+    // versions of each picture (augmentation): pictures are split, each with its versions
+    perImage: { type: Number, default: 1 },
     yolo: { type: Boolean, default: false }
   },
   emits: ["update:enabled", "update:ratios", "update:seed"],
@@ -144,7 +146,8 @@ export default {
       return splitValid(this.ratios);
     },
     sizes() {
-      return splitSizes(this.imageCount || 0, this.ratios);
+      const sizes = splitSizes(this.imageCount || 0, this.ratios);
+      return Object.fromEntries(Object.entries(sizes).map(([k, v]) => [k, v * this.perImage]));
     }
   },
   methods: {
