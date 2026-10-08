@@ -29,7 +29,7 @@
               <span class="text-muted text-truncate">· {{ q.dataset_name }} / {{ q.file_name }}</span>
               <span class="ms-auto text-muted flex-shrink-0">{{ ago(q.created_at) }}</span>
             </div>
-            <div class="msg">{{ q.message }}</div>
+            <div class="msg">{{ q.message || $t('help.noNote') }}</div>
             <div v-if="q.replies.length" class="small text-success"><i class="fa fa-reply" /> {{ $t('help.repliesN', { n: q.replies.length }) }}</div>
           </a>
         </template>
@@ -43,7 +43,7 @@
               <span class="text-muted text-truncate">{{ q.dataset_name }} / {{ q.file_name }}</span>
               <span class="ms-auto text-muted flex-shrink-0">{{ ago(q.updated_at) }}</span>
             </div>
-            <div class="msg text-muted">{{ q.message }}</div>
+            <div class="msg text-muted">{{ q.message || $t('help.noNote') }}</div>
             <div class="msg"><i class="fa fa-reply" /> {{ lastReply(q) }}</div>
           </a>
         </template>
@@ -64,7 +64,7 @@ export default {
   computed: {
     /** my questions that got an answer */
     answered() {
-      return this.mine.filter(q => q.replies.some(r => r.user !== q.user));
+      return this.mine.filter(q => q.replies.some(r => r.user !== q.user) || (q.status === "resolved" && q.resolved_by !== q.user));
     }
   },
   methods: {
@@ -73,7 +73,8 @@ export default {
     },
     lastReply(q) {
       const r = [...q.replies].reverse().find(x => x.user !== q.user);
-      return r ? `${r.name}：${r.message}` : "";
+      if (r) return `${r.name}：${r.message}`;
+      return q.status === "resolved" ? this.$t("help.handledBy", { name: q.resolved_by || "" }) : "";
     },
     load() {
       Help.inbox().then(r => {
@@ -99,7 +100,7 @@ export default {
     helpRequest(q) {
       this.load();
       this.$toastr.warning(
-        `${q.dataset_name} / ${q.file_name}：${q.message}（${this.$t("help.clickToGo")}）`,
+        `${q.dataset_name} / ${q.file_name}${q.message ? "：" + q.message : ""}（${this.$t("help.clickToGo")}）`,
         this.$t("help.someoneAsks", { name: q.user_name }),
         this.toastOptions(q)
       );
@@ -109,7 +110,13 @@ export default {
       const me = this.$store.state.user.user;
       if (!me || q.status === "cancelled") return;
       const last = q.replies[q.replies.length - 1];
-      if (q.user === me.username && last && last.user !== me.username) {
+      if (q.user === me.username && q.status === "resolved" && q.resolved_by && q.resolved_by !== me.username) {
+        this.$toastr.success(
+          `${q.file_name}${last && last.user !== me.username ? "：" + last.message : ""}（${this.$t("help.clickToGo")}）`,
+          this.$t("help.handledToast", { name: q.resolved_by }),
+          this.toastOptions(q)
+        );
+      } else if (q.user === me.username && last && last.user !== me.username) {
         this.$toastr.success(
           `${q.file_name}：${last.message}（${this.$t("help.clickToGo")}）`,
           this.$t("help.gotAnswer", { name: last.name || last.user }),

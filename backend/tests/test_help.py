@@ -45,6 +45,11 @@ def test_ask_and_answer(world, dataset_directory, monkeypatch):
     assert {h["username"]: h["role"] for h in helpers} == {"helprev": "reviewer", "helpowner": "creator"}
 
     assert student.post("/api/help/", json={"image_id": image.id, "message": ""}).status_code == 400
+    # no note needed: where the asker zoomed to is enough (kept inside the image)
+    r = student.post("/api/help/", json={"image_id": image.id, "region": {"x": 30, "y": -5, "w": 50, "h": 10}})
+    assert r.status_code == 200 and r.get_json()["region"] == {"x": 30.0, "y": 0.0, "w": 10.0, "h": 10.0}
+    HelpModel.objects(id=r.get_json()["id"]).delete()
+    pushed.clear()
     assert outsider.post("/api/help/", json={"image_id": image.id, "message": "?"}).status_code == 400
     r = student.post("/api/help/", json={"image_id": image.id, "message": "這個針頭要框到哪裡？", "to": ["helprev", "nobody"]})
     assert r.status_code == 200, r.get_json()

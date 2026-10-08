@@ -9,10 +9,16 @@
         <span v-if="q.status === 'resolved'" class="badge text-bg-success ms-auto">{{ $t('help.resolved') }}</span>
         <span v-else class="badge text-bg-warning ms-auto">{{ $t('help.waiting') }}</span>
       </div>
-      <div class="text">{{ q.message }}</div>
-      <a v-if="q.annotation_id" href="#" class="small" @click.prevent="$emit('show-annotation', q.annotation_id)">
-        <i class="fa fa-crosshairs" /> {{ $t('help.showAnnotation', { id: q.annotation_id }) }}
-      </a>
+      <div v-if="q.message" class="text">{{ q.message }}</div>
+      <div v-else class="text text-muted">{{ $t('help.noNote') }}</div>
+      <div class="d-flex flex-wrap gap-2 mt-1">
+        <button v-if="q.region" type="button" class="btn btn-sm btn-warning py-0" @click="$emit('show-region', q.region)">
+          <i class="fa fa-search-plus" /> {{ $t('help.showRegion') }}
+        </button>
+        <a v-if="q.annotation_id" href="#" class="small" @click.prevent="$emit('show-annotation', q.annotation_id)">
+          <i class="fa fa-crosshairs" /> {{ $t('help.showAnnotation', { id: q.annotation_id }) }}
+        </a>
+      </div>
       <div v-for="(r, i) in q.replies" :key="i" class="reply small">
         <strong>{{ r.name }}</strong> <span class="text-muted">{{ ago(r.at) }}</span>
         <div class="text">{{ r.message }}</div>
@@ -22,15 +28,18 @@
           v-model="drafts[q.id]"
           class="form-control form-control-sm"
           rows="2"
-          :placeholder="q.mine ? $t('help.addMore') : $t('help.answerPlaceholder')"
+          :placeholder="q.mine ? $t('help.addMore') : $t('help.answerOptional')"
           @keydown.stop
         />
         <div class="d-flex flex-wrap gap-1 mt-1">
-          <button type="button" class="btn btn-sm btn-primary" :disabled="!(drafts[q.id] || '').trim() || busy" @click="reply(q, false)">
+          <button v-if="!q.mine" type="button" class="btn btn-sm btn-success" :disabled="busy" @click="reply(q, true)">
+            <i class="fa fa-check" /> {{ $t('help.handled') }}
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-light" :disabled="!(drafts[q.id] || '').trim() || busy" @click="reply(q, false)">
             <i class="fa fa-reply" /> {{ $t('help.send') }}
           </button>
-          <button type="button" class="btn btn-sm btn-success" :disabled="busy" @click="reply(q, true)">
-            <i class="fa fa-check" /> {{ q.mine ? $t('help.markSolved') : $t('help.sendAndClose') }}
+          <button v-if="q.mine" type="button" class="btn btn-sm btn-success" :disabled="busy" @click="reply(q, true)">
+            <i class="fa fa-check" /> {{ $t('help.markSolved') }}
           </button>
           <button v-if="q.mine" type="button" class="btn btn-sm btn-link text-muted ms-auto" :disabled="busy" @click="cancel(q)">
             {{ $t('help.withdraw') }}
@@ -44,6 +53,7 @@
       <i class="fa fa-life-ring" /> {{ $t('help.ask') }}
     </button>
     <div v-else class="ask-box">
+      <div class="zoom-tip small mb-2"><i class="fa fa-search-plus" /> {{ $t('help.zoomFirst') }}</div>
       <div class="small fw-semibold mb-1">{{ $t('help.askWho') }}</div>
       <div v-if="!helpers.length" class="small text-muted">{{ loadingHelpers ? '…' : $t('help.nobody') }}</div>
       <label v-for="h in helpers" :key="h.username" class="helper d-flex align-items-center gap-2">
@@ -60,8 +70,8 @@
         ref="message"
         v-model="message"
         class="form-control form-control-sm mt-2"
-        rows="3"
-        :placeholder="$t('help.messagePlaceholder')"
+        rows="2"
+        :placeholder="$t('help.noteOptional')"
         @keydown.stop
       />
       <label v-if="selectedAnnotationId" class="form-check small mt-1">
@@ -69,7 +79,7 @@
         <span class="form-check-label">{{ $t('help.attachAnnotation', { id: selectedAnnotationId }) }}</span>
       </label>
       <div class="d-flex gap-1 mt-2">
-        <button type="button" class="btn btn-sm btn-warning" :disabled="!message.trim() || !to.length || busy" @click="send">
+        <button type="button" class="btn btn-sm btn-warning" :disabled="!to.length || busy" @click="send">
           <i class="fa fa-paper-plane" /> {{ $t('help.sendQuestion') }}
         </button>
         <button type="button" class="btn btn-sm btn-outline-secondary" @click="asking = false">{{ $t('help.cancel') }}</button>
@@ -88,13 +98,15 @@ export default {
     imageId: { type: Number, required: true },
     /** annotation id currently selected (to attach to a question) */
     selectedAnnotationId: { type: Number, default: null },
+    /** () => { x, y, w, h } of the image part on screen now */
+    getRegion: { type: Function, default: null },
     focusId: { type: Number, default: null }
   },
-  emits: ["show-annotation"],
+  emits: ["show-annotation", "show-region"],
   data() {
     return {
       requests: [], helpers: [], loadingHelpers: false, asking: false, to: [], message: "",
-      attach: true, busy: false, drafts: {}
+      attach: true, busy: false, drafts: {}, shownFocus: false
     };
   },
   computed: {
@@ -103,7 +115,10 @@ export default {
     }
   },
   watch: {
-    imageId: "load"
+    imageId() {
+      this.shownFocus = false;
+      this.load();
+    }
   },
   methods: {
     ago(iso) {
@@ -113,7 +128,17 @@ export default {
       return h.last_seen ? this.$t("help.seen", { t: ago(h.last_seen, this.$t) }) : this.$t("help.offline");
     },
     load() {
-      Help.forImage(this.imageId).then(r => (this.requests = r.data.requests || [])).catch(() => {});
+      Help.forImage(this.imageId).then(r => {
+        this.requests = r.data.requests || [];
+        // opened from a question: go to the place it is about (once)
+        const q = this.requests.find(x => x.id === this.focusId);
+        if (q && q.region && !this.shownFocus) {
+          this.shownFocus = true;
+          this.$emit("show-region", q.region);
+        }
+        // nothing open with a place any more: take the mark away
+        if (!this.requests.some(x => x.status === "open" && x.region)) this.$emit("show-region", null);
+      }).catch(() => {});
     },
     startAsk() {
       this.asking = true;
@@ -134,7 +159,8 @@ export default {
         image_id: this.imageId,
         message: this.message,
         to: this.to,
-        annotation_id: this.attach ? this.selectedAnnotationId : null
+        annotation_id: this.attach ? this.selectedAnnotationId : null,
+        region: this.getRegion ? this.getRegion() : null
       })
         .then(() => {
           this.$toastr.success(this.$t("help.sent"));
@@ -216,6 +242,12 @@ export default {
 }
 .text-success {
   color: #4ade80 !important;
+}
+.zoom-tip {
+  background: rgba(255, 193, 7, 0.15);
+  border-radius: 4px;
+  padding: 4px 6px;
+  color: #ffe08a;
 }
 .ask-box {
   background: rgba(255, 255, 255, 0.06);

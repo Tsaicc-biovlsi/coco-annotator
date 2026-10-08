@@ -17,6 +17,8 @@ ask_args.add_argument('image_id', type=int, required=True, location='json')
 ask_args.add_argument('message', default='', location='json')
 ask_args.add_argument('to', type=list, default=None, location='json')
 ask_args.add_argument('annotation_id', type=int, default=None, location='json')
+ask_args.add_argument('region', type=dict, default=None, location='json',
+                      help='Where the asker zoomed to: {x, y, w, h} in image pixels')
 
 reply_args = reqparse.RequestParser()
 reply_args.add_argument('message', default='', location='json')
@@ -102,15 +104,25 @@ class Ask(Resource):
         if image is None or dataset is None:
             return {'message': 'Invalid image id'}, 400
         message = (args.get('message') or '').strip()[:2000]
-        if not message:
-            return {'message': 'Write what you are not sure about.'}, 400
+        region = None
+        raw = args.get('region') or {}
+        try:
+            x, y, w, h = (float(raw[k]) for k in ('x', 'y', 'w', 'h'))
+            x, y = max(0.0, x), max(0.0, y)
+            w, h = min(w, image.width - x), min(h, image.height - y)
+            if w > 0 and h > 0:
+                region = {'x': round(x, 1), 'y': round(y, 1), 'w': round(w, 1), 'h': round(h, 1)}
+        except (KeyError, TypeError, ValueError):
+            region = None
+        if not message and region is None and not args.get('annotation_id'):
+            return {'message': 'Zoom to the part you are not sure about (or write a note).'}, 400
         allowed = {h['username'] for h in _helpers(dataset)}
         to = [u for u in (args.get('to') or allowed) if u in allowed]
         if not to:
             return {'message': 'Nobody to ask: the dataset has no creator or reviewers besides you.'}, 400
         req = HelpModel(image_id=image.id, dataset_id=dataset.id, file_name=image.file_name,
                         user=current_user.username, to=to, message=message,
-                        annotation_id=args.get('annotation_id'))
+                        annotation_id=args.get('annotation_id'), region=region)
         req.save()
         activity.record('help_request', current_user, dataset_id=dataset.id, image_id=image.id,
                         detail={'file_name': image.file_name, 'to': to, 'message': message[:200]},

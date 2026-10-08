@@ -18,6 +18,8 @@ class HelpModel(DynamicDocument):
     message = StringField(default='')
     #: the annotation the question is about (optional)
     annotation_id = IntField()
+    #: the part of the image the asker zoomed to: {x, y, w, h} in image pixels
+    region = DictField(default=None)
     status = StringField(default='open')  # open | resolved | cancelled
     #: [{user, message, at}]
     replies = ListField(DictField(), default=list)
@@ -34,6 +36,7 @@ class HelpModel(DynamicDocument):
             'id': self.id, 'image_id': self.image_id, 'dataset_id': self.dataset_id,
             'file_name': self.file_name, 'user': self.user, 'to': list(self.to or []),
             'message': self.message, 'annotation_id': self.annotation_id, 'status': self.status,
+            'region': self.region or None,
             'replies': [{**r, 'at': iso(r.get('at')) if isinstance(r.get('at'), datetime.datetime) else r.get('at')}
                         for r in (self.replies or [])],
             'created_at': iso(self.created_at), 'updated_at': iso(self.updated_at),

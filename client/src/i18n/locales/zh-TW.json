@@ -1385,6 +1385,14 @@
     "justNow": "剛剛",
     "minutesAgo": "{n} 分鐘前",
     "hoursAgo": "{n} 小時前",
-    "daysAgo": "{n} 天前"
+    "daysAgo": "{n} 天前",
+    "showRegion": "看問題位置",
+    "handled": "已處理，通知對方",
+    "answerOptional": "說明（選填）…",
+    "zoomFirst": "先把畫面放大到有問題的地方再送出，對方打開時會直接看到同一個位置（有標示框）。",
+    "noteOptional": "補充說明（選填）",
+    "noNote": "（看標示的位置）",
+    "handledBy": "{name} 已處理",
+    "handledToast": "{name} 已處理你的求助"
   }
 }

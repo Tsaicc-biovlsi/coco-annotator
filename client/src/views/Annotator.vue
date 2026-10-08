@@ -131,7 +131,9 @@
         :image-id="image.id"
         :selected-annotation-id="currentAnnotation && currentAnnotation.annotation ? currentAnnotation.annotation.id : null"
         :focus-id="$route.query.help ? Number($route.query.help) : null"
+        :get-region="viewRegion"
         @show-annotation="showAnnotationById"
+        @show-region="showRegion"
       />
 
       <ImageClassPicker
@@ -730,6 +732,11 @@ export default {
         }, 400);
         if (this.activeTool === "Magic Wand") this.ensureImageData();
         this.prefetchNeighbours();
+        if (this.pendingRegion) {
+          const region = this.pendingRegion;
+          this.pendingRegion = null;
+          this.$nextTick(() => this.showRegion(region));
+        }
         let fontSize = width * 0.025;
 
         let positionTopLeft = new paper.Point(
@@ -753,6 +760,51 @@ export default {
 
         this.loading.image = false;
       };
+    },
+    /** the part of the image on screen now, in image pixels */
+    viewRegion() {
+      const raster = this.image.raster;
+      if (!this.paper || !raster || !raster.width) return null;
+      const b = this.paper.view.bounds;
+      const w = raster.width, h = raster.height;
+      const x0 = Math.max(0, b.x + w / 2), y0 = Math.max(0, b.y + h / 2);
+      const x1 = Math.min(w, b.x + b.width + w / 2), y1 = Math.min(h, b.y + b.height + h / 2);
+      if (x1 <= x0 || y1 <= y0) return null;
+      return { x: Math.round(x0), y: Math.round(y0), w: Math.round(x1 - x0), h: Math.round(y1 - y0) };
+    },
+    /** zoom to a question's place and mark it (null: remove the mark) */
+    showRegion(region) {
+      if (this.helpMark) {
+        this.helpMark.remove();
+        this.helpMark = null;
+      }
+      if (!region) return;
+      const raster = this.image.raster;
+      if (!raster || !raster.loaded) {
+        // the image is still loading: do it then
+        this.pendingRegion = region;
+        return;
+      }
+      const w = raster.width, h = raster.height;
+      const canvas = document.getElementById("editor");
+      const zoom = Math.min(canvas.width / region.w, canvas.height / region.h) * 0.85;
+      if (zoom > 0.01 && zoom < 60) {
+        this.paper.view.zoom = zoom;
+        this.image.scale = 1 / zoom;
+      }
+      const cx = region.x + region.w / 2 - w / 2, cy = region.y + region.h / 2 - h / 2;
+      this.paper.view.setCenter(cx, cy);
+      this.helpMark = new paper.Path.Rectangle({
+        point: [region.x - w / 2, region.y - h / 2],
+        size: [region.w, region.h],
+        strokeColor: "#ffc107",
+        strokeWidth: 3 / this.paper.view.zoom,
+        dashArray: [10 / this.paper.view.zoom, 6 / this.paper.view.zoom],
+        locked: true,
+        // not hit by the tools (select, click-to-switch)
+        guide: true
+      });
+      this.helpMark.data.helpMark = true;
     },
     /** select the annotation a question is about */
     showAnnotationById(id) {

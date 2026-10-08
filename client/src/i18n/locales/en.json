@@ -1253,6 +1253,14 @@
     "justNow": "just now",
     "minutesAgo": "{n} min ago",
     "hoursAgo": "{n} h ago",
-    "daysAgo": "{n} days ago"
+    "daysAgo": "{n} days ago",
+    "showRegion": "Show the place",
+    "handled": "Done — let them know",
+    "answerOptional": "Note (optional)…",
+    "zoomFirst": "Zoom to the part you are not sure about first: they will see exactly that, marked.",
+    "noteOptional": "Note (optional)",
+    "noNote": "(see the marked place)",
+    "handledBy": "Handled by {name}",
+    "handledToast": "{name} handled your question"
   }
 }
