@@ -114,7 +114,8 @@
               v-for="a in img.annotations"
               :key="a.id"
               :class="{ dim: isDim(img, a.category_id), lit: isLit(img, a.category_id) }"
-              @mouseenter="hover = { img: img.id, cat: a.category_id }"
+              @mouseenter="hover = { cat: a.category_id, all: true }"
+              @mouseleave="hover = null"
             >
               <title>{{ catLabel(a.category_id) }}</title>
               <polygon
@@ -255,7 +256,7 @@ export default {
       showShapes: true,
       // category names on the shapes and a per-image list of categories
       showNames: (() => { try { return localStorage.getItem("review/showNames") !== "false"; } catch { return true; } })(),
-      // a category hovered (in one image, or every image from the category list)
+      // a category hovered (a shape or the category list): lit in every image
       hover: null,
       // a category clicked in a list: only that one shows in every image
       soloCat: null,
