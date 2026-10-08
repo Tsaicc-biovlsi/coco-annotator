@@ -40,6 +40,10 @@
         <option v-for="u in labelers" :key="u" :value="u">{{ u }}</option>
       </select>
 
+      <div class="form-check form-switch m-0 text-white-50 small" :title="$t('quickReview.syncHint')">
+        <input id="qrSync" v-model="syncZoom" type="checkbox" class="form-check-input" role="switch" />
+        <label class="form-check-label" for="qrSync">{{ $t('quickReview.syncZoom') }}</label>
+      </div>
       <div class="form-check form-switch m-0 text-white-50 small">
         <input id="qrShow" v-model="showShapes" type="checkbox" class="form-check-input" role="switch" />
         <label class="form-check-label" for="qrShow">{{ $t('quickReview.showShapes') }} (H)</label>
@@ -216,6 +220,8 @@ export default {
       focus: 0,
       decided: {},
       views: {},
+      // zoom / move every image on the page together (Shift does the other)
+      syncZoom: (() => { try { return localStorage.getItem("review/syncZoom") !== "false"; } catch { return true; } })(),
       panMoved: false,
       rejecting: null,
       note: "",
@@ -236,6 +242,13 @@ export default {
   watch: {
     status() { this.go(1); },
     labeler() { this.go(1); },
+    syncZoom(value) {
+      try {
+        localStorage.setItem("review/syncZoom", String(value));
+      } catch {
+        // not remembered
+      }
+    },
     order(value) {
       try {
         localStorage.setItem("review/quickOrder", value);
@@ -302,8 +315,8 @@ export default {
     },
     onWheel(e, img) {
       const factor = Math.exp((e.deltaY > 0 ? 1 : -1) * Math.min(Math.abs(e.deltaY), 120) / 600);
-      if (e.shiftKey) {
-        // Shift: every image on the page zooms to the same place
+      if (this.syncZoom !== e.shiftKey) {
+        // every image on the page zooms to the same place (Shift: the other way round)
         const svg = e.currentTarget;
         const p = this.toImage(svg, e.clientX, e.clientY);
         this.images.forEach(other => {
@@ -321,14 +334,20 @@ export default {
       if (e.button !== 0 || !this.isZoomed(img)) return;
       const svg = e.currentTarget;
       const start = this.toImage(svg, e.clientX, e.clientY);
-      const v0 = { ...this.viewOf(img) };
+      const together = this.syncZoom !== e.shiftKey;
+      const others = together ? this.images.filter(o => this.isZoomed(o)) : [img];
+      const starts = Object.fromEntries(others.map(o => [o.id, { ...this.viewOf(o) }]));
       this.panMoved = false;
       const move = ev => {
-        // move the view so the grabbed point follows the mouse
+        // move the view so the grabbed point follows the mouse (the others the same share)
         const ctm = svg.getScreenCTM();
         const dx = (ev.clientX - e.clientX) / ctm.a, dy = (ev.clientY - e.clientY) / ctm.d;
         if (Math.abs(ev.clientX - e.clientX) + Math.abs(ev.clientY - e.clientY) > 3) this.panMoved = true;
-        this.setView(img, { ...v0, x: v0.x - dx, y: v0.y - dy });
+        others.forEach(o => {
+          const v0 = starts[o.id];
+          const sx = o.width / img.width, sy = o.height / img.height;
+          this.setView(o, { ...v0, x: v0.x - dx * sx, y: v0.y - dy * sy });
+        });
       };
       const up = () => {
         window.removeEventListener("mousemove", move);
