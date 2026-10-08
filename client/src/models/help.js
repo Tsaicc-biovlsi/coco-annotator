@@ -18,6 +18,9 @@ export default {
   reply(id, message, resolve = false) {
     return axios.post(`${base}${id}/reply`, { message, resolve });
   },
+  seen(id) {
+    return axios.post(`${base}${id}/seen`);
+  },
   cancel(id) {
     return axios.post(`${base}${id}/cancel`);
   }

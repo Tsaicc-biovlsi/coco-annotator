@@ -1261,6 +1261,7 @@
     "noteOptional": "Note (optional)",
     "noNote": "(see the marked place)",
     "handledBy": "Handled by {name}",
-    "handledToast": "{name} handled your question"
+    "handledToast": "{name} handled your question",
+    "gotIt": "Got it, close"
   }
 }

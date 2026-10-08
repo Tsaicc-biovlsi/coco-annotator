@@ -35,7 +35,7 @@
         </template>
         <template v-if="answered.length">
           <div class="section small text-muted px-3 pt-2">{{ $t('help.myQuestions') }}</div>
-          <a v-for="q in answered" :key="'m' + q.id" href="#" class="item d-block px-3 py-2" @click.prevent="open(q)">
+          <a v-for="q in answered" :key="'m' + q.id" href="#" class="item d-block px-3 py-2" @click.prevent="openMine(q)">
             <div class="d-flex align-items-center gap-1 small">
               <span class="badge" :class="q.status === 'resolved' ? 'text-bg-success' : 'text-bg-primary'">
                 {{ q.status === 'resolved' ? $t('help.resolved') : $t('help.replied') }}
@@ -82,17 +82,23 @@ export default {
         this.mine = r.data.mine || [];
       }).catch(() => {});
     },
+    /** my answered question: read it (it leaves the list) */
+    openMine(q) {
+      if (q.status === "resolved") Help.seen(q.id).then(this.load);
+      this.open(q);
+    },
     open(q) {
       this.$router.push({ name: "annotate", params: { identifier: q.image_id }, query: { help: q.id } });
     },
-    toastOptions(q) {
+    /** goes away by itself (the bell keeps the list); a click opens the image */
+    toastOptions(q, { mine = false, long = false } = {}) {
       return {
-        timeOut: 0,
-        extendedTimeOut: 0,
+        timeOut: long ? 15000 : 8000,
+        extendedTimeOut: 3000,
         closeButton: true,
         tapToDismiss: true,
         positionClass: "toast-bottom-right",
-        onclick: () => this.open(q)
+        onclick: () => (mine ? this.openMine(q) : this.open(q))
       };
     }
   },
@@ -102,7 +108,7 @@ export default {
       this.$toastr.warning(
         `${q.dataset_name} / ${q.file_name}${q.message ? "：" + q.message : ""}（${this.$t("help.clickToGo")}）`,
         this.$t("help.someoneAsks", { name: q.user_name }),
-        this.toastOptions(q)
+        this.toastOptions(q, { long: true })
       );
     },
     helpReply(q) {
@@ -114,13 +120,13 @@ export default {
         this.$toastr.success(
           `${q.file_name}${last && last.user !== me.username ? "：" + last.message : ""}（${this.$t("help.clickToGo")}）`,
           this.$t("help.handledToast", { name: q.resolved_by }),
-          this.toastOptions(q)
+          this.toastOptions(q, { mine: true })
         );
       } else if (q.user === me.username && last && last.user !== me.username) {
         this.$toastr.success(
           `${q.file_name}：${last.message}（${this.$t("help.clickToGo")}）`,
           this.$t("help.gotAnswer", { name: last.name || last.user }),
-          this.toastOptions(q)
+          this.toastOptions(q, { mine: true })
         );
       } else if (q.user !== me.username && last && last.user === q.user) {
         this.$toastr.info(`${q.file_name}：${last.message}`, this.$t("help.followUp", { name: q.user_name }), this.toastOptions(q));

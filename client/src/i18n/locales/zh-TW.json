@@ -1393,6 +1393,7 @@
     "noteOptional": "補充說明（選填）",
     "noNote": "（看標示的位置）",
     "handledBy": "{name} 已處理",
-    "handledToast": "{name} 已處理你的求助"
+    "handledToast": "{name} 已處理你的求助",
+    "gotIt": "知道了，關閉"
   }
 }

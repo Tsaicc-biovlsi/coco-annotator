@@ -138,7 +138,8 @@ class Inbox(Resource):
         """ Open questions asked to me, and my questions (answered or not) """
         name = current_user.username
         incoming = HelpModel.objects(to=name, status='open').order_by('-created_at')[:50]
-        mine = HelpModel.objects(user=name, status__in=['open', 'resolved']).order_by('-updated_at')[:20]
+        # answered ones stay until the asker has looked at them
+        mine = HelpModel.objects(user=name, status__in=['open', 'resolved'], seen__ne=True).order_by('-updated_at')[:20]
         return {'incoming': [_out(r) for r in incoming], 'mine': [_out(r) for r in mine]}
 
 
@@ -150,11 +151,13 @@ class ImageHelp(Resource):
         image, dataset = _image(image_id)
         if image is None:
             return {'message': 'Invalid image id'}, 400
-        since = datetime.datetime.utcnow() - datetime.timedelta(days=7)
-        reqs = HelpModel.objects(Q(image_id=image_id) & (Q(status='open') | Q(updated_at__gte=since))
-                                 & Q(status__ne='cancelled')).order_by('created_at')
+        # open ones, and answered ones the asker has not looked at yet
+        reqs = HelpModel.objects(Q(image_id=image_id) & (Q(status='open') | (Q(status='resolved') & Q(seen__ne=True))))\
+            .order_by('created_at')
         out = []
         for r in reqs:
+            if r.status == 'resolved' and r.user != current_user.username:
+                continue  # done: only the asker still sees it (until they close it)
             data = _out(r)
             data['can_answer'] = _can_answer(r, dataset) and r.user != current_user.username
             data['mine'] = r.user == current_user.username
@@ -181,6 +184,8 @@ class Reply(Resource):
         update = {'set__updated_at': now}
         if message:
             update['push__replies'] = {'user': current_user.username, 'message': message, 'at': now}
+        if not mine:
+            update['set__seen'] = False  # a new answer for the asker
         if args.get('resolve'):
             update['set__status'] = 'resolved'
             update['set__resolved_by'] = current_user.username
@@ -196,6 +201,15 @@ class Reply(Resource):
         others = [u for u in [req.user, *(req.to or [])] if u != current_user.username]
         _push(others, 'helpReply', req)
         return _out(req)
+
+
+@api.route('/<int:help_id>/seen')
+class Seen(Resource):
+    @login_required
+    def post(self, help_id):
+        """ The asker has read the answer: it leaves their lists """
+        n = HelpModel.objects(id=help_id, user=current_user.username).update(set__seen=True)
+        return {'success': bool(n)}
 
 
 @api.route('/<int:help_id>/cancel')

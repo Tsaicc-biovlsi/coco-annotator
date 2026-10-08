@@ -68,4 +68,8 @@ def test_ask_and_answer(world, dataset_directory, monkeypatch):
     assert reviewer.get("/api/help/inbox").get_json()["incoming"] == []
     mine = student.get("/api/help/inbox").get_json()["mine"]
     assert mine[0]["replies"][0]["message"] == "框到針尖" and mine[0]["replies"][0]["name"] == "Helprev"
+    # the asker closes it: gone from their lists and the image
+    assert student.post(f"/api/help/{req['id']}/seen").get_json()["success"]
+    assert student.get("/api/help/inbox").get_json()["mine"] == []
+    assert student.get(f"/api/help/image/{image.id}").get_json()["requests"] == []
     HelpModel.objects.delete()

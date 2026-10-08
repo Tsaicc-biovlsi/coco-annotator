@@ -23,6 +23,11 @@
         <strong>{{ r.name }}</strong> <span class="text-muted">{{ ago(r.at) }}</span>
         <div class="text">{{ r.message }}</div>
       </div>
+      <div v-if="q.status === 'resolved' && q.mine" class="mt-1">
+        <button type="button" class="btn btn-sm btn-success py-0" :disabled="busy" @click="dismiss(q)">
+          <i class="fa fa-check" /> {{ $t('help.gotIt') }}
+        </button>
+      </div>
       <div v-if="q.status === 'open' && (q.can_answer || q.mine)" class="mt-1">
         <textarea
           v-model="drafts[q.id]"
@@ -180,6 +185,16 @@ export default {
           window.dispatchEvent(new Event("help-changed"));
         })
         .catch(e => this.$toastr.error((e.response && e.response.data.message) || String(e)))
+        .finally(() => (this.busy = false));
+    },
+    /** the asker has read the answer: it goes away */
+    dismiss(q) {
+      this.busy = true;
+      Help.seen(q.id)
+        .then(() => {
+          this.load();
+          window.dispatchEvent(new Event("help-changed"));
+        })
         .finally(() => (this.busy = false));
     },
     cancel(q) {

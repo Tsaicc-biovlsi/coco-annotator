@@ -3,7 +3,7 @@ reviewers for help on one image; they answer there."""
 import datetime
 
 from mongoengine import (DynamicDocument, SequenceField, IntField, StringField, ListField,
-                         DateTimeField, DictField)
+                         DateTimeField, DictField, BooleanField)
 
 
 class HelpModel(DynamicDocument):
@@ -26,6 +26,8 @@ class HelpModel(DynamicDocument):
     created_at = DateTimeField(default=datetime.datetime.utcnow)
     updated_at = DateTimeField(default=datetime.datetime.utcnow)
     resolved_by = StringField()
+    #: the asker has seen the answer (it leaves their lists)
+    seen = BooleanField(default=False)
 
     meta = {'collection': 'help_request', 'indexes': ['image_id', 'to', 'user', 'status']}
 
@@ -40,5 +42,5 @@ class HelpModel(DynamicDocument):
             'replies': [{**r, 'at': iso(r.get('at')) if isinstance(r.get('at'), datetime.datetime) else r.get('at')}
                         for r in (self.replies or [])],
             'created_at': iso(self.created_at), 'updated_at': iso(self.updated_at),
-            'resolved_by': self.resolved_by,
+            'resolved_by': self.resolved_by, 'seen': bool(self.seen),
         }
