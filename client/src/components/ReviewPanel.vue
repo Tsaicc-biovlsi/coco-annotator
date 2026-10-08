@@ -33,7 +33,7 @@
       <template v-else>
         <div class="progress-stacked" style="height: 22px">
           <div
-            v-for="s in STATUSES"
+            v-for="s in BAR_ORDER"
             :key="s"
             class="progress"
             role="progressbar"
@@ -46,7 +46,7 @@
           </div>
         </div>
         <div class="d-flex flex-wrap gap-3 small mt-2">
-          <span v-for="s in STATUSES" :key="s">
+          <span v-for="s in BAR_ORDER" :key="s">
             <span class="badge" :class="statusClass(s)">{{ $t('review.status.' + s) }}</span>
             {{ progress.total[s] }}（{{ pct(progress.total[s]) }}%）
           </span>
@@ -121,7 +121,7 @@
                 <div class="d-flex align-items-center gap-2">
                   <div class="progress-stacked flex-grow-1" style="height: 10px">
                     <div
-                      v-for="s in STATUSES"
+                      v-for="s in BAR_ORDER"
                       :key="s"
                       class="progress"
                       :style="{ width: folderPct(f, f.status[s]) + '%' }"
@@ -252,6 +252,8 @@ import axios from "axios";
 import { statusClass } from "@/components/annotator/ReviewBar.vue";
 
 const STATUSES = ["unlabeled", "labeled", "approved", "rejected"];
+// bars fill from the left: done first, not started last
+const BAR_ORDER = ["approved", "labeled", "rejected", "unlabeled"];
 
 export default {
   name: "ReviewPanel",
@@ -261,7 +263,7 @@ export default {
   emits: ["changed"],
   data() {
     return {
-      STATUSES, progress: null, assignTo: [], scope: "unassigned", reviewers: [], busy: false,
+      STATUSES, BAR_ORDER, progress: null, assignTo: [], scope: "unassigned", reviewers: [], busy: false,
       assignMode: "even",
       folders: null,
       // folder -> username ("" unassigns, missing: leave as it is)
