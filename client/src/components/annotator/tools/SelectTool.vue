@@ -246,6 +246,12 @@ export default {
       });
     },
     onMouseDown(event) {
+      // start from where the press is: the tool may not have seen the mouse
+      // move here (e.g. picked by holding left + right), and a stale start
+      // point would make the first drag jump
+      this.onMouseMove(event);
+      this.rbboxDrag = null;
+
       let hitResult = this.$parent.paper.project.hitTest(
         event.point,
         this.hitOptions
