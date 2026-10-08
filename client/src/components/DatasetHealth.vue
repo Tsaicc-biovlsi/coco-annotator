@@ -67,6 +67,34 @@
           </div>
         </div>
 
+        <!-- who annotated how much (and what came from models / imports) -->
+        <div class="col-lg-6">
+          <div class="card p-3 h-100 shadow-sm">
+            <h6><b>{{ $t('health.byMember') }}</b></h6>
+            <div class="small text-secondary mb-2">{{ $t('dataset.perUserHint') }}</div>
+            <div v-if="!people.length" class="text-muted small">{{ $t('health.noData') }}</div>
+            <div v-else class="member-head">
+              <span />
+              <span class="text-end">{{ $t('dataset.annotations') }}</span>
+              <span class="text-end">{{ $t('dataset.images') }}</span>
+            </div>
+            <div v-for="row in people" :key="row.key" class="member-row" :class="{ source: row.source }">
+              <span class="member-name text-truncate" :title="row.title || row.name">
+                <i v-if="row.icon" class="fa" :class="row.icon" />
+                {{ row.name }}
+                <span v-if="row.by" class="small text-secondary fw-normal">{{ row.by }}</span>
+              </span>
+              <span class="member-bar">
+                <span class="hbar-track">
+                  <span v-if="row.annotations" class="hbar" :style="{ width: pctOf(row.annotations, maxPerson) + '%' }" />
+                </span>
+                <span class="num">{{ row.annotations }}</span>
+              </span>
+              <span class="num">{{ row.images }}</span>
+            </div>
+          </div>
+        </div>
+
         <!-- objects per image -->
         <div class="col-lg-6">
           <div class="card p-3 h-100 shadow-sm">
@@ -201,7 +229,7 @@ export default {
     datasetId: { type: Number, required: true }
   },
   data() {
-    return { data: null, loading: false };
+    return { data: null, stats: null, loading: false };
   },
   computed: {
     tiles() {
@@ -212,8 +240,38 @@ export default {
         { label: this.$t("health.tile.annotatedImages"), value: t.annotated_images, sub: `${pct}%` },
         { label: this.$t("health.tile.annotations"), value: t.annotations },
         { label: this.$t("health.tile.perImage"), value: t.per_image_avg },
-        { label: this.$t("health.tile.categories"), value: t.categories }
+        { label: this.$t("health.tile.categories"), value: t.categories },
+        ...(this.stats ? [
+          { label: this.$t("health.tile.members"), value: this.stats.total.Users },
+          {
+            label: this.$t("health.tile.time"),
+            value: this.duration(this.stats.total["Time Annotating (s)"]),
+            sub: t.images && this.stats.total["Time Annotating (s)"] ? this.$t("health.perImageTime", { t: this.duration((this.stats.average["Time (ms) per Image"] || 0) / 1000) }) : ""
+          }
+        ] : [])
       ];
+    },
+    /** members by annotations, then what models and imports added */
+    people() {
+      if (!this.stats) return [];
+      const users = Object.entries(this.stats.users || {})
+        .map(([name, v]) => ({ key: "u" + name, name, annotations: v.annotations || 0, images: v.images || 0 }))
+        .sort((a, b) => b.annotations - a.annotations || a.name.localeCompare(b.name));
+      const sources = (this.stats.sources || []).map((src, i) => ({
+        key: "s" + i,
+        source: true,
+        icon: src.kind === "model" ? "fa-magic" : "fa-upload",
+        name: src.kind === "model"
+          ? this.$t("dataset.modelSource", { name: src.name || this.$t("dataset.unknownModel") })
+          : this.$t("dataset.importSource"),
+        by: src.by && src.by.length ? this.$t("dataset.ranBy", { names: src.by.join("、") }) : "",
+        annotations: src.annotations || 0,
+        images: src.images || 0
+      }));
+      return [...users, ...sources];
+    },
+    maxPerson() {
+      return Math.max(1, ...this.people.map(p => p.annotations));
     },
     maxClass() {
       return Math.max(1, ...this.data.classes.map(c => c.annotations));
@@ -246,10 +304,19 @@ export default {
   methods: {
     load() {
       this.loading = true;
-      return axios
-        .get(`/api/dataset/${this.datasetId}/health`)
-        .then(r => (this.data = r.data))
-        .finally(() => (this.loading = false));
+      return Promise.all([
+        axios.get(`/api/dataset/${this.datasetId}/health`).then(r => (this.data = r.data)),
+        // members, time spent: the counts of the former statistics page
+        axios.get(`/api/dataset/${this.datasetId}/stats`).then(r => (this.stats = r.data)).catch(() => {})
+      ]).finally(() => (this.loading = false));
+    },
+    /** seconds -> "2 小時 5 分" / "4 分 10 秒" / "12 秒" */
+    duration(seconds) {
+      const s = Math.round(seconds || 0);
+      const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+      if (h) return this.$t("health.hm", { h, m });
+      if (m) return this.$t("health.ms", { m, s: sec });
+      return this.$t("health.sec", { s: sec });
     },
     pctOf(n, total) {
       return total ? Math.round((100 * (n || 0)) / total) : 0;
@@ -275,6 +342,44 @@ export default {
 </script>
 
 <style scoped>
+.member-head,
+.member-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) 64px;
+  gap: 10px;
+  align-items: center;
+}
+.member-head {
+  font-size: 0.75rem;
+  color: var(--bs-secondary-color, #6c757d);
+  margin-bottom: 4px;
+}
+.member-row {
+  padding: 3px 0;
+  font-size: 0.85rem;
+}
+.member-row.source {
+  border-top: 1px dashed var(--bs-border-color, #dee2e6);
+}
+.member-row.source ~ .member-row.source {
+  border-top: none;
+}
+.member-name {
+  font-weight: 600;
+}
+.member-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.member-bar .hbar-track {
+  flex: 1;
+}
+.num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 40px;
+}
 .viz-root {
   --bar: #2a78d6;
   --track: #eef1f5;

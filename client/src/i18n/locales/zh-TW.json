@@ -939,15 +939,22 @@
     "none": "未設定"
   },
   "health": {
+    "byMember": "每位成員標了多少",
+    "hm": "{h} 小時 {m} 分",
+    "ms": "{m} 分 {s} 秒",
+    "sec": "{s} 秒",
+    "perImageTime": "平均每張 {t}",
     "tab": "健康度",
-    "title": "資料集健康度",
+    "title": "資料集統計",
     "refresh": "重新計算",
     "tile": {
       "images": "圖片",
       "annotatedImages": "有標註的圖片",
       "annotations": "標註",
       "perImage": "平均每張圖",
-      "categories": "類別"
+      "categories": "類別",
+      "members": "成員",
+      "time": "標註時間"
     },
     "issuesTitle": "可能的問題",
     "noIssues": "沒有發現問題",

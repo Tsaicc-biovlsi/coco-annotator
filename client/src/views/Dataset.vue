@@ -19,11 +19,8 @@
         <a class="btn tab" @click="tab = 'members'" :style="{'color': tab == 'members' ? 'white' : 'darkgray'}">
           <i class="fa fa-users" aria-hidden="true"></i> {{ $t('dataset.members') }}
         </a>
-        <a class="btn tab" @click="tab = 'statistics'" :style="{'color': tab == 'statistics' ? 'white' : 'darkgray'}">
-          <i class="fa fa-bar-chart" aria-hidden="true"></i> {{ $t('dataset.statistics') }}
-        </a>
         <a class="btn tab" @click="tab = 'health'" :style="{'color': tab == 'health' ? 'white' : 'darkgray'}">
-          <i class="fa fa-heartbeat" aria-hidden="true"></i> {{ $t('health.tab') }}
+          <i class="fa fa-bar-chart" aria-hidden="true"></i> {{ $t('dataset.statistics') }}
         </a>
         <a class="btn tab" @click="tab = 'settings'" :style="{'color': tab == 'settings' ? 'white' : 'darkgray'}">
           <i class="fa fa-cog" aria-hidden="true"></i> {{ $t('dataset.settings') }}
@@ -188,80 +185,6 @@
             </div>
           </div>
 
-        </div>
-        <div class="page-container" v-show="tab == 'statistics'">
-          <div v-if="stats == null">
-            {{ $t('dataset.crunchingNumbers') }}
-          </div>
-
-          <div v-else>
-            <div class="row">
-              
-              <div v-if="stats.total" class="card my-3 p-3 shadow-sm col-3 me-2">
-                <h6 class="border-bottom border-gray pb-2"><b>{{ $t('dataset.total') }}</b></h6>
-                <div class="row" v-for="stat in Object.keys(stats.total)" :key="stat">
-                  <strong class="col-8">{{ $tr('stat', stat) }}:</strong>
-                  <span class="col-4">{{stats.total[stat].toFixed(0)}}</span>
-                </div>
-              </div>
-
-              <div v-if="stats.average" class="card my-3 p-3 shadow-sm col-4 me-2">
-                <h6 class="border-bottom border-gray pb-2"><b>{{ $t('dataset.average') }}</b></h6>
-                <div class="row" v-for="stat in Object.keys(stats.average)" :key="stat">
-                  <strong class="col-8">{{ $tr('stat', stat) }}:</strong>
-                  <span class="col-4">{{stats.average[stat].toFixed(0)}}</span>
-                </div>
-              </div>
-
-              <div v-if="stats.categories" class="card my-3 p-3 shadow-sm col-4 me-2">
-                <h6 class="border-bottom border-gray pb-2"><b>{{ $t('dataset.annotationsPerCategory') }}</b></h6>
-                <div class="row" v-for="stat in Object.keys(stats.categories)" :key="stat">
-                  <strong class="col-8">{{stat}}:</strong>
-                  <span class="col-4">{{stats.categories[stat].toFixed(0)}}</span>
-                </div>
-              </div>
-
-              <div v-if="stats.images_per_category" class="card my-3 p-3 shadow-sm col-4 me-2">
-                <h6 class="border-bottom border-gray pb-2"><b>{{ $t('dataset.annotatedImagesPerCategory') }}</b></h6>
-                <div class="row" v-for="stat in Object.keys(stats.images_per_category)" :key="stat">
-                  <strong class="col-8">{{stat}}:</strong>
-                  <span class="col-4">{{stats.images_per_category[stat].toFixed(0)}}</span>
-                </div>
-              </div>
-
-              <div v-if="stats.users" class="card my-3 p-3 shadow-sm col-6 me-2">
-                <h6 class="border-bottom border-gray pb-2"><b>{{ $t('dataset.annotationsPerUser') }}</b></h6>
-                <h6 class="row border-bottom border-gray pb-2">
-                    <span class="col-4">{{ $t('dataset.username') }}</span>
-                    <span class="col-4">{{ $t('dataset.annotations') }}</span>
-                    <span class="col-4">{{ $t('dataset.images') }}</span>
-                </h6>
-                <div class="row" v-for="stat in Object.keys(stats.users)" :key="stat">
-                  <strong class="col-4">{{stat}}:</strong>
-                  <span class="col-4">{{stats.users[stat]["annotations"].toFixed(0)}}</span>
-                  <span class="col-4">{{stats.users[stat]["images"].toFixed(0)}}</span>
-                </div>
-                <!-- not drawn by a member: model runs, imports -->
-                <div
-                  v-for="(src, i) in (stats.sources || [])"
-                  :key="'src' + i"
-                  class="row source-row"
-                  :class="{ 'border-top pt-1 mt-1': i === 0 }"
-                >
-                  <strong class="col-4">
-                    <i class="fa" :class="src.kind === 'model' ? 'fa-magic' : 'fa-upload'" />
-                    {{ src.kind === 'model' ? $t('dataset.modelSource', { name: src.name || $t('dataset.unknownModel') }) : $t('dataset.importSource') }}:
-                    <div v-if="src.by && src.by.length" class="small text-muted fw-normal">{{ $t('dataset.ranBy', { names: src.by.join('、') }) }}</div>
-                  </strong>
-                  <span class="col-4">{{ src.annotations }}</span>
-                  <span class="col-4">{{ src.images }}</span>
-                </div>
-                <div class="small text-muted mt-2">{{ $t('dataset.perUserHint') }}</div>
-              </div>
-
-            </div>
-            
-          </div>
         </div>
         <div class="page-container" v-show="tab == 'settings'">
           <div class="card my-3 p-3 shadow-sm me-2">
@@ -749,11 +672,13 @@ import axios from "axios";
 import { mapMutations } from "vuex";
 
 
-const TABS = ["images", "progress", "exports", "members", "statistics", "health", "settings"];
+const TABS = ["images", "progress", "exports", "members", "health", "settings"];
 
 function rememberedTab(datasetId) {
   try {
-    const tab = sessionStorage.getItem(`dataset/${datasetId}/tab`);
+    let tab = sessionStorage.getItem(`dataset/${datasetId}/tab`);
+    // the former statistics tab is part of "health" (now called statistics)
+    if (tab === "statistics") tab = "health";
     return TABS.includes(tab) ? tab : "images";
   } catch {
     return "images";
@@ -878,8 +803,7 @@ export default {
       panel: {
         showAnnotated: true,
         showNotAnnotated: true
-      },
-      stats: null
+      }
     };
   },
   methods: {
@@ -1014,11 +938,6 @@ export default {
       if (r) {
         Dataset.resetMetadata(this.dataset.id);
       }
-    },
-    getStats() {
-      Dataset.getStats(this.dataset.id).then(response => {
-        this.stats = response.data;
-      });
     },
     createScanTask() {
       if (this.scan.id != null) {
@@ -1436,7 +1355,6 @@ export default {
     tab(tab) {
       rememberTab(this.dataset.id, tab);
       if (tab == "members") this.getUsers();
-      if (tab == "statistics") this.getStats();
       if (tab == "exports") this.getExports();
     },
     reviewFilter: {

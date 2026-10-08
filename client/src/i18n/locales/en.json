@@ -807,15 +807,22 @@
     "none": "Not set"
   },
   "health": {
+    "byMember": "Who annotated how much",
+    "hm": "{h} h {m} min",
+    "ms": "{m} min {s} s",
+    "sec": "{s} s",
+    "perImageTime": "{t} per image",
     "tab": "Health",
-    "title": "Dataset health",
+    "title": "Dataset statistics",
     "refresh": "Recalculate",
     "tile": {
       "images": "Images",
       "annotatedImages": "Annotated images",
       "annotations": "Annotations",
       "perImage": "Per image",
-      "categories": "Categories"
+      "categories": "Categories",
+      "members": "Members",
+      "time": "Time annotating"
     },
     "issuesTitle": "Possible problems",
     "noIssues": "No problems found",
