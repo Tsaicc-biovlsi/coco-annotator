@@ -62,10 +62,13 @@
 
     <div v-if="rejecting" class="mt-2">
       <textarea
+        ref="note"
         v-model="note"
         class="form-control form-control-sm"
         rows="2"
         :placeholder="$t('review.notePlaceholder')"
+        @keydown.enter.ctrl.prevent="act('reject', note, true)"
+        @keydown.esc.prevent="rejecting = false"
       />
       <div class="d-flex gap-1 mt-1">
         <button type="button" class="btn btn-sm btn-danger" :disabled="busy" @click="act('reject', note, true)">
@@ -187,6 +190,22 @@ export default {
      * with the switch on, an image that has annotations and is not
      * submitted yet is submitted. Never stops the move.
      */
+    /** Y: approve (reviewers) or "done" (annotators), whichever this image offers */
+    shortcutApprove() {
+      if (this.busy) return;
+      if (this.canEdit && (this.status === "unlabeled" || this.status === "rejected")) this.act("submit");
+      else if (this.canReview && this.status !== "unlabeled" && this.status !== "approved") this.act("approve", null, true);
+      else this.$toastr.info(this.$t("review.nothingToApprove"));
+    },
+    /** X: open the reject box (Ctrl+Enter sends, Esc closes) */
+    shortcutReject() {
+      if (this.busy || !this.canReview || this.status === "unlabeled" || this.status === "rejected") {
+        this.$toastr.info(this.$t("review.nothingToReject"));
+        return;
+      }
+      this.rejecting = true;
+      this.$nextTick(() => this.$refs.note && this.$refs.note.focus());
+    },
     async submitBeforeNext() {
       if (!this.submitOnNext || !this.canEdit || !(this.status === "unlabeled" || this.status === "rejected")) return;
       try {

@@ -154,6 +154,16 @@ export default {
           function: this.clearAnnotations
         },
         {
+          default: ["y"],
+          name: "Approve Or Done",
+          function: () => this.$refs.reviewBar && this.$refs.reviewBar.shortcutApprove()
+        },
+        {
+          default: ["x"],
+          name: "Reject",
+          function: () => this.$refs.reviewBar && this.$refs.reviewBar.shortcutReject()
+        },
+        {
           default: ["control", "s"],
           name: "Save",
           function: this.save

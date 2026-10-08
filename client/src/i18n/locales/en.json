@@ -783,7 +783,9 @@
     "submitApprove": "Done (approve directly)",
     "approvedOnNext": "Approved {name}",
     "filterAnnotated": "Annotated (has annotations)",
-    "filterAi": "AI annotated (has model annotations)"
+    "filterAi": "AI annotated (has model annotations)",
+    "nothingToApprove": "Nothing to approve or submit on this image",
+    "nothingToReject": "This image cannot be rejected now"
   },
   "imageClass": {
     "title": "Image class",

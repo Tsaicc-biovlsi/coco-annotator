@@ -536,7 +536,9 @@
     "subtractSelection": "減去選取範圍",
     "undoLastAction": "復原上一個動作",
     "clearAnnotations": "清除這張圖片的標註",
-    "copyPreviousAnnotations": "複製上一張的標註"
+    "copyPreviousAnnotations": "複製上一張的標註",
+    "approveOrDone": "核准（審核者）／標註完成",
+    "reject": "退回（寫原因，Ctrl+Enter 送出）"
   },
   "stat": {
     "annotatedImages": "已標註圖片",
@@ -915,7 +917,9 @@
     "submitApprove": "標註完成（直接核准）",
     "approvedOnNext": "已核准 {name}",
     "filterAnnotated": "已標註（有任何標註）",
-    "filterAi": "AI 標註（有模型標的）"
+    "filterAi": "AI 標註（有模型標的）",
+    "nothingToApprove": "這張圖目前沒有可以核准或送出的",
+    "nothingToReject": "這張圖目前不能退回"
   },
   "imageClass": {
     "title": "整張圖類別",
