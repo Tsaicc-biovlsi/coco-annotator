@@ -437,6 +437,8 @@ export default {
       search: "",
       refsReady: false,
       modelRunning: false,
+      // left + right button together: Select tool until both are released
+      chord: { active: false, prevTool: null, first: null },
       autosave: {
         saved: null, // signature of the last saved state (null: not loaded yet)
         pending: null,
@@ -741,6 +743,103 @@ export default {
 
         this.loading.image = false;
       };
+    },
+    /* ---------- left + right button: temporary Select tool ---------- */
+    toolRef(name) {
+      return Object.values(this.$refs).find(r => r && r.name === name && r.tool) || null;
+    },
+    /** what the active tool has in progress (to take back a press) */
+    toolSnapshot() {
+      const r = this.$refs;
+      switch (this.activeTool) {
+        case "Polygon": {
+          const path = r.polygon.polygon.path;
+          return { path: !!path, n: path ? path.segments.length : 0 };
+        }
+        case "BBox":
+          return { path: !!r.bbox.polygon.path };
+        case "Rotated BBox":
+          return { drawing: !!r.rbbox.drawing, drag: !!r.rbbox.drag };
+        default:
+          return {};
+      }
+    },
+    /** the first button's press started something with the drawing tool: undo it */
+    undoFirstPress(first) {
+      if (!first || Date.now() - first.time > 3000) return;
+      const r = this.$refs;
+      const snap = first.snap;
+      if (first.tool === "Polygon" && r.polygon) {
+        const path = r.polygon.polygon.path;
+        if (path && !snap.path) r.polygon.deletePolygon();
+        else if (path) while (path.segments.length > snap.n) path.removeSegment(path.segments.length - 1);
+        r.polygon.actionPoints = 0;
+      } else if (first.tool === "BBox" && r.bbox) {
+        if (r.bbox.polygon.path && !snap.path) r.bbox.deleteBbox();
+      } else if (first.tool === "Rotated BBox" && r.rbbox) {
+        if (r.rbbox.drawing && !snap.drawing) r.rbbox.cancelDrawing();
+        if (r.rbbox.drag && !snap.drag) {
+          r.rbbox.drag = null;
+          r.rbbox.syncFromAnnotation();
+        }
+      }
+    },
+    onChordDown(e) {
+      if (this.chord.active) return;
+      const both = (e.buttons & 3) === 3;
+      if (!both) {
+        if (e.button === 2) {
+          // a right press alone does not draw (it may be the start of left + right)
+          e.stopPropagation();
+          this.chord.first = null;
+        } else if (e.button === 0) {
+          this.chord.first = { time: Date.now(), tool: this.activeTool, snap: this.toolSnapshot() };
+        }
+        return;
+      }
+      const first = this.chord.first;
+      this.chord.active = true;
+      this.chord.prevTool = first && Date.now() - first.time < 3000 ? first.tool : this.activeTool;
+      this.undoFirstPress(first);
+      this.chord.first = null;
+
+      // end paper's drag of the first press without telling the drawing tool
+      const idle = this.chordIdleTool || (this.chordIdleTool = new this.paper.Tool());
+      idle.activate();
+      document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, clientX: e.clientX, clientY: e.clientY }));
+
+      // the Select tool gets this press (a click selects, dragging moves)
+      const select = this.$refs.select;
+      select.tool.activate();
+      this.activeTool = "Select";
+    },
+    onChordUp(e) {
+      if (!this.chord.active) {
+        // the release of a right press that was kept from the tools
+        if (e.button === 2 && e.isTrusted) e.stopPropagation();
+        return;
+      }
+      if (!e.isTrusted) return;
+      if (e.buttons & 3) return; // one button still held
+      // let the Select tool finish this release, then go back
+      setTimeout(this.endChord, 0);
+    },
+    endChord() {
+      if (!this.chord.active) return;
+      const prev = this.chord.prevTool;
+      this.chord.active = false;
+      this.chord.prevTool = null;
+      if (prev && prev !== "Select") {
+        const ref = this.toolRef(prev);
+        if (ref && !ref.isDisabled) {
+          ref.tool.activate();
+          this.activeTool = prev;
+        }
+      }
+    },
+    onCanvasContextMenu(e) {
+      // right button is used with the left one (temporary Select): no browser menu
+      e.preventDefault();
     },
     /** Pixels of the whole image for the magic wand (once per image) */
     ensureImageData() {
@@ -1513,12 +1612,23 @@ export default {
 
     this.autosave.timer = setInterval(this.autosaveTick, 1000);
     window.addEventListener("beforeunload", this.onPageHide);
+    // capture phase: seen before paper.js handles the press
+    this.$refs.frame.addEventListener("mousedown", this.onChordDown, true);
+    this.$refs.frame.addEventListener("contextmenu", this.onCanvasContextMenu);
+    document.addEventListener("mouseup", this.onChordUp, true);
+    window.addEventListener("blur", this.endChord);
     document.addEventListener("visibilitychange", this.onPageHide);
   },
   beforeUnmount() {
     if (this.hammer) this.hammer.destroy();
     clearInterval(this.autosave.timer);
     window.removeEventListener("beforeunload", this.onPageHide);
+    if (this.$refs.frame) {
+      this.$refs.frame.removeEventListener("mousedown", this.onChordDown, true);
+      this.$refs.frame.removeEventListener("contextmenu", this.onCanvasContextMenu);
+    }
+    document.removeEventListener("mouseup", this.onChordUp, true);
+    window.removeEventListener("blur", this.endChord);
     document.removeEventListener("visibilitychange", this.onPageHide);
   },
   created() {
