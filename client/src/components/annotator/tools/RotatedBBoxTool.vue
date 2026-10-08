@@ -332,8 +332,9 @@ export default {
       this.drawOverlay();
       this.pendingCommits += 1;
       // the box belongs to the annotation selected now, even if another one is
-      // picked before an earlier queued commit has finished
-      const target = this.$parent.currentAnnotation;
+      // picked before an earlier queued commit has finished (while a new box
+      // is still being created, an edit goes to that new one)
+      const target = this.pendingCommits > 1 ? null : this.$parent.currentAnnotation;
       this.commitQueue = this.commitQueue
         .then(() => this.applyBox(box, isNew, target))
         .catch(error => console.error("rotated box", error))
@@ -392,32 +393,40 @@ export default {
       }
       return null;
     },
+    startDrag(hit, point) {
+      let corners = this.corners(this.box);
+      this.drag = {
+        ...hit,
+        start: point,
+        startBox: { ...this.box },
+        anchor: hit.mode === "resize" ? corners[(hit.corner + 2) % 4] : null
+      };
+    },
     onMouseDown(event) {
       // points 2 and 3 of a new box are taken on mouse up
       if (this.drawing) return;
 
-      // the shape may have changed elsewhere (undo, other tools)
-      this.syncFromAnnotation();
+      // the shape may have changed elsewhere (undo, other tools); while a new
+      // box is still being created on the server, the box shown is the one
+      if (!this.pendingCommits) this.syncFromAnnotation();
       let point = event.point;
       let hit = this.hitTest(point);
 
       if (hit) {
-        let corners = this.corners(this.box);
-        this.drag = {
-          ...hit,
-          start: point,
-          startBox: { ...this.box },
-          anchor: hit.mode === "resize" ? corners[(hit.corner + 2) % 4] : null
-        };
+        this.startDrag(hit, point);
         return;
       }
 
-      // clicking inside another rotated box selects it (Ctrl/⌘ + click
-      // starts a new box there instead, e.g. for overlapping objects)
+      // pressing on another rotated box (inside or on its outline / corners)
+      // selects it, and a press on its corner or inside starts dragging right
+      // away (Ctrl/⌘ + click starts a new box there instead)
       if (!this.mod(event, "ctrl")) {
         let target = this.boxAt(point);
         if (target) {
           this.$parent.onCategoryClick({ ...target, keypoint: -1 });
+          this.syncFromAnnotation();
+          let picked = this.hitTest(point);
+          if (picked) this.startDrag(picked, point);
           return;
         }
       }
@@ -457,7 +466,10 @@ export default {
           let corners = annotation.getRotatedBoxCorners();
           if (!corners) return;
           let path = new paper.Path({ segments: corners, closed: true, insert: false });
-          if (path.contains(point)) {
+          // on the outline or a corner handle counts too
+          let near = path.getNearestPoint(point);
+          let tol = HANDLE_SIZE * this.scale * 1.2;
+          if (path.contains(point) || (near && near.getDistance(point) <= tol)) {
             let area = Math.abs(path.area);
             // the smallest box wins when boxes overlap
             if (!best || area < best.area) {

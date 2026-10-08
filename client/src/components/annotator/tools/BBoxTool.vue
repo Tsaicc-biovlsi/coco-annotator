@@ -113,6 +113,12 @@ export default {
         const other = this.$parent.toolForShapeAt && this.$parent.toolForShapeAt(event.point);
         if (other && other !== this.name) {
           this.$parent.activeTool = other;
+          // a rotated box: the same press selects it / grabs its corner
+          const rbbox = this.$parent.$refs.rbbox;
+          if (other === "Rotated BBox" && rbbox && rbbox.tool) {
+            rbbox.tool.activate();
+            rbbox.onMouseDown(event);
+          }
           return;
         }
       }
