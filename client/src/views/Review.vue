@@ -82,10 +82,17 @@
         :key="img.id"
         class="tile"
         :class="{ focus: i === focus, done: !!decided[img.id] }"
-        @click="focus = i"
+        @click="onTileClick(i)"
         @dblclick="openImage(img)"
       >
-        <svg class="pic" :viewBox="`0 0 ${img.width} ${img.height}`" preserveAspectRatio="xMidYMid meet">
+        <svg
+          class="pic"
+          :class="{ zoomed: isZoomed(img) }"
+          :viewBox="viewBox(img)"
+          preserveAspectRatio="xMidYMid meet"
+          @wheel.prevent="onWheel($event, img)"
+          @mousedown="onPanStart($event, img)"
+        >
           <image :href="imageUrl(img)" x="0" y="0" :width="img.width" :height="img.height" />
           <g v-if="showShapes">
             <g v-for="a in img.annotations" :key="a.id">
@@ -208,6 +215,8 @@ export default {
       busy: false,
       focus: 0,
       decided: {},
+      views: {},
+      panMoved: false,
       rejecting: null,
       note: "",
       noteInput: null
@@ -249,9 +258,100 @@ export default {
       }
       this.go(Math.floor(first / (n * n)) + 1);
     },
+    /* ---------- zoom (wheel, at the cursor) and pan (drag) per image ---------- */
+    viewOf(img) {
+      return this.views[img.id] || { x: 0, y: 0, w: img.width, h: img.height };
+    },
+    viewBox(img) {
+      const v = this.viewOf(img);
+      return `${v.x} ${v.y} ${v.w} ${v.h}`;
+    },
+    isZoomed(img) {
+      return !!this.views[img.id];
+    },
+    /** screen point -> image coordinates (the svg letterboxes the image) */
+    toImage(svg, clientX, clientY) {
+      const pt = svg.createSVGPoint();
+      pt.x = clientX;
+      pt.y = clientY;
+      return pt.matrixTransform(svg.getScreenCTM().inverse());
+    },
+    setView(img, v) {
+      // fully out: back to the whole image
+      if (v.w >= img.width && v.h >= img.height) {
+        const views = { ...this.views };
+        delete views[img.id];
+        this.views = views;
+        return;
+      }
+      // keep inside the image
+      v.w = Math.min(v.w, img.width);
+      v.h = Math.min(v.h, img.height);
+      v.x = Math.min(Math.max(0, v.x), img.width - v.w);
+      v.y = Math.min(Math.max(0, v.y), img.height - v.h);
+      this.views = { ...this.views, [img.id]: v };
+    },
+    zoomAt(img, svg, clientX, clientY, factor) {
+      const p = this.toImage(svg, clientX, clientY);
+      const v = this.viewOf(img);
+      const minSize = Math.max(16, Math.min(img.width, img.height) / 40);
+      let w = v.w * factor, h = v.h * factor;
+      if (w < minSize || h < minSize) return;
+      // the point under the cursor stays under the cursor
+      this.setView(img, { x: p.x - (p.x - v.x) * factor, y: p.y - (p.y - v.y) * factor, w, h });
+    },
+    onWheel(e, img) {
+      const factor = Math.exp((e.deltaY > 0 ? 1 : -1) * Math.min(Math.abs(e.deltaY), 120) / 600);
+      if (e.shiftKey) {
+        // Shift: every image on the page zooms to the same place
+        const svg = e.currentTarget;
+        const p = this.toImage(svg, e.clientX, e.clientY);
+        this.images.forEach(other => {
+          const v = this.viewOf(other);
+          const sx = other.width / img.width, sy = other.height / img.height;
+          const ox = p.x * sx, oy = p.y * sy;
+          this.setView(other, { x: ox - (ox - v.x) * factor, y: oy - (oy - v.y) * factor, w: v.w * factor, h: v.h * factor });
+        });
+        return;
+      }
+      this.focus = this.images.indexOf(img);
+      this.zoomAt(img, e.currentTarget, e.clientX, e.clientY, factor);
+    },
+    onPanStart(e, img) {
+      if (e.button !== 0 || !this.isZoomed(img)) return;
+      const svg = e.currentTarget;
+      const start = this.toImage(svg, e.clientX, e.clientY);
+      const v0 = { ...this.viewOf(img) };
+      this.panMoved = false;
+      const move = ev => {
+        // move the view so the grabbed point follows the mouse
+        const ctm = svg.getScreenCTM();
+        const dx = (ev.clientX - e.clientX) / ctm.a, dy = (ev.clientY - e.clientY) / ctm.d;
+        if (Math.abs(ev.clientX - e.clientX) + Math.abs(ev.clientY - e.clientY) > 3) this.panMoved = true;
+        this.setView(img, { ...v0, x: v0.x - dx, y: v0.y - dy });
+      };
+      const up = () => {
+        window.removeEventListener("mousemove", move);
+        window.removeEventListener("mouseup", up);
+      };
+      window.addEventListener("mousemove", move);
+      window.addEventListener("mouseup", up);
+      void start;
+    },
+    onTileClick(i) {
+      // the end of a drag is not a click
+      if (this.panMoved) {
+        this.panMoved = false;
+        return;
+      }
+      this.focus = i;
+    },
+    resetZoom() {
+      this.views = {};
+    },
     imageUrl(img) {
-      // the whole file for one image; smaller copies for a grid
-      if (this.grid === 1) return `/api/image/${img.id}`;
+      // the whole file for one image or a zoomed one; smaller copies for a grid
+      if (this.grid === 1 || (this.views[img.id] && this.views[img.id].w < img.width * 0.7)) return `/api/image/${img.id}`;
       const width = { 2: 1000, 3: 700, 4: 520 }[this.grid] || 700;
       return `/api/image/${img.id}?width=${Math.min(width, img.width)}`;
     },
@@ -289,6 +389,7 @@ export default {
           if (this.total) return this.load();
         }
         this.decided = {};
+        this.views = {};
         this.focus = 0;
         this.rejecting = null;
       } finally {
@@ -381,6 +482,8 @@ export default {
       } else if (key === "enter" && img) {
         e.preventDefault();
         this.openImage(img);
+      } else if (key === "0" || key === "escape") {
+        this.resetZoom();
       } else if (key === "h") {
         this.showShapes = !this.showShapes;
       } else if (/^[1-4]$/.test(key)) {
@@ -445,6 +548,12 @@ export default {
   flex: 1;
   min-height: 0;
   width: 100%;
+}
+.pic.zoomed {
+  cursor: grab;
+}
+.pic.zoomed:active {
+  cursor: grabbing;
 }
 .tile-foot {
   padding: 4px 8px;

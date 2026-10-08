@@ -1283,7 +1283,7 @@
     "open": "Open in the annotator",
     "approvedN": "{n} approved",
     "hint": "See several images at once, approve or reject directly",
-    "keys": "Arrows: pick  Y: approve  X: reject (Enter sends)  Shift+Y: approve page  Enter / double-click: open  H: show / hide annotations  1–4: 1 / 4 / 9 / 16 at a time  N / P: next / previous page",
+    "keys": "Arrows: pick  Wheel: zoom at the cursor (Shift+wheel: all together)  Drag: move  0: reset  Y: approve  X: reject (Enter sends)  Shift+Y: approve page  Enter / double-click: open  H: show / hide annotations  1–4: 1 / 4 / 9 / 16 at a time  N / P: page",
     "order": "Order",
     "byFileName": "By file name",
     "bySubmitted": "By time submitted"
