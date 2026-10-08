@@ -158,6 +158,12 @@
         </div>
       </div>
 
+      <div v-if="soloCategory != null && mode == 'segment'" class="solo-tag">
+        <i class="fa fa-crosshairs" />
+        <span class="text-truncate">{{ $t('annotator.onlyCategory', { name: soloName }) }}</span>
+        <button type="button" class="btn-close btn-close-white" :aria-label="$t('annotator.soloOff')" @click="soloCategory = null" />
+      </div>
+
       <div
         class="sidebar-section"
       >
@@ -181,11 +187,14 @@
             :categorysearch="search"
             :category="category"
             :all-categories="categories"
-            :opacity="shapeOpacity"
+            :opacity="focusCategory != null && focusCategory !== category.id ? 0.08 : shapeOpacity"
+            :solo="soloCategory === category.id"
             :hover="hover"
             :index="index"
             @click="onCategoryClick"
             @keypoints-complete="onKeypointsComplete"
+            @focus="id => (hoverCategory = id)"
+            @solo="toggleSoloCategory"
             :current="current"
             :active-tool="activeTool"
             :scale="image.scale"
@@ -282,6 +291,8 @@ import { makeColorSampler } from "@/libs/colorSampler";
 
 // images already asked for ahead of time (the browser keeps them)
 const prefetched = new Set();
+// "only this category" carries over to the next image of the same dataset
+const keptSolo = { dataset: null, category: null };
 import axios from "axios";
 import { hideModal } from "@/libs/modal";
 import UndoAction, { restoreAnnotations } from "@/undo";
@@ -396,6 +407,9 @@ export default {
       activeTool: "Select",
       paper: null,
       shapeOpacity: 0.6,
+      // "only this category": hovered in the list, or kept with the crosshairs icon
+      hoverCategory: null,
+      soloCategory: null,
       zoom: 0.2,
       cursor: "move",
       mode: "segment",
@@ -471,6 +485,14 @@ export default {
     };
   },
   methods: {
+    toggleSoloCategory(id) {
+      this.soloCategory = this.soloCategory === id ? null : id;
+      this.hoverCategory = null;
+    },
+    keepSolo() {
+      keptSolo.dataset = this.dataset && this.dataset.id;
+      keptSolo.category = this.soloCategory;
+    },
     ...mapMutations(["addProcess", "removeProcess", "resetUndo", "addUndo", "setDataset"]),
     // Vue 3 does not keep v-for ref arrays in source order: sort by index
     categoryRefs() {
@@ -1036,6 +1058,10 @@ export default {
 
           // Set other data
           this.dataset = data.dataset;
+          if (keptSolo.dataset === (data.dataset && data.dataset.id) && keptSolo.category != null &&
+              (data.categories || []).some(c => c.id === keptSolo.category)) {
+            this.soloCategory = keptSolo.category;
+          }
           // grouped by (first) parent category, keeping the dataset order inside a group
           this.categories = groupByParent(data.categories, { firstOnly: true }).flatMap(g => g.items);
 
@@ -1578,6 +1604,9 @@ export default {
     }
   },
   watch: {
+    soloCategory() {
+      this.keepSolo();
+    },
     review() {
       // marks of a rejection follow the status (drawn on load, gone when submitted)
       this.$nextTick(() => this.drawReviewMarks(false));
@@ -1647,6 +1676,14 @@ export default {
     }
   },
   computed: {
+    /** the category shown alone (others faded): hovered in the list, else kept */
+    focusCategory() {
+      return this.hoverCategory != null ? this.hoverCategory : this.soloCategory;
+    },
+    soloName() {
+      const c = (this.categories || []).find(c => c.id === this.soloCategory);
+      return c ? c.name : "";
+    },
     /** parent heading above each category (computed once, not on every redraw) */
     /** questions need accounts (not with login turned off) */
     loginEnabledForHelp() {
@@ -1781,6 +1818,22 @@ export default {
 </script>
 
 <style scoped>
+.solo-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 6px;
+  padding: 3px 6px 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 193, 7, 0.15);
+  border: 1px solid #ffc107;
+  color: #fff;
+  font-size: 0.8rem;
+}
+.solo-tag .btn-close {
+  margin-left: auto;
+  font-size: 0.6rem;
+}
 .alert {
   bottom: 0;
   width: 50%;

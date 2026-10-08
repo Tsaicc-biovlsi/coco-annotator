@@ -122,7 +122,6 @@
 import axios from "axios";
 import { showModal, hideModal } from "@/libs/modal";
 import Dataset, { isYoloFile } from "@/models/datasets";
-import { zipSync, strToU8 } from "fflate";
 import TaskPicker from "@/components/TaskPicker.vue";
 import VideoList from "@/components/VideoList.vue";
 
@@ -260,6 +259,8 @@ export default {
     },
     /** The label files of a picked YOLO folder, zipped like a YOLO export */
     async yoloZip() {
+      // only needed here: loaded the first time
+      const { zipSync, strToU8 } = await import("fflate");
       const entries = {};
       const files = this.yoloNames ? [...this.yoloLabels, this.yoloNames] : this.yoloLabels;
       for (const file of files) {

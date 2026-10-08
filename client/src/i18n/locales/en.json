@@ -44,6 +44,9 @@
     "visibility": "Visibility"
   },
   "annotator": {
+    "soloOn": "Show only this category (the others fade); hovering a category does it for a moment",
+    "soloOff": "Show every category",
+    "onlyCategory": "Only: {name}",
     "beingAnnotated": "This image is being annotated by {users}.",
     "categorySearch": "Category Search",
     "cleared": "Cleared {n} annotations; Ctrl+Z brings them back",

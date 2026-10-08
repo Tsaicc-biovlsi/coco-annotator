@@ -4,7 +4,7 @@ import router from "./router";
 import store from "./store";
 import i18n, { formatAgo, tr, taskName } from "./i18n";
 import paper from "paper";
-import toastr from "toastr";
+import toastr from "./libs/toast";
 import FloatingVue from "floating-vue";
 import { LoadingPlugin } from "vue-loading-overlay";
 import VLazyImage from "v-lazy-image";
@@ -14,6 +14,7 @@ import "bootstrap";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./assets/bootstrap-compat.css";
 import "font-awesome/css/font-awesome.min.css";
+// toastr's stylesheet only: the popups themselves are libs/toast.js (no jQuery)
 import "toastr/build/toastr.min.css";
 import "floating-vue/dist/style.css";
 import "vue-loading-overlay/dist/css/index.css";

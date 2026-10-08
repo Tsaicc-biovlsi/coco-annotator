@@ -943,7 +943,9 @@ export default {
       }
     },
     opacity(opacity) {
-      this.compoundPath.opacity = opacity;
+      if (this.compoundPath) this.compoundPath.opacity = opacity;
+      // "only this category": keypoints of the other categories fade too
+      if (this.keypoints) this.keypoints.opacity = opacity < 0.2 ? 0.2 : 1;
     },
     color() {
       this.setColor();

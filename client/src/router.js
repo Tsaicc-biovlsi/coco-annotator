@@ -1,21 +1,22 @@
 import { createRouter, createWebHashHistory } from "vue-router";
-
-// import Home from "@/views/Home.vue";
-import About from "@/views/About.vue";
-import Annotator from "@/views/Annotator.vue";
-import AdminPanel from "@/views/AdminPanel.vue";
 import Datasets from "@/views/Datasets.vue";
-import Categories from "@/views/Categories.vue";
-import Activity from "@/views/Activity.vue";
-import Models from "@/views/Models.vue";
-import Dataset from "@/views/Dataset.vue";
 import Auth from "@/views/Auth.vue";
-import User from "@/views/User.vue";
-import Tasks from "@/views/Tasks.vue";
-import Review from "@/views/Review.vue";
 import PageNotFound from "@/views/PageNotFound.vue";
 
-export default createRouter({
+// The dataset list and sign-in come with the first load; every other page is
+// downloaded the first time it is opened.
+const About = () => import("@/views/About.vue");
+const Annotator = () => import("@/views/Annotator.vue");
+const AdminPanel = () => import("@/views/AdminPanel.vue");
+const Categories = () => import("@/views/Categories.vue");
+const Activity = () => import("@/views/Activity.vue");
+const Models = () => import("@/views/Models.vue");
+const Dataset = () => import("@/views/Dataset.vue");
+const User = () => import("@/views/User.vue");
+const Tasks = () => import("@/views/Tasks.vue");
+const Review = () => import("@/views/Review.vue");
+
+const router = createRouter({
   history: createWebHashHistory(),
   routes: [
     {
@@ -98,3 +99,30 @@ export default createRouter({
     { path: "/:pathMatch(.*)*", component: PageNotFound }
   ]
 });
+
+// After an update the old page files are gone: a page opened from a tab that
+// still runs the old version fails to load. Reload once to get the new one.
+const RELOAD_KEY = "router/reloadedFor";
+router.onError((error, to) => {
+  const msg = String((error && error.message) || error);
+  if (!/dynamically imported module|Importing a module script failed|Failed to fetch|error loading dynamically/i.test(msg)) return;
+  let last = null;
+  try {
+    last = sessionStorage.getItem(RELOAD_KEY);
+    sessionStorage.setItem(RELOAD_KEY, to.fullPath);
+  } catch {
+    // no storage: reload anyway (at most once per click)
+  }
+  if (last === to.fullPath) return;
+  window.location.hash = to.fullPath;
+  window.location.reload();
+});
+router.afterEach(() => {
+  try {
+    sessionStorage.removeItem(RELOAD_KEY);
+  } catch {
+    // ignore
+  }
+});
+
+export default router;

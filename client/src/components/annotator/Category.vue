@@ -7,7 +7,12 @@
       'border-color': borderColor
     }"
   >
-    <div class="card-header" :id="'heading' + category.id">
+    <div
+      class="card-header"
+      :id="'heading' + category.id"
+      @mouseenter="$emit('focus', category.id)"
+      @mouseleave="$emit('focus', null)"
+    >
       <div :style="{ color: isVisible ? 'white' : 'gray' }">
         <div @click="onEyeClick">
           <i
@@ -35,6 +40,15 @@
           :data-bs-target="'#categorySettings' + category.id"
           style="float: right; color: white"
           aria-hidden="true"
+        />
+
+        <i
+          class="fa fa-crosshairs category-icon solo-icon"
+          :class="{ on: solo }"
+          :title="solo ? $t('annotator.soloOff') : $t('annotator.soloOn')"
+          style="float: right"
+          aria-hidden="true"
+          @click.stop="$emit('solo', category.id)"
         />
 
         <i
@@ -161,7 +175,7 @@ import { allParents, parentsOf } from "@/libs/parents";
 
 export default {
   name: "Category",
-  emits: ["click", "keypoints-complete"],
+  emits: ["click", "keypoints-complete", "focus", "solo"],
   components: { Annotation, KeypointsDefinition, ParentInput },
   props: {
     category: {
@@ -199,6 +213,11 @@ export default {
     activeTool: {
       type: String,
       required: true
+    },
+    // "only this category" is on for this one
+    solo: {
+      type: Boolean,
+      default: false
     },
     allCategories: {
       type: Array,
@@ -530,7 +549,7 @@ export default {
       let annotations = this.annotationRefs();
       if (annotations == null) return;
 
-      annotations.forEach(a => (a.compoundPath.opacity = this.opacity));
+      annotations.forEach(a => a.compoundPath && (a.compoundPath.opacity = this.opacity));
     },
     isVisible(newVisible) {
       let annotations = this.annotationRefs();
@@ -655,5 +674,15 @@ export default {
 ::placeholder {
   /* Most modern browsers support this now. */
   color: lightgray;
+}
+.solo-icon {
+  color: #8a91a3;
+  padding-right: 0;
+}
+.solo-icon:hover {
+  color: white;
+}
+.solo-icon.on {
+  color: #ffc107;
 }
 </style>

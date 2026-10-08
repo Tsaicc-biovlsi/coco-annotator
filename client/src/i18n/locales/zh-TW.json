@@ -44,6 +44,9 @@
     "visibility": "可見性"
   },
   "annotator": {
+    "soloOn": "只看這一類（其他類別變淡）；滑鼠移到類別上也會暫時只看那一類",
+    "soloOff": "顯示全部類別",
+    "onlyCategory": "只看：{name}",
     "beingAnnotated": "{users} 正在標註這張圖片。",
     "categorySearch": "搜尋類別",
     "cleared": "已清除 {n} 個標註，按 Ctrl+Z 可以復原",

@@ -63,6 +63,38 @@ if Config.INITIALIZE_FROM_FILE:
     create_from_json(Config.INITIALIZE_FROM_FILE)
 
 
+@app.before_request
+def serve_built_files():
+    """Built files: the gzip copy when the browser takes it, and files with a
+    content hash in the name (/assets/) cached for a year."""
+    from flask import request, send_file
+    import mimetypes
+    import os
+    path = request.path
+    if request.method != 'GET' or not (path.startswith('/assets/') or path.startswith('/vendor/')):
+        return None
+    root = os.path.realpath(app.static_folder)
+    file = os.path.realpath(os.path.join(root, path.lstrip('/')))
+    if not file.startswith(root + os.sep) or not os.path.isfile(file):
+        return None
+    hashed = path.startswith('/assets/')
+    gz = file + '.gz'
+    accepts = 'gzip' in (request.headers.get('Accept-Encoding') or '').lower()
+    if accepts and os.path.isfile(gz):
+        mime = mimetypes.guess_type(file)[0] or 'application/octet-stream'
+        response = send_file(gz, mimetype=mime, conditional=True, etag=True,
+                             max_age=31536000 if hashed else 0)
+        response.headers['Content-Encoding'] = 'gzip'
+    else:
+        response = send_file(file, conditional=True, etag=True, max_age=31536000 if hashed else 0)
+    response.headers['Vary'] = 'Accept-Encoding'
+    if hashed:
+        response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+    else:
+        response.headers['Cache-Control'] = 'no-cache'
+    return response
+
+
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def index(path):
