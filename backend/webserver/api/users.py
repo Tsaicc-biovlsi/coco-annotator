@@ -47,6 +47,31 @@ class User(Resource):
         return {'user': user_json(current_user)}
 
 
+reasons_args = reqparse.RequestParser()
+reasons_args.add_argument('reasons', type=list, required=True, location='json')
+
+
+@api.route('/reject-reasons')
+class UserRejectReasons(Resource):
+    @login_required
+    def get(self):
+        """ Saved reasons for rejecting (null: never set) """
+        return {'reasons': current_user.reject_reasons}
+
+    @api.expect(reasons_args)
+    @login_required
+    def put(self):
+        """ Replace the saved reasons (at most 9, each up to 200 characters) """
+        reasons = []
+        for r in reasons_args.parse_args()['reasons'] or []:
+            r = str(r or '').strip()[:200]
+            if r and r not in reasons:
+                reasons.append(r)
+        reasons = reasons[:9]
+        current_user.update(reject_reasons=reasons)
+        return {'reasons': reasons}
+
+
 @api.route('/password')
 class UserPassword(Resource):
 

@@ -716,6 +716,9 @@
     "trainWith": "After unzipping, train with e.g.:"
   },
   "review": {
+    "showRegions": "Show the marked problem areas ({n})",
+    "attachView": "Attach the zoomed-in area",
+    "attachViewHint": "Zoom in on the problem before rejecting: the annotator sees a red dashed box there. Nothing is attached when not zoomed in",
     "tab": "Progress & review",
     "status": {
       "unlabeled": "Unlabeled",
@@ -1266,6 +1269,14 @@
     "gotIt": "Got it, close"
   },
   "quickReview": {
+    "markHint": "Drag on the image to mark problem areas (several allowed)",
+    "marked": "{n} area(s) marked, drag for more",
+    "undoMark": "Undo the last box",
+    "clickToEdit": "Click: change the category or delete",
+    "changeTo": "Change to… (type to search)",
+    "changedTo": "Changed to \"{name}\"",
+    "deleteShape": "Delete this shape",
+    "shapeDeleted": "Shape deleted (restore it from the trash in the activity log)",
     "soloOn": "Click: show only this category in every image",
     "soloOff": "Click again: show every category",
     "onlyCat": "Only: {name}",
@@ -1294,5 +1305,15 @@
     "bySubmitted": "By time submitted",
     "syncZoom": "Zoom together",
     "syncHint": "On: wheel and drag move every image on the page (Shift: only this one); off: only this one (Shift: all)"
+  },
+  "rejectReasons": {
+    "defaults": "Wrong category\nBox incomplete or too big\nSomething not labeled\nLabeled something that should not be",
+    "pickHint": "Use this reason (or press {n} in an empty reason box)",
+    "save": "Save as a reason",
+    "saveHint": "Keep what you typed as a saved reason: click it or press its number next time",
+    "saved": "Reason saved",
+    "edit": "Edit saved reasons",
+    "done": "Done",
+    "remove": "Remove"
   }
 }

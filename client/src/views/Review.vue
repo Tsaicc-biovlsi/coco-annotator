@@ -101,7 +101,7 @@
       >
         <svg
           class="pic"
-          :class="{ zoomed: isZoomed(img) }"
+          :class="{ zoomed: isZoomed(img), marking: rejecting === img.id }"
           :viewBox="viewBox(img)"
           preserveAspectRatio="xMidYMid meet"
           @wheel.prevent="onWheel($event, img)"
@@ -113,11 +113,12 @@
             <g
               v-for="a in img.annotations"
               :key="a.id"
-              :class="{ dim: isDim(img, a.category_id), lit: isLit(img, a.category_id) }"
+              :class="{ dim: isDim(img, a.category_id), lit: isLit(img, a.category_id), picked: editing && editing.ann.id === a.id, editable: canReview }"
               @mouseenter="hover = { cat: a.category_id, all: true }"
               @mouseleave="hover = null"
+              @click.stop="onShapeClick($event, img, a, i)"
             >
-              <title>{{ catLabel(a.category_id) }}</title>
+              <title>{{ catLabel(a.category_id) }}{{ canReview ? '\n' + $t('quickReview.clickToEdit') : '' }}</title>
               <polygon
                 v-for="(ring, k) in a.segmentation"
                 :key="k"
@@ -131,6 +132,27 @@
               <template v-for="(p, k) in keypoints(a)" :key="'k' + k">
                 <circle :cx="p[0]" :cy="p[1]" :r="Math.max(img.width, img.height) / 250" :fill="colorOf(a)" stroke="#fff" stroke-width="1" vector-effect="non-scaling-stroke" />
               </template>
+            </g>
+            <!-- problem areas: being marked for a rejection, or from the last one -->
+            <g class="regions" pointer-events="none">
+              <rect
+                v-for="(r, k) in regionsOf(img)"
+                :key="'r' + k"
+                :x="r[0]"
+                :y="r[1]"
+                :width="r[2]"
+                :height="r[3]"
+                vector-effect="non-scaling-stroke"
+              />
+              <rect
+                v-if="drawing && drawing.img === img.id"
+                class="drawing"
+                :x="drawing.r[0]"
+                :y="drawing.r[1]"
+                :width="drawing.r[2]"
+                :height="drawing.r[3]"
+                vector-effect="non-scaling-stroke"
+              />
             </g>
             <!-- category names, a fixed size on screen whatever the zoom -->
             <g v-if="showNames" class="names" pointer-events="none">
@@ -168,6 +190,17 @@
           {{ $t('review.status.' + decided[img.id]) }}
         </div>
 
+        <div v-if="rejecting === img.id" class="reasons-bar" @click.stop @mousedown.stop @dblclick.stop>
+          <div class="mark-hint">
+            <i class="fa fa-crosshairs" />
+            {{ regions.length ? $t('quickReview.marked', { n: regions.length }) : $t('quickReview.markHint') }}
+            <button v-if="regions.length" type="button" class="btn btn-link btn-sm p-0 ms-1" @mousedown.prevent @click="regions = regions.slice(0, -1)">
+              {{ $t('quickReview.undoMark') }}
+            </button>
+          </div>
+          <RejectReasons :ref="el => (reasonsRef = el)" :note="note" @pick="pickReason" />
+        </div>
+
         <div class="tile-foot d-flex align-items-center gap-2">
           <span class="badge" :class="statusClass(decided[img.id] || img.status)">{{ $t('review.status.' + (decided[img.id] || img.status)) }}</span>
           <div class="min-w-0 flex-grow-1">
@@ -186,6 +219,7 @@
               :placeholder="$t('review.notePlaceholder')"
               @keydown.enter.stop.prevent="act(img, 'reject')"
               @keydown.esc.stop.prevent="rejecting = null"
+              @keydown="onNoteKey"
               @click.stop
             />
             <button type="button" class="btn btn-sm btn-danger" :disabled="busy" @click.stop="act(img, 'reject')">
@@ -215,6 +249,49 @@
       </div>
     </div>
 
+    <!-- change the category of a shape, or delete it -->
+    <template v-if="editing">
+      <div class="menu-backdrop" @mousedown="closeEdit" @wheel="closeEdit" />
+      <div class="shape-menu" :style="editing.style" @keydown.stop>
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <i class="dot" :style="{ background: colorOf(editing.ann) }" />
+          <span class="text-truncate flex-grow-1 fw-semibold" :title="catLabel(editing.ann.category_id)">{{ catLabel(editing.ann.category_id) }}</span>
+          <button type="button" class="btn btn-sm btn-outline-danger py-0" :disabled="busy" :title="$t('quickReview.deleteShape') + ' (Ctrl+Del)'" @click="deleteShape">
+            <i class="fa fa-trash-o" />
+          </button>
+        </div>
+        <input
+          ref="catSearch"
+          v-model="catQuery"
+          class="form-control form-control-sm mb-1"
+          :placeholder="$t('quickReview.changeTo')"
+          @keydown.down.prevent="moveCat(1)"
+          @keydown.up.prevent="moveCat(-1)"
+          @keydown.enter.prevent="pickCat(catChoices[catIndex])"
+          @keydown.esc.prevent="closeEdit"
+          @keydown.delete.ctrl.prevent="deleteShape"
+        />
+        <div class="cat-list">
+          <button
+            v-for="(c, k) in catChoices"
+            :key="c.id"
+            type="button"
+            class="cat-item"
+            :class="{ active: k === catIndex, current: c.id === editing.ann.category_id }"
+            :disabled="busy"
+            @mouseenter="catIndex = k"
+            @click="pickCat(c)"
+          >
+            <i class="dot" :style="{ background: c.color || '#00e5ff' }" />
+            <span class="text-truncate">{{ c.name }}</span>
+            <small v-if="c.parents && c.parents.length" class="parent text-truncate">{{ pathLabel(c.parents[0]) }}</small>
+            <i v-if="c.id === editing.ann.category_id" class="fa fa-check ms-auto" />
+          </button>
+          <div v-if="!catChoices.length" class="small text-white-50 px-2 py-1">{{ $t('exportCategories.noMatch') }}</div>
+        </div>
+      </div>
+    </template>
+
     <div class="qr-help small text-white-50">
       {{ $t('quickReview.keys') }}
     </div>
@@ -226,6 +303,8 @@ import axios from "axios";
 import { statusClass } from "@/components/annotator/ReviewBar.vue";
 import { modalOpen } from "@/libs/modal";
 import { pathLabel } from "@/libs/parents";
+import RejectReasons from "@/components/RejectReasons.vue";
+import { withReason } from "@/libs/rejectReasons";
 
 const GRIDS = [1, 2, 3, 4];
 const GRID_KEY = "review/quickGrid";
@@ -245,6 +324,7 @@ function readGrid() {
  */
 export default {
   name: "Review",
+  components: { RejectReasons },
   props: { identifier: { type: [String, Number], required: true } },
   data() {
     return {
@@ -260,6 +340,10 @@ export default {
       hover: null,
       // a category clicked in a list: only that one shows in every image
       soloCat: null,
+      // the shape whose category is being changed: { img, ann, style }
+      editing: null,
+      catQuery: "",
+      catIndex: 0,
       // the size of one picture on screen, for names that keep their size
       picPx: { w: 400, h: 300 },
       images: [],
@@ -279,8 +363,12 @@ export default {
       syncZoom: (() => { try { return localStorage.getItem("review/syncZoom") !== "false"; } catch { return true; } })(),
       panMoved: false,
       rejecting: null,
+      // problem areas marked while rejecting, [[x, y, w, h], ...] in image pixels
+      regions: [],
+      drawing: null,
       note: "",
-      noteInput: null
+      noteInput: null,
+      reasonsRef: null
     };
   },
   computed: {
@@ -290,6 +378,13 @@ export default {
     perPage() {
       return this.grid * this.grid;
     },
+    /** categories to change a shape to (the dataset's and any in use), filtered by the search box */
+    catChoices() {
+      const q = this.catQuery.trim().toLowerCase();
+      return Object.values(this.categories)
+        .filter(c => !q || c.name.toLowerCase().includes(q) || (c.parents || []).some(p => p.toLowerCase().includes(q)))
+        .sort((a, b) => a.name.localeCompare(b.name, "zh-Hant", { numeric: true }) || a.id - b.id);
+    },
     pending() {
       return this.images.filter(i => !this.decided[i.id] && i.status !== "approved");
     }
@@ -297,6 +392,9 @@ export default {
   watch: {
     status() { this.go(1); },
     labeler() { this.go(1); },
+    catQuery() {
+      this.catIndex = 0;
+    },
     showNames(value) {
       try {
         localStorage.setItem("review/showNames", String(value));
@@ -395,7 +493,48 @@ export default {
       this.focus = this.images.indexOf(img);
       this.zoomAt(img, e.currentTarget, e.clientX, e.clientY, factor);
     },
+    regionsOf(img) {
+      if (this.rejecting === img.id) return this.regions;
+      const status = this.decided[img.id] || img.status;
+      return status === "rejected" ? img.review_regions || [] : [];
+    },
+    /** rejecting: drag on the image to mark a problem area */
+    startMark(e, img) {
+      const svg = e.currentTarget;
+      const p0 = this.toImage(svg, e.clientX, e.clientY);
+      const clamp = (v, max) => Math.min(Math.max(0, v), max);
+      const rect = ev => {
+        const p = this.toImage(svg, ev.clientX, ev.clientY);
+        const x0 = clamp(Math.min(p0.x, p.x), img.width), y0 = clamp(Math.min(p0.y, p.y), img.height);
+        const x1 = clamp(Math.max(p0.x, p.x), img.width), y1 = clamp(Math.max(p0.y, p.y), img.height);
+        return [x0, y0, x1 - x0, y1 - y0];
+      };
+      this.drawing = { img: img.id, r: [p0.x, p0.y, 0, 0] };
+      const move = ev => {
+        this.drawing = { img: img.id, r: rect(ev) };
+      };
+      const up = ev => {
+        window.removeEventListener("mousemove", move);
+        window.removeEventListener("mouseup", up);
+        const r = rect(ev);
+        this.drawing = null;
+        // a click is not a box (and not a tile click either)
+        const ctm = svg.getScreenCTM();
+        if (r[2] * ctm.a > 6 && r[3] * ctm.d > 6) {
+          this.regions = [...this.regions, r.map(v => Math.round(v))];
+          this.panMoved = true;
+        }
+        this.$nextTick(() => this.noteInput && this.noteInput.focus());
+      };
+      window.addEventListener("mousemove", move);
+      window.addEventListener("mouseup", up);
+    },
     onPanStart(e, img) {
+      if (e.button === 0 && this.rejecting === img.id && !e.shiftKey) {
+        e.preventDefault();
+        this.startMark(e, img);
+        return;
+      }
       if (e.button !== 0 || !this.isZoomed(img)) return;
       const svg = e.currentTarget;
       const start = this.toImage(svg, e.clientX, e.clientY);
@@ -462,6 +601,60 @@ export default {
     isLit(img, cat) {
       const f = this.focusCat(img);
       return f != null && f === cat;
+    },
+    pathLabel,
+    onShapeClick(e, img, ann, i) {
+      if (this.panMoved) {
+        this.panMoved = false;
+        return;
+      }
+      this.focus = i;
+      if (!this.canReview) return;
+      // next to the cursor, inside the window
+      const left = Math.min(e.clientX + 8, window.innerWidth - 280);
+      const top = Math.min(e.clientY + 8, window.innerHeight - 330);
+      this.editing = { img, ann, style: { left: `${Math.max(8, left)}px`, top: `${Math.max(8, top)}px` } };
+      this.catQuery = "";
+      this.catIndex = Math.max(0, this.catChoices.findIndex(c => c.id === ann.category_id));
+      this.$nextTick(() => this.$refs.catSearch && this.$refs.catSearch.focus());
+    },
+    closeEdit() {
+      this.editing = null;
+    },
+    moveCat(d) {
+      const n = this.catChoices.length;
+      if (n) this.catIndex = (this.catIndex + d + n) % n;
+    },
+    async pickCat(c) {
+      const ed = this.editing;
+      if (!c || !ed || this.busy) return;
+      if (c.id === ed.ann.category_id) return this.closeEdit();
+      this.busy = true;
+      try {
+        await axios.put(`/api/annotation/${ed.ann.id}`, { category_id: c.id });
+        ed.ann.category_id = c.id;
+        this.$toastr.success(this.$t("quickReview.changedTo", { name: c.name }));
+        this.closeEdit();
+      } catch (e) {
+        this.$toastr.error((e.response && e.response.data.message) || String(e));
+      } finally {
+        this.busy = false;
+      }
+    },
+    async deleteShape() {
+      const ed = this.editing;
+      if (!ed || this.busy) return;
+      this.busy = true;
+      try {
+        await axios.delete(`/api/annotation/${ed.ann.id}`);
+        ed.img.annotations = ed.img.annotations.filter(a => a.id !== ed.ann.id);
+        this.$toastr.success(this.$t("quickReview.shapeDeleted"));
+        this.closeEdit();
+      } catch (e) {
+        this.$toastr.error((e.response && e.response.data.message) || String(e));
+      } finally {
+        this.busy = false;
+      }
     },
     toggleSolo(cat) {
       this.soloCat = this.soloCat === cat ? null : cat;
@@ -560,17 +753,33 @@ export default {
     openImage(img) {
       this.$router.push({ name: "annotate", params: { identifier: img.id } });
     },
+    /** a number key in the empty reason box picks that saved reason */
+    onNoteKey(e) {
+      const r = this.reasonsRef && this.reasonsRef.forKey(e, this.note);
+      if (!r) return;
+      e.preventDefault();
+      e.stopPropagation();
+      this.pickReason(r);
+    },
+    pickReason(r) {
+      this.note = withReason(this.note, r);
+      this.$nextTick(() => this.noteInput && this.noteInput.focus());
+    },
     startReject(img) {
       if (!this.canReview) return;
       this.rejecting = img.id;
       this.note = "";
+      this.regions = [];
       this.$nextTick(() => this.noteInput && this.noteInput.focus());
     },
     async act(img, action) {
       if (this.busy || !this.canReview) return;
       this.busy = true;
       try {
-        await axios.post(`/api/review/image/${img.id}`, { action, note: action === "reject" ? this.note : "" });
+        const body = { action, note: action === "reject" ? this.note : "" };
+        if (action === "reject") body.regions = this.regions;
+        const r = await axios.post(`/api/review/image/${img.id}`, body);
+        img.review_regions = r.data.review_regions || [];
         this.decided = { ...this.decided, [img.id]: action === "approve" ? "approved" : "rejected" };
         this.rejecting = null;
         this.afterDecision();
@@ -613,6 +822,10 @@ export default {
     },
     onKey(e) {
       if (modalOpen()) return;
+      if (this.editing) {
+        if (e.key === "Escape") this.closeEdit();
+        return;
+      }
       const tag = (e.target && e.target.tagName) || "";
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       const img = this.images[this.focus];
@@ -822,6 +1035,80 @@ export default {
   height: 9px;
   border-radius: 2px;
   display: inline-block;
+}
+.editable {
+  cursor: pointer;
+}
+.picked polygon {
+  stroke: #fff;
+  stroke-width: 3;
+  stroke-dasharray: 6 4;
+  fill-opacity: 0.5;
+}
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+}
+.shape-menu {
+  position: fixed;
+  z-index: 1051;
+  width: 270px;
+  padding: 10px;
+  background: #2a2f3c;
+  border: 1px solid #454c5c;
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+  font-size: 0.85rem;
+}
+.cat-list {
+  max-height: 240px;
+  overflow: auto;
+}
+.cat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.cat-item.active {
+  background: #3b4252;
+}
+.cat-item.current {
+  color: #ffc107;
+}
+.cat-item .parent {
+  color: #8f98a8;
+  font-size: 0.7rem;
+}
+.pic.marking {
+  cursor: crosshair;
+}
+.regions rect {
+  fill: rgba(255, 107, 107, 0.12);
+  stroke: #ff6b6b;
+  stroke-width: 2;
+  stroke-dasharray: 8 5;
+}
+.regions rect.drawing {
+  stroke: #ffc107;
+  fill: rgba(255, 193, 7, 0.12);
+}
+.mark-hint {
+  margin-bottom: 4px;
+  color: #ff8787;
+  font-size: 0.78rem;
+}
+.reasons-bar {
+  padding: 5px 8px 0;
+  background: #262b37;
+  border-top: 1px solid #383e4c;
 }
 .qr-empty {
   margin-top: 18vh;

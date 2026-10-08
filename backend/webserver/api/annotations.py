@@ -109,10 +109,14 @@ class AnnotationId(Resource):
         args = update_annotation.parse_args()
 
         new_category_id = args.get('category_id')
+        if new_category_id is not None and current_user.categories.filter(id=new_category_id).first() is None:
+            return {"message": "Invalid category id"}, 400
         changed = new_category_id != annotation.category_id
         annotation.update(category_id=new_category_id)
         if changed:
             from ..util import activity
+            from ..util.trash import refresh_image
+            refresh_image(annotation.image_id)
             image = ImageModel.objects(id=annotation.image_id).first()
             if image is not None:
                 activity.annotation_saved(current_user, image, annotation.id,

@@ -199,3 +199,32 @@ def test_quick_review_queue(world, dataset_directory):
     ids = [i["id"] for i in q["images"]]
     r = c.post(f"/api/review/image/{ids[0]}", json={"action": "approve", "image_ids": ids})
     assert r.status_code in (200, 403)
+
+
+def test_reject_with_regions(review_world):
+    w = review_world
+    img = w["images"][1]["id"]
+    l1, owner = w["labeler1"], w["owner"]
+    l1.post(f"/api/review/image/{img}", json={"action": "submit"})
+    r = owner.post(f"/api/review/image/{img}", json={
+        "action": "reject", "note": "this box",
+        "regions": [[10, 20, 30, 40], [-5, -5, 20, 20], ["bad"], [0, 0, 0, 5]]})
+    assert r.status_code == 200
+    # clipped to the image, broken or empty boxes dropped
+    assert r.get_json()["review_regions"] == [[10, 20, 30, 28], [0, 0, 15, 15]]
+    data = l1.get(f"/api/annotator/data/{img}").get_json()
+    assert data["review"]["review_regions"] == [[10, 20, 30, 28], [0, 0, 15, 15]]
+    # approving clears them
+    l1.post(f"/api/review/image/{img}", json={"action": "submit"})
+    r = owner.post(f"/api/review/image/{img}", json={"action": "approve"})
+    assert r.get_json()["review_regions"] == []
+
+
+def test_reject_reasons(review_world):
+    c = review_world["labeler2"]
+    assert c.get("/api/user/reject-reasons").get_json()["reasons"] is None
+    r = c.put("/api/user/reject-reasons", json={"reasons": [" 類別錯 ", "", "類別錯", "x" * 300] + [str(i) for i in range(20)]})
+    reasons = r.get_json()["reasons"]
+    assert reasons[0] == "類別錯" and len(reasons[1]) == 200 and len(reasons) == 9
+    assert c.get("/api/user/reject-reasons").get_json()["reasons"] == reasons
+    assert c.put("/api/user/reject-reasons", json={"reasons": []}).get_json()["reasons"] == []

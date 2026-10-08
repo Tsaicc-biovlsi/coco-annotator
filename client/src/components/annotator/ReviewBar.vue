@@ -11,6 +11,14 @@
       <i class="fa fa-commenting-o" /> {{ review.review_note }}
       <span v-if="review.reviewed_by" class="review-sub">— {{ review.reviewed_by }}</span>
     </div>
+    <button
+      v-if="status === 'rejected' && regions.length"
+      type="button"
+      class="btn btn-sm btn-outline-warning mt-1 py-0"
+      @click="$emit('show-regions')"
+    >
+      <i class="fa fa-crosshairs" /> {{ $t('review.showRegions', { n: regions.length }) }}
+    </button>
     <div v-else-if="status === 'labeled' && review.labeled_by" class="small review-sub mt-1">
       {{ $t('review.submittedBy', { name: review.labeled_by }) }}
     </div>
@@ -69,7 +77,13 @@
         :placeholder="$t('review.notePlaceholder')"
         @keydown.enter.ctrl.prevent="act('reject', note)"
         @keydown.esc.prevent="rejecting = false"
+        @keydown.exact="onNoteKey"
       />
+      <RejectReasons ref="reasons" class="mt-1" :note="note" @pick="pickReason" />
+      <div v-if="getRegion" class="form-check small mt-1" :title="$t('review.attachViewHint')">
+        <input id="reviewAttachView" v-model="attachView" class="form-check-input" type="checkbox" />
+        <label class="form-check-label" for="reviewAttachView">{{ $t('review.attachView') }}</label>
+      </div>
       <div class="d-flex gap-1 mt-1">
         <button type="button" class="btn btn-sm btn-danger" :disabled="busy" @click="act('reject', note)">
           {{ $t('review.rejectConfirm') }}
@@ -91,6 +105,8 @@
 
 <script>
 import axios from "axios";
+import RejectReasons from "@/components/RejectReasons.vue";
+import { withReason } from "@/libs/rejectReasons";
 
 const SUBMIT_ON_NEXT_KEY = "review/submitOnNext";
 
@@ -105,15 +121,18 @@ export function statusClass(status) {
 
 export default {
   name: "ReviewBar",
+  components: { RejectReasons },
   props: {
     imageId: { type: Number, required: true },
     datasetId: { type: Number, default: null },
     filename: { type: String, default: "" },
     review: { type: Object, default: () => ({}) },
     canEdit: { type: Boolean, default: false },
-    canReview: { type: Boolean, default: false }
+    canReview: { type: Boolean, default: false },
+    // the zoomed-in part of the image, {x, y, w, h} (null when not zoomed)
+    getRegion: { type: Function, default: null }
   },
-  emits: ["updated", "before-submit"],
+  emits: ["updated", "before-submit", "show-regions"],
   data() {
     let submitOnNext = false;
     try {
@@ -121,9 +140,12 @@ export default {
     } catch {
       // storage unavailable: off
     }
-    return { busy: false, rejecting: false, note: "", submitOnNext };
+    return { busy: false, rejecting: false, note: "", submitOnNext, attachView: true };
   },
   computed: {
+    regions() {
+      return this.review.review_regions || [];
+    },
     status() {
       return this.review.status || "unlabeled";
     }
@@ -153,7 +175,12 @@ export default {
             new Promise(resolve => setTimeout(resolve, 15000))
           ]);
         }
-        const r = await axios.post(`/api/review/image/${this.imageId}`, { action, note: note || "" });
+        const body = { action, note: note || "" };
+        if (action === "reject" && this.attachView && this.getRegion) {
+          const v = this.getRegion();
+          if (v) body.regions = [[v.x, v.y, v.w, v.h]];
+        }
+        const r = await axios.post(`/api/review/image/${this.imageId}`, body);
         this.$emit("updated", r.data);
         this.rejecting = false;
         this.note = "";
@@ -165,6 +192,17 @@ export default {
       } finally {
         this.busy = false;
       }
+    },
+    /** a number key in the empty reason box picks that saved reason */
+    onNoteKey(e) {
+      const r = this.$refs.reasons && this.$refs.reasons.forKey(e, this.note);
+      if (!r) return;
+      e.preventDefault();
+      this.pickReason(r);
+    },
+    pickReason(r) {
+      this.note = withReason(this.note, r);
+      this.$nextTick(() => this.$refs.note && this.$refs.note.focus());
     },
     /** Y: approve (reviewers) or "done" (annotators), whichever this image offers */
     shortcutApprove() {

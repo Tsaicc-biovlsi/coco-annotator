@@ -24,6 +24,8 @@ status_args = reqparse.RequestParser()
 status_args.add_argument('action', location='json', required=True,
                          choices=('submit', 'approve', 'reject', 'reopen'))
 status_args.add_argument('note', location='json', default='')
+status_args.add_argument('regions', location='json', type=list, default=None,
+                         help='reject: problem areas [[x, y, w, h], ...] in image pixels')
 status_args.add_argument('skip_empty', location='json', type=bool, default=False,
                          help='submit: do nothing for an image without annotations or image class')
 status_args.add_argument('image_ids', location='json', type=list, default=None,
@@ -57,10 +59,28 @@ def image_review_info(image):
         'reviewed_by': image.reviewed_by,
         'reviewed_at': iso(image.reviewed_at),
         'review_note': image.review_note,
+        'review_regions': list(getattr(image, 'review_regions', None) or []),
     }
 
 
-def change_status(images, dataset, action, note=''):
+def clean_regions(regions, image=None):
+    """At most 20 boxes of four numbers, clipped to the image."""
+    out = []
+    for r in (regions or [])[:20]:
+        try:
+            x, y, w, h = (float(v) for v in r)
+        except (TypeError, ValueError):
+            continue
+        if image is not None and image.width and image.height:
+            x2, y2 = min(x + w, image.width), min(y + h, image.height)
+            x, y = max(0.0, x), max(0.0, y)
+            w, h = x2 - x, y2 - y
+        if w > 0 and h > 0:
+            out.append([round(x, 1), round(y, 1), round(w, 1), round(h, 1)])
+    return out
+
+
+def change_status(images, dataset, action, note='', regions=None):
     """Apply ``action`` to the images. Returns (count, error message or None)."""
     now = datetime.datetime.utcnow()
     me = current_user.username
@@ -76,15 +96,16 @@ def change_status(images, dataset, action, note=''):
     for image in images:
         if self_approve:
             image.update(set__status='approved', set__labeled_by=me, set__labeled_at=now,
-                         set__reviewed_by=me, set__reviewed_at=now, set__review_note='')
+                         set__reviewed_by=me, set__reviewed_at=now, set__review_note='', set__review_regions=[])
         elif action == 'submit':
             image.update(set__status='labeled', set__labeled_by=me, set__labeled_at=now)
         elif action == 'approve':
             image.update(set__status='approved', set__reviewed_by=me, set__reviewed_at=now,
-                         set__review_note='')
+                         set__review_note='', set__review_regions=[])
         elif action == 'reject':
             image.update(set__status='rejected', set__reviewed_by=me, set__reviewed_at=now,
-                         set__review_note=(note or '').strip()[:2000])
+                         set__review_note=(note or '').strip()[:2000],
+                         set__review_regions=clean_regions(regions, image))
         elif action == 'reopen':
             # back to work; an approved image can only be reopened by a reviewer
             if image.status == 'approved' and not dataset.can_review(current_user):
@@ -125,7 +146,8 @@ class ImageStatus(Resource):
             ids = [int(i) for i in args['image_ids']]
             images = list(ImageModel.objects(id__in=ids, dataset_id=dataset.id, deleted=False))
 
-        count, error = change_status(images, dataset, args['action'], args.get('note'))
+        count, error = change_status(images, dataset, args['action'], args.get('note'),
+                                     args.get('regions'))
         if error:
             return {'message': error}, 403
         if count:
@@ -136,6 +158,7 @@ class ImageStatus(Resource):
                             detail={'review_action': 'self_approve' if args['action'] == 'submit'
                                     and dataset.can_review(current_user) else args['action'],
                                     'note': args.get('note') or None,
+                                    'regions': len(args.get('regions') or []) or None,
                                     'file_name': images[0].file_name if single else None},
                             text=" ".join(i.file_name for i in images[:50]))
         image.reload()
@@ -319,7 +342,7 @@ class ReviewQueue(Resource):
         order = ('labeled_at', 'file_name') if args.get('order') == 'submitted' else ('file_name',)
         images = list(query.order_by(*order).skip((page - 1) * per_page).limit(per_page)
                       .only('id', 'file_name', 'width', 'height', 'status', 'labeled_by', 'labeled_at',
-                            'reviewed_by', 'review_note', 'assignee'))
+                            'reviewed_by', 'review_note', 'review_regions', 'assignee'))
         annotations = AnnotationModel.objects(image_id__in=[i.id for i in images], deleted=False)\
             .only('id', 'image_id', 'category_id', 'segmentation', 'bbox', 'isbbox', 'isrbbox', 'color', 'keypoints')
         by_image = {}
@@ -328,6 +351,7 @@ class ReviewQueue(Resource):
                 'id': a.id, 'category_id': a.category_id, 'segmentation': a.segmentation or [],
                 'bbox': a.bbox or [], 'isbbox': bool(a.isbbox), 'isrbbox': bool(getattr(a, 'isrbbox', False)),
                 'keypoints': a.keypoints or []})
+        in_dataset = set(dataset.categories or [])
         used = {a['category_id'] for anns in by_image.values() for a in anns}
         categories = CategoryModel.objects(id__in=list(set(dataset.categories or []) | used))\
             .only('id', 'name', 'color', 'supercategory', 'supercategories')
@@ -342,7 +366,8 @@ class ReviewQueue(Resource):
             'total': total, 'page': page, 'per_page': per_page,
             'pages': max(1, (total + per_page - 1) // per_page),
             'images': out,
-            'categories': [{'id': c.id, 'name': c.name, 'color': c.color, 'parents': c.parents()}
+            'categories': [{'id': c.id, 'name': c.name, 'color': c.color, 'parents': c.parents(),
+                            'in_dataset': c.id in in_dataset}
                            for c in categories],
             'labelers': members,
             'can_review': dataset.can_review(current_user),

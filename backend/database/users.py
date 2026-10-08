@@ -22,6 +22,8 @@ class UserModel(DynamicDocument, UserMixin):
     is_admin = BooleanField(default=False)
 
     preferences = DictField(default={})
+    #: a reviewer's saved reasons for rejecting (None: the built-in suggestions)
+    reject_reasons = ListField(StringField(), default=None)
     permissions = ListField(defualt=[])
     # 身分 (database/roles.py); admins are role "admin" and keep is_admin
     role = StringField(default=None)

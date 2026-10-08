@@ -94,6 +94,8 @@ class ImageModel(DynamicDocument):
     reviewed_by = StringField()
     reviewed_at = DateTimeField()
     review_note = StringField()
+    #: where the reviewer saw problems when rejecting: [[x, y, w, h], ...]
+    review_regions = ListField(ListField(FloatField()), default=[])
 
     deleted = BooleanField(default=False)
     deleted_date = DateTimeField()

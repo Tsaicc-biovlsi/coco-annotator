@@ -122,7 +122,9 @@
         :can-edit="!!(permissions.dataset && permissions.dataset.edit)"
         :can-review="!!(permissions.dataset && permissions.dataset.review)"
         @before-submit="done => save(done)"
+        :get-region="zoomedRegion"
         @updated="review = $event"
+        @show-regions="drawReviewMarks(true)"
       />
 
       <HelpPanel
@@ -415,6 +417,9 @@ export default {
         keypoint: -1,
       },
       review: {},
+      // marks of where the reviewer saw problems (paper items)
+      reviewMarks: [],
+      pendingReviewMarks: null,
       permissions: {},
       image: {
         raster: {},
@@ -731,6 +736,11 @@ export default {
         }, 400);
         if (this.activeTool === "Magic Wand") this.ensureImageData();
         this.prefetchNeighbours();
+        if (this.pendingReviewMarks) {
+          const zoom = this.pendingReviewMarks === "zoom";
+          this.pendingReviewMarks = null;
+          this.$nextTick(() => this.drawReviewMarks(zoom));
+        }
         if (this.pendingRegion) {
           const region = this.pendingRegion;
           this.pendingRegion = null;
@@ -771,6 +781,59 @@ export default {
       if (x1 <= x0 || y1 <= y0) return null;
       return { x: Math.round(x0), y: Math.round(y0), w: Math.round(x1 - x0), h: Math.round(y1 - y0) };
     },
+    /** the zoomed-in part of the image, or null when (nearly) all of it is on screen */
+    zoomedRegion() {
+      const v = this.viewRegion();
+      const raster = this.image.raster;
+      if (!v || !raster) return null;
+      return v.w * v.h < raster.width * raster.height * 0.8 ? v : null;
+    },
+    /** zoom so that a region {x, y, w, h} (image pixels) fills the screen */
+    zoomToRegion(region) {
+      const raster = this.image.raster;
+      const w = raster.width, h = raster.height;
+      const canvas = document.getElementById("editor");
+      const zoom = Math.min(canvas.width / region.w, canvas.height / region.h) * 0.85;
+      if (zoom > 0.01 && zoom < 60) {
+        this.paper.view.zoom = zoom;
+        this.image.scale = 1 / zoom;
+      }
+      const cx = region.x + region.w / 2 - w / 2, cy = region.y + region.h / 2 - h / 2;
+      this.paper.view.setCenter(cx, cy);
+    },
+    /** mark where the reviewer saw problems on a rejected image (and zoom there) */
+    drawReviewMarks(zoomTo = false) {
+      this.reviewMarks.forEach(m => m.remove());
+      this.reviewMarks = [];
+      const regions = (this.review.status === "rejected" && this.review.review_regions) || [];
+      if (!regions.length || !this.paper) return;
+      const raster = this.image.raster;
+      if (!raster || !raster.loaded) {
+        this.pendingReviewMarks = zoomTo ? "zoom" : "draw";
+        return;
+      }
+      const w = raster.width, h = raster.height;
+      if (zoomTo) {
+        const x0 = Math.min(...regions.map(r => r[0])), y0 = Math.min(...regions.map(r => r[1]));
+        const x1 = Math.max(...regions.map(r => r[0] + r[2])), y1 = Math.max(...regions.map(r => r[1] + r[3]));
+        this.zoomToRegion({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
+      }
+      this.reviewMarks = regions.map(r => {
+        const mark = new paper.Path.Rectangle({
+          point: [r[0] - w / 2, r[1] - h / 2],
+          size: [r[2], r[3]],
+          strokeColor: "#ff6b6b",
+          strokeWidth: 3,
+          dashArray: [10, 6],
+          strokeScaling: false,
+          locked: true,
+          // not hit by the tools
+          guide: true
+        });
+        mark.data.reviewMark = true;
+        return mark;
+      });
+    },
     /** zoom to a question's place and mark it (null: remove the mark) */
     showRegion(region) {
       if (this.helpMark) {
@@ -785,14 +848,7 @@ export default {
         return;
       }
       const w = raster.width, h = raster.height;
-      const canvas = document.getElementById("editor");
-      const zoom = Math.min(canvas.width / region.w, canvas.height / region.h) * 0.85;
-      if (zoom > 0.01 && zoom < 60) {
-        this.paper.view.zoom = zoom;
-        this.image.scale = 1 / zoom;
-      }
-      const cx = region.x + region.w / 2 - w / 2, cy = region.y + region.h / 2 - h / 2;
-      this.paper.view.setCenter(cx, cy);
+      this.zoomToRegion(region);
       this.helpMark = new paper.Path.Rectangle({
         point: [region.x - w / 2, region.y - h / 2],
         size: [region.w, region.h],
@@ -1522,6 +1578,10 @@ export default {
     }
   },
   watch: {
+    review() {
+      // marks of a rejection follow the status (drawn on load, gone when submitted)
+      this.$nextTick(() => this.drawReviewMarks(false));
+    },
     activeTool(tool) {
       if (tool === "Magic Wand") setTimeout(() => this.ensureImageData(), 0);
     },
