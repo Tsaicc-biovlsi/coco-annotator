@@ -377,10 +377,29 @@ sudo docker logs annotator_webclient --tail 50
 sudo docker logs annotator_workers --tail 50
 ```
 
-**備份**
-資料庫備份（產生一個檔案，連同 `datasets/` 資料夾一起保存即可）：
+**備份與還原**
+`docker compose up -d` 會一起啟動 `annotator_backup`，每天自動備份資料庫到專案底下的 `backups/` 資料夾，保留最新 14 份（檔名像 `coco-2026-10-09_0300.archive.gz`）。第一次啟動、或伺服器關機超過一天後再開，會先立刻備份一份。可以在 `.env` 調整：
+
+| 設定 | 預設 | 說明 |
+|---|---|---|
+| `BACKUP_HOUR` | `3` | 每天幾點備份（0–23） |
+| `BACKUP_KEEP` | `14` | 保留幾份 |
+| `BACKUP_DIR` | `./backups` | 備份放在哪個資料夾 |
+| `BACKUP_TZ` | `CST-8` | 時區（台灣時間；POSIX 格式，例如日本為 `JST-9`） |
+
+查看備份狀況：`sudo docker logs annotator_backup --tail 20`。
+
+資料庫備份不包含圖片，`datasets/` 資料夾請另外保存（建議把 `backups/` 和 `datasets/` 一起定期複製到另一顆硬碟或另一台機器，備份放在同一顆硬碟上，硬碟壞掉時會一起不見）。
+
+手動備份一份：
 ```bash
-sudo docker exec annotator_mongodb mongodump --db flask --archive --gzip > coco-backup-$(date +%F).archive.gz
+sudo docker exec annotator_mongodb mongodump --db flask --archive --gzip > backups/coco-manual-$(date +%F).archive.gz
+```
+
+還原（**會用備份覆蓋目前的資料庫**，建議先手動備份一份目前的）：
+```bash
+sudo docker exec -i annotator_mongodb mongorestore --drop --archive --gzip < backups/coco-2026-10-09_0300.archive.gz
+sudo docker restart annotator_webclient
 ```
 
 ## 開發

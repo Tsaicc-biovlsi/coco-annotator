@@ -83,3 +83,23 @@ services:
       - "mongodb7_data:/data/db"
     networks:
       - cocoannotator
+
+  # Daily database backup into ./backups (keeps the newest BACKUP_KEEP).
+  # Restore: see README ("備份與還原").
+  backup:
+    image: mongo:7.0
+    container_name: annotator_backup
+    restart: unless-stopped
+    entrypoint: ["bash", "/backup.sh"]
+    environment:
+      BACKUP_HOUR: ${BACKUP_HOUR:-3}
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+      # POSIX form, works without time zone files: CST-8 = UTC+8 (Taiwan)
+      TZ: ${BACKUP_TZ:-CST-8}
+    volumes:
+      - "./scripts/backup.sh:/backup.sh:ro"
+      - "${BACKUP_DIR:-./backups}:/backups"
+    depends_on:
+      - database
+    networks:
+      - cocoannotator

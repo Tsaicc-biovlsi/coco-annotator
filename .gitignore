@@ -18,3 +18,4 @@ db/*
 !db/.gitkeep
 mongo-dump-*/
 .env
+backups/
