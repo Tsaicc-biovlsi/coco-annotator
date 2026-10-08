@@ -383,6 +383,8 @@ export default {
         });
       this.keypoints.radius = this.scale * 6;
       this.keypoints.lineWidth = this.scale * 2;
+      // "only this category" may already be on for another category
+      this.keypoints.opacity = this.opacity < 0.2 ? 0.2 : 1;
 
       let keypoints = this.annotation.keypoints;
       if (keypoints) {

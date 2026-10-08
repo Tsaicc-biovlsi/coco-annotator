@@ -63,7 +63,8 @@ export default {
     }
   },
   created() {
-    loadRejectReasons();
+    const me = this.$store.state.user.user;
+    loadRejectReasons(me ? me.username : null);
   },
   methods: {
     async add() {

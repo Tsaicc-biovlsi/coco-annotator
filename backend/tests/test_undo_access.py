@@ -24,7 +24,7 @@ def test_undo_only_own_items(world):
     listed = [i["id"] for i in s.get("/api/undo/list/?limit=100&type=annotation").get_json()]
     assert ann not in listed
     assert s.post(f"/api/undo/?id={ann}&instance=annotation").status_code == 400
-    assert s.delete(f"/api/undo/?id={ann}&instance=dataset").status_code == 400
+    assert s.delete(f"/api/undo/?id={ann}&instance=dataset").status_code in (400, 403)
     assert AnnotationModel.objects(id=ann).first().deleted
 
     # the owner can restore it

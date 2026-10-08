@@ -59,20 +59,33 @@ def _manages_users():
     return current_user.has_perm('manage_users')
 
 
+def _within_mine(perms):
+    """A non-admin manager can only deal with permissions they have themselves."""
+    return bool(current_user.is_admin) or set(perms or ()) <= set(current_user.perms())
+
+
 def _may_touch(user):
-    return bool(current_user.is_admin) or not user.is_admin
+    """Edit / reset / delete this account: admins anyone; a manager only
+    non-admins whose permissions are no more than their own."""
+    if current_user.is_admin:
+        return True
+    return not user.is_admin and _within_mine(user.perms())
 
 
 def _pick_role(key, is_admin=None):
-    """Role to give: (key, error). Only admins hand out the admin role."""
+    """Role to give: (key, error). Only admins hand out the admin role; a
+    manager only roles with no more permissions than their own."""
     if key is None and is_admin is not None:
         key = ADMIN if is_admin else DEFAULT
     if key is None:
         return None, None
-    if RoleModel.objects(key=key).first() is None and key not in (ADMIN, DEFAULT):
+    if not isinstance(key, str) or (RoleModel.objects(key=key).first() is None and key not in (ADMIN, DEFAULT)):
         return None, ({"success": False, "message": "Unknown role"}, 400)
     if key == ADMIN and not current_user.is_admin:
         return None, ({"success": False, "message": "Only admins can make admins."}, 403)
+    if not _within_mine(RoleModel.permissions_of(key)):
+        return None, ({"success": False,
+                       "message": "You can only give roles with permissions you have yourself."}, 403)
     return key, None
 
 
@@ -107,8 +120,8 @@ class Users(Resource):
             return DENIED
 
         args = users.parse_args()
-        per_page = args['limit']
-        page = args['page']-1
+        per_page = max(1, min(int(args['limit'] or 50), 1000))
+        page = max(0, int(args['page'] or 1) - 1)
 
         user_model = UserModel.objects
         total = user_model.count()
@@ -136,7 +149,8 @@ class UsersBulk(Resource):
             return DENIED
 
         args = bulk_users.parse_args()
-        role, error = _pick_role(args.get('role'))
+        # no role given: the default one, which also has to be within the manager's own
+        role, error = _pick_role(args.get('role') or DEFAULT)
         if error:
             return error
         dataset = None
@@ -144,6 +158,9 @@ class UsersBulk(Resource):
             dataset = DatasetModel.objects(id=args['datasetId'], deleted=False).first()
             if dataset is None:
                 return {"success": False, "message": "Invalid dataset id"}, 400
+            # adding people to a dataset is its owner's call
+            if not dataset.is_owner(current_user):
+                return {"success": False, "message": "You can only add accounts to datasets you own."}, 403
 
         created, existing, invalid, seen = [], [], [], set()
         for row in args['users'] or []:
@@ -211,8 +228,8 @@ class User(Resource):
         user = UserModel()
         user.username = args.get('username')
         user.password = hash_password(args.get('password'))
-        user.name = args.get('name', "")
-        user.email = args.get('email', "")
+        user.name = args.get('name') or ""
+        user.email = args.get('email') or ""
         _set_role(user, role or DEFAULT)
         user.must_change_password = True
         user.save()
@@ -251,17 +268,22 @@ class Username(Resource):
         if user is None:
             return {"success": False, "message": "User not found"}, 400
         if not _may_touch(user):
-            return {"success": False, "message": "Only admins can edit admins."}, 403
+            return {"success": False,
+                    "message": "You can only edit accounts with no more permissions than your own."}, 403
 
         args = create_user.parse_args()
         changes, role_from = [], user.role_key
-        name = args.get('name')
+        name = args.get('name') or ''
+        if not isinstance(name, str):
+            return {"success": False, "message": "Invalid name"}, 400
         if len(name) > 0:
             if name != user.name:
                 changes.append('name')
             user.name = name
 
-        password = args.get('password')
+        password = args.get('password') or ''
+        if not isinstance(password, str):
+            return {"success": False, "message": "Invalid password"}, 400
         if len(password) > 0:
             changes.append('password')
             user.password = hash_password(password)
@@ -302,7 +324,8 @@ class Username(Resource):
         if user is None:
             return {"success": False, "message": "User not found"}, 400
         if not _may_touch(user):
-            return {"success": False, "message": "Only admins can delete admins."}, 403
+            return {"success": False,
+                    "message": "You can only delete accounts with no more permissions than your own."}, 403
 
         if user.username.lower() == current_user.username.lower():
             return {"success": False, "message": "You cannot delete your own account."}, 400

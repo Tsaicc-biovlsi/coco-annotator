@@ -85,7 +85,7 @@ class Images(Resource):
         args = image_upload.parse_args()
         upload = args['image']
 
-        dataset = current_user.datasets.filter(id=args['dataset_id'], deleted=False).first()
+        dataset = current_user.editable_datasets.filter(id=args['dataset_id'], deleted=False).first()
         if dataset is None:
             return {'message': 'Invalid dataset id'}, 400
         if not current_user.can_edit(dataset):
@@ -182,7 +182,7 @@ class ImageId(Resource):
     @login_required
     def delete(self, image_id):
         """ Deletes an image by ID """
-        image = current_user.images.filter(id=image_id, deleted=False).first()
+        image = current_user.editable_images.filter(id=image_id, deleted=False).first()
         if image is None:
             return {"message": "Invalid image id"}, 400
 
@@ -202,10 +202,10 @@ class ImageClass(Resource):
     def post(self, image_id):
         """ Sets (or clears) the whole-image class used for image classification """
         args = image_class_args.parse_args()
-        image = current_user.images.filter(id=image_id, deleted=False).first()
+        image = current_user.editable_images.filter(id=image_id, deleted=False).first()
         if image is None:
             return {'message': 'Invalid image id'}, 400
-        dataset = current_user.datasets.filter(id=image.dataset_id).first()
+        dataset = current_user.editable_datasets.filter(id=image.dataset_id).first()
         if dataset is None or not current_user.can_edit(dataset):
             return {'message': 'You do not have permission to edit this dataset'}, 403
 
@@ -232,7 +232,7 @@ class ImageCopyAnnotations(Resource):
         category_ids = args.get('category_ids')
 
         image_from = current_user.images.filter(id=from_id).first()
-        image_to = current_user.images.filter(id=to_id).first()
+        image_to = current_user.editable_images.filter(id=to_id).first()
 
         if image_from is None or image_to is None:
             return {'success': False, 'message': 'Invalid image ids'}, 400
@@ -275,7 +275,7 @@ class ImageCopyUndo(Resource):
     def post(self, to_id):
         """ Take back a copy (Ctrl+Z): removes those copies for good """
         from flask import request
-        image = current_user.images.filter(id=to_id).first()
+        image = current_user.editable_images.filter(id=to_id).first()
         if image is None:
             return {'message': 'Invalid image id'}, 400
         if not current_user.can_edit(image.dataset):
@@ -293,7 +293,7 @@ class ImageAnnotations(Resource):
     @login_required
     def delete(self, image_id):
         """ Delete all annotations of an image (they can be restored from Undo) """
-        image = current_user.images.filter(id=image_id, deleted=False).first()
+        image = current_user.editable_images.filter(id=image_id, deleted=False).first()
         if image is None:
             return {'success': False, 'message': 'Invalid image id'}, 400
         if not current_user.can_edit(image.dataset):

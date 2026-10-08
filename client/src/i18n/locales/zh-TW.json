@@ -44,6 +44,8 @@
     "visibility": "可見性"
   },
   "annotator": {
+    "saveFailed": "存檔失敗",
+    "leaveUnsaved": "存檔失敗，最新的修改還沒存到伺服器。仍要離開嗎？（離開會遺失這些修改）",
     "soloOn": "只看這一類（其他類別變淡）；滑鼠移到類別上也會暫時只看那一類",
     "soloOff": "顯示全部類別",
     "onlyCategory": "只看：{name}",
@@ -853,6 +855,7 @@
     "trainWith": "解壓後的訓練指令範例："
   },
   "review": {
+    "notSaved": "最新的修改還沒存檔成功，先不送審；請稍後再試",
     "showRegions": "看標出的問題位置（{n}）",
     "attachView": "附上目前放大的位置",
     "attachViewHint": "先放大到有問題的地方再退回，標註者打開時會看到紅色虛線框；沒放大就不附",

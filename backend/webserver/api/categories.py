@@ -141,6 +141,11 @@ class Category(Resource):
         if category is None:
             return {"message": "Invalid category id"}, 400
 
+        # a category can be shared by several datasets: only its creator (or an
+        # admin) may change it
+        if not current_user.can_edit(category):
+            return {"message": "Only the creator of this category can change it"}, 403
+
         args = update_category.parse_args()
         name = args.get('name')
         if args.get('supercategories') is not None:

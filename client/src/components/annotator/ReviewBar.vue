@@ -166,14 +166,19 @@ export default {
   methods: {
     statusClass,
     async act(action, note = null) {
+      if (this.busy) return;
       this.busy = true;
       try {
-        // the latest edits are saved before submitting
+        // the latest edits are saved before submitting; not saved, not submitted
         if (action === "submit") {
-          await Promise.race([
+          const saved = await Promise.race([
             new Promise(resolve => this.$emit("before-submit", resolve)),
-            new Promise(resolve => setTimeout(resolve, 15000))
+            new Promise(resolve => setTimeout(() => resolve(false), 15000))
           ]);
+          if (saved === false) {
+            this.$toastr.warning(this.$t("review.notSaved"));
+            return;
+          }
         }
         const body = { action, note: note || "" };
         if (action === "reject" && this.attachView && this.getRegion) {

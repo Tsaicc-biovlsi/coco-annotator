@@ -178,7 +178,7 @@ class DatasetCleanMeta(Resource):
     def get(self, dataset_id):
         """ All users in the dataset """
 
-        dataset = current_user.datasets.filter(id=dataset_id, deleted=False).first()
+        dataset = current_user.editable_datasets.filter(id=dataset_id, deleted=False).first()
         if dataset is None:
             return {"message": "Invalid dataset id"}, 400
 
@@ -376,7 +376,7 @@ class DatasetId(Resource):
 
         """ Updates dataset by ID """
 
-        dataset = current_user.datasets.filter(id=dataset_id, deleted=False).first()
+        dataset = current_user.editable_datasets.filter(id=dataset_id, deleted=False).first()
         if dataset is None:
             return {"message": "Invalid dataset id"}, 400
 
@@ -447,9 +447,12 @@ class DatasetIdShare(Resource):
         if not dataset.is_owner(current_user):
             return {"message": "You do not have permission to share this dataset"}, 403
 
+        users = [u for u in (args.get('users') or []) if isinstance(u, str) and u]
         before = set(dataset.users or [])
-        after = set(args.get('users') or [])
-        dataset.update(users=args.get('users'))
+        after = set(users)
+        # someone taken off the dataset is no longer one of its reviewers either
+        reviewers = [r for r in (dataset.reviewers or []) if r in after or r == dataset.owner]
+        dataset.update(users=users, reviewers=reviewers)
         if before != after:
             from ..util import activity
             activity.record('dataset_share', current_user, dataset_id=dataset.id,
@@ -795,7 +798,7 @@ class DatasetExport(Resource):
         args = coco_upload.parse_args()
         coco = args['coco']
 
-        dataset = current_user.datasets.filter(id=dataset_id).first()
+        dataset = current_user.editable_datasets.filter(id=dataset_id, deleted=False).first()
         if dataset is None:
             return {'message': 'Invalid dataset ID'}, 400
 
@@ -825,7 +828,7 @@ class DatasetCoco(Resource):
         args = coco_upload.parse_args()
         coco = args['coco']
 
-        dataset = current_user.datasets.filter(id=dataset_id).first()
+        dataset = current_user.editable_datasets.filter(id=dataset_id, deleted=False).first()
         if dataset is None:
             return {'message': 'Invalid dataset ID'}, 400
 
@@ -1045,7 +1048,7 @@ class DatasetScan(Resource):
     @login_required
     def get(self, dataset_id):
 
-        dataset = DatasetModel.objects(id=dataset_id).first()
+        dataset = current_user.editable_datasets.filter(id=dataset_id, deleted=False).first()
         
         if not dataset:
             return {'message': 'Invalid dataset ID'}, 400

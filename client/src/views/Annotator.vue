@@ -121,7 +121,7 @@
         :review="review"
         :can-edit="!!(permissions.dataset && permissions.dataset.edit)"
         :can-review="!!(permissions.dataset && permissions.dataset.review)"
-        @before-submit="done => save(done)"
+        @before-submit="done => save(() => done(true), { onError: () => done(false) })"
         :get-region="zoomedRegion"
         @updated="review = $event"
         @show-regions="drawReviewMarks(true)"
@@ -560,15 +560,25 @@ export default {
      * Leaving the image: save, unless nothing changed since the last (auto)save;
      * then switching does not wait for the server to store the same thing again.
      */
-    saveIfChanged(callback) {
+    saveIfChanged(callback, options = {}) {
       const a = this.autosave;
       if (!a.saving && a.saved !== null && !this.isDirty() && this.prefsSignature() === a.prefs) {
         if (callback != null) callback();
-        return;
+        return Promise.resolve(true);
       }
-      this.save(callback);
+      return this.save(callback, options);
     },
+    /**
+     * Save the annotations. ``callback`` runs once saved; when saving fails a
+     * message is shown and ``options.onError`` runs instead (the callback does
+     * not: leaving the image then would lose the edits).
+     */
     save(callback, options = {}) {
+      // someone who may only look at this dataset has nothing to save
+      if (this.permissions.dataset && this.permissions.dataset.edit === false) {
+        if (callback != null) callback();
+        return Promise.resolve(true);
+      }
       let process = options.auto ? "Autosaving" : "Saving";
       this.addProcess(process);
       this.autosave.saving = true;
@@ -577,14 +587,28 @@ export default {
       let signature = this.changeSignature();
       let prefs = this.prefsSignature();
 
-      axios
+      return axios
         .post("/api/annotator/data", JSON.stringify(data))
-        .then(() => {
-          this.autosave.saved = signature;
-          this.autosave.prefs = prefs;
-          //TODO: updateUser
-          if (callback != null) callback();
-        })
+        .then(
+          () => {
+            this.autosave.saved = signature;
+            this.autosave.prefs = prefs;
+            this.saveErrorAt = 0;
+            // (an error in the callback is not a failed save)
+            if (callback != null) callback();
+            return true;
+          },
+          error => {
+            // autosave retries by itself: say so at most once a minute
+            if (!options.auto || Date.now() - (this.saveErrorAt || 0) > 60000) {
+              const message = (error.response && error.response.data && error.response.data.message) || String(error);
+              this.$toastr.error(message, this.$t("annotator.saveFailed"));
+            }
+            this.saveErrorAt = Date.now();
+            if (options.onError) options.onError(error);
+            return false;
+          }
+        )
         .finally(() => {
           this.autosave.saving = false;
           this.removeProcess(process);
@@ -1475,7 +1499,7 @@ export default {
               this.$toastr.error(data.message || String(error), this.$t("toolbar.copyAnnotations"));
             })
             .finally(() => (this.copying = false));
-        });
+        }, { onError: () => (this.copying = false) });
       });
     },
     clearAnnotations() {
@@ -1565,7 +1589,7 @@ export default {
             this.axiosReqestError(this.$t("modelRun.titleImage"), data.message);
           })
           .finally(done);
-      });
+      }, { onError: done });
     },
     removeFromAnnotatingList() {
       if (this.user == null) return;
@@ -1595,7 +1619,7 @@ export default {
             this.goingNext = false;
             this.$refs.filetitle.route(next);
           }
-        });
+        }, { onError: () => (this.goingNext = false) });
       });
     },
     previousImage() {
@@ -1646,6 +1670,10 @@ export default {
       if (cc > max) {
         this.current.category = -1;
       }
+      // working on another category: show everything again (what is drawn
+      // there would be faded out otherwise)
+      const c = this.categories[this.current.category];
+      if (this.soloCategory != null && c && c.id !== this.soloCategory) this.soloCategory = null;
     },
     "current.annotation"(ca) {
       if (ca < -1) this.current.annotation = -1;
@@ -1754,11 +1782,17 @@ export default {
     this.current.annotation = -1;
 
     this.$nextTick(() => {
-      this.$socket.emit("annotating", {
-        image_id: this.image.id,
-        active: false
+      // only once really leaving: others then see this person stop
+      const leave = () => {
+        this.$socket.emit("annotating", { image_id: this.image.id, active: false });
+        next();
+      };
+      // already chose to leave without the last changes
+      if (this.leaveWithoutSaving) return leave();
+      // a failed save keeps the page (and the edits) unless they choose to go
+      this.saveIfChanged(leave, {
+        onError: () => (window.confirm(this.$t("annotator.leaveUnsaved")) ? leave() : next(false))
       });
-      this.saveIfChanged(next);
     });
   },
   mounted() {

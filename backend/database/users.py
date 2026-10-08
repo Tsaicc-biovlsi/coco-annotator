@@ -104,6 +104,33 @@ class UserModel(DynamicDocument, UserMixin):
         image_ids = self.images.distinct('id')
         return AnnotationModel.objects(image_id__in=image_ids)
 
+    # ---- what this user may change ------------------------------------------
+    # "all_datasets" lets a role SEE every dataset; changing anything still
+    # needs being a member (or the owner, or an admin). Write endpoints use
+    # these instead of datasets / images / annotations / categories.
+
+    @property
+    def editable_datasets(self):
+        if self.is_admin:
+            return DatasetModel.objects
+        return DatasetModel.objects(Q(owner=self.username) | Q(users__contains=self.username))
+
+    @property
+    def editable_images(self):
+        if self.is_admin:
+            return ImageModel.objects
+        return ImageModel.objects(dataset_id__in=self.editable_datasets.distinct('id'))
+
+    @property
+    def editable_annotations(self):
+        if self.is_admin:
+            return AnnotationModel.objects
+        return AnnotationModel.objects(image_id__in=self.editable_images.distinct('id'))
+
+    def dataset_categories(self, dataset):
+        """Categories of one dataset (for checking a category id)."""
+        return CategoryModel.objects(id__in=list(dataset.categories or []))
+
     def can_view(self, model):
         if model is None:
             return False

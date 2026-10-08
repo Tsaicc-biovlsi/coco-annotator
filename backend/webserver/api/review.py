@@ -80,6 +80,21 @@ def clean_regions(regions, image=None):
     return out
 
 
+def _int_list(values):
+    """[1, "2", ...] -> [1, 2]; None when something is not a number."""
+    if not isinstance(values, list):
+        return None
+    out = []
+    for v in values:
+        if isinstance(v, (list, dict, bool)):
+            return None
+        try:
+            out.append(int(v))
+        except (TypeError, ValueError):
+            return None
+    return out
+
+
 def change_status(images, dataset, action, note='', regions=None):
     """Apply ``action`` to the images. Returns (count, error message or None)."""
     now = datetime.datetime.utcnow()
@@ -98,6 +113,9 @@ def change_status(images, dataset, action, note='', regions=None):
             image.update(set__status='approved', set__labeled_by=me, set__labeled_at=now,
                          set__reviewed_by=me, set__reviewed_at=now, set__review_note='', set__review_regions=[])
         elif action == 'submit':
+            # an approved image stays approved: only a reviewer can reopen it
+            if image.status == 'approved':
+                continue
             image.update(set__status='labeled', set__labeled_by=me, set__labeled_at=now)
         elif action == 'approve':
             image.update(set__status='approved', set__reviewed_by=me, set__reviewed_at=now,
@@ -143,7 +161,9 @@ class ImageStatus(Resource):
 
         images = [image]
         if args.get('image_ids'):
-            ids = [int(i) for i in args['image_ids']]
+            ids = _int_list(args['image_ids'])
+            if ids is None:
+                return {'message': 'image_ids must be a list of numbers'}, 400
             images = list(ImageModel.objects(id__in=ids, dataset_id=dataset.id, deleted=False))
 
         count, error = change_status(images, dataset, args['action'], args.get('note'),
@@ -180,14 +200,17 @@ class DatasetAssign(Resource):
             return {'message': 'Only the owner or reviewers can assign images'}, 403
 
         members = {u.username for u in dataset.get_users()}
-        usernames = [u for u in (args.get('usernames') or []) if u]
+        usernames = [u for u in (args.get('usernames') or []) if isinstance(u, str) and u]
         unknown = [u for u in usernames if u not in members]
         if unknown:
             return {'message': 'Not members of this dataset: ' + ', '.join(unknown)}, 400
 
         query = ImageModel.objects(dataset_id=dataset.id, deleted=False)
         if args.get('image_ids') is not None:
-            query = query.filter(id__in=[int(i) for i in args['image_ids']])
+            ids = _int_list(args['image_ids'])
+            if ids is None:
+                return {'message': 'image_ids must be a list of numbers'}, 400
+            query = query.filter(id__in=ids)
         elif args['scope'] == 'unassigned':
             query = query.filter(Q(assignee=None) | Q(assignee=''))
         elif args['scope'] == 'unlabeled':

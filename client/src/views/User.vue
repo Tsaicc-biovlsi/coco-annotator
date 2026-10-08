@@ -119,7 +119,7 @@ export default {
     },
     displayName() {
       if (this.user == null) return "";
-      if (this.user.name.length == 0) return this.user.username;
+      if (!this.user.name) return this.user.username;
 
       return this.user.name;
     }

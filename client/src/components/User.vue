@@ -61,7 +61,7 @@ export default {
     },
     display() {
       if (!this.user) return "";
-      return this.user.name.length === 0 ? this.user.username : this.user.name;
+      return this.user.name || this.user.username || "";
     }
   }
 };

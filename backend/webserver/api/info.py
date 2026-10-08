@@ -1,4 +1,5 @@
 from flask_restx import Namespace, Resource
+from flask_login import login_required, current_user
 
 from workers.tasks import long_task
 from config import Config
@@ -29,7 +30,10 @@ class Info(Resource):
 
 @api.route('/long_task')
 class TaskTest(Resource):
+    @login_required
     def get(self):
+        if not current_user.is_admin:
+            return {'message': 'Admins only'}, 403
         """ Returns information about current version """
         task_model = TaskModel(group="test", name="Testing Celery")
         task_model.save()

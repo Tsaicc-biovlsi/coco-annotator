@@ -883,6 +883,10 @@ export default {
     };
   },
   methods: {
+    /** hear who starts / stops annotating this dataset's images */
+    watchDataset() {
+      if (this.dataset.id) this.$socket.emit("watch_dataset", { dataset_id: this.dataset.id });
+    },
     ...mapMutations(["addProcess", "removeProcess"]),
     updatePage(page) {
       // both pagers (above and below the images) show this page
@@ -1390,6 +1394,10 @@ export default {
     }
   },
   sockets: {
+    connect() {
+      // a new connection starts without rooms
+      this.watchDataset();
+    },
     taskProgress(data) {
       if (data.id === this.scan.id) {
         this.scan.progress = data.progress;
@@ -1512,6 +1520,7 @@ export default {
   },
   beforeRouteUpdate(to) {
     this.dataset.id = parseInt(to.params.identifier);
+    this.watchDataset();
     this.tab = rememberedTab(this.dataset.id);
     this.updatePage();
   },
@@ -1536,8 +1545,11 @@ export default {
   mounted() {
     window.addEventListener("mouseup", this.stopDrag);
     window.addEventListener("mousedown", this.startDrag);
+    this.watchDataset();
   },
   unmounted() {
+    // stop hearing who annotates this dataset's images
+    this.$socket.emit("watch_dataset", { dataset_id: null });
     clearTimeout(this.importPoll);
     window.removeEventListener("mouseup", this.stopDrag);
     window.removeEventListener("mousedown", this.startDrag);

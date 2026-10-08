@@ -198,7 +198,7 @@
               {{ $t('quickReview.undoMark') }}
             </button>
           </div>
-          <RejectReasons :ref="el => (reasonsRef = el)" :note="note" @pick="pickReason" />
+          <RejectReasons :ref="el => { if (el) reasonsRef = el; }" :note="note" @pick="pickReason" />
         </div>
 
         <div class="tile-foot d-flex align-items-center gap-2">
@@ -213,7 +213,7 @@
           </div>
           <template v-if="rejecting === img.id">
             <input
-              :ref="el => (noteInput = el)"
+              :ref="el => { if (el) noteInput = el; }"
               v-model="note"
               class="form-control form-control-sm note"
               :placeholder="$t('review.notePlaceholder')"
@@ -265,11 +265,7 @@
           v-model="catQuery"
           class="form-control form-control-sm mb-1"
           :placeholder="$t('quickReview.changeTo')"
-          @keydown.down.prevent="moveCat(1)"
-          @keydown.up.prevent="moveCat(-1)"
-          @keydown.enter.prevent="pickCat(catChoices[catIndex])"
-          @keydown.esc.prevent="closeEdit"
-          @keydown.delete.ctrl.prevent="deleteShape"
+          @keydown="onMenuKey"
         />
         <div class="cat-list">
           <button
@@ -368,7 +364,9 @@ export default {
       drawing: null,
       note: "",
       noteInput: null,
-      reasonsRef: null
+      reasonsRef: null,
+      loadSeq: 0,
+      advanceTimer: null
     };
   },
   computed: {
@@ -381,7 +379,9 @@ export default {
     /** categories to change a shape to (the dataset's and any in use), filtered by the search box */
     catChoices() {
       const q = this.catQuery.trim().toLowerCase();
+      // only the dataset's own categories (others are refused by the server)
       return Object.values(this.categories)
+        .filter(c => c.in_dataset !== false)
         .filter(c => !q || c.name.toLowerCase().includes(q) || (c.parents || []).some(p => p.toLowerCase().includes(q)))
         .sort((a, b) => a.name.localeCompare(b.name, "zh-Hant", { numeric: true }) || a.id - b.id);
     },
@@ -480,6 +480,9 @@ export default {
       const factor = Math.exp((e.deltaY > 0 ? 1 : -1) * Math.min(Math.abs(e.deltaY), 120) / 600);
       if (this.syncZoom !== e.shiftKey) {
         // every image on the page zooms to the same place (Shift: the other way round)
+        const v0 = this.viewOf(img);
+        const minSize = Math.max(16, Math.min(img.width, img.height) / 40);
+        if (factor < 1 && (v0.w * factor < minSize || v0.h * factor < minSize)) return;
         const svg = e.currentTarget;
         const p = this.toImage(svg, e.clientX, e.clientY);
         this.images.forEach(other => {
@@ -530,6 +533,8 @@ export default {
       window.addEventListener("mouseup", up);
     },
     onPanStart(e, img) {
+      // a new press: whatever the last drag left behind no longer counts
+      this.panMoved = false;
       if (e.button === 0 && this.rejecting === img.id && !e.shiftKey) {
         e.preventDefault();
         this.startMark(e, img);
@@ -621,6 +626,17 @@ export default {
     closeEdit() {
       this.editing = null;
     },
+    /** keys in the shape menu's search box */
+    onMenuKey(e) {
+      if (e.key === "ArrowDown") this.moveCat(1);
+      else if (e.key === "ArrowUp") this.moveCat(-1);
+      else if (e.key === "Enter") this.pickCat(this.catChoices[this.catIndex]);
+      else if (e.key === "Escape") this.closeEdit();
+      // Ctrl+Delete deletes the shape (not Ctrl+Backspace, which deletes a word)
+      else if (e.key === "Delete" && (e.ctrlKey || e.metaKey)) this.deleteShape();
+      else return;
+      e.preventDefault();
+    },
     moveCat(d) {
       const n = this.catChoices.length;
       if (n) this.catIndex = (this.catIndex + d + n) % n;
@@ -673,7 +689,8 @@ export default {
       return Object.entries(counts)
         .map(([id, n]) => {
           const c = this.categories[id];
-          return { id: Number(id), n, name: c ? c.name : this.$t("quickReview.noCategory"), color: (c && c.color) || "#00e5ff" };
+          const cid = id === "null" || id === "undefined" ? null : Number(id);
+          return { id: cid, n, name: c ? c.name : this.$t("quickReview.noCategory"), color: (c && c.color) || "#00e5ff" };
         })
         .sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
     },
@@ -720,11 +737,16 @@ export default {
       return (c && c.color) || "#00e5ff";
     },
     async load() {
+      // only the newest request counts (keys can ask for pages faster than they arrive)
+      const seq = ++this.loadSeq;
+      clearTimeout(this.advanceTimer);
+      this.advanceTimer = null;
       this.loading = true;
       try {
         const r = await axios.get(`/api/review/dataset/${this.datasetId}/queue`, {
           params: { status: this.status, user: this.labeler, order: this.order, page: this.page, per_page: this.perPage }
         });
+        if (seq !== this.loadSeq) return;
         const d = r.data;
         this.images = d.images || [];
         this.categories = Object.fromEntries((d.categories || []).map(c => [c.id, c]));
@@ -734,16 +756,22 @@ export default {
         this.total = d.total;
         this.pages = d.pages;
         if (this.page > this.pages) {
-          this.page = this.pages;
+          this.page = Math.max(1, this.pages);
           if (this.total) return this.load();
         }
         this.decided = {};
         this.views = {};
         this.focus = 0;
         this.rejecting = null;
+        this.regions = [];
+        this.drawing = null;
+        this.editing = null;
+        this.hover = null;
       } finally {
-        this.loading = false;
-        this.$nextTick(this.measure);
+        if (seq === this.loadSeq) {
+          this.loading = false;
+          this.$nextTick(this.measure);
+        }
       }
     },
     go(page) {
@@ -813,10 +841,17 @@ export default {
       if (next >= 0) this.focus = next;
       else if (any >= 0) this.focus = any;
       else {
-        // the page is done: the waiting ones move up (same page), other lists go on
-        setTimeout(() => {
-          if (this.status === "labeled" || this.status === "rejected") this.load();
-          else if (this.page < this.pages) this.go(this.page + 1);
+        // the page is done. Images that left this list make the next ones move
+        // up: load the same page again; otherwise go on to the next page.
+        const page = this.page;
+        const seq = this.loadSeq;
+        const left = this.status !== "all" && this.images.some(img => this.decided[img.id] && this.decided[img.id] !== this.status);
+        clearTimeout(this.advanceTimer);
+        this.advanceTimer = setTimeout(() => {
+          this.advanceTimer = null;
+          if (this.page !== page || this.loadSeq !== seq || this.loading) return;
+          if (left) this.load();
+          else if (page < this.pages) this.go(page + 1);
         }, 600);
       }
     },
@@ -828,6 +863,28 @@ export default {
       }
       const tag = (e.target && e.target.tagName) || "";
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      // browser shortcuts (Ctrl+1, Ctrl+P, ...) are not ours; Shift is (Shift+Y)
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      // the reject box is open (but not focused): keys belong to it
+      if (this.rejecting != null) {
+        const rejected = this.images.find(i => i.id === this.rejecting);
+        if (e.key === "Escape") {
+          e.preventDefault();
+          this.rejecting = null;
+        } else if (e.key === "Enter" && rejected) {
+          e.preventDefault();
+          this.act(rejected, "reject");
+        } else if (/^[1-9]$/.test(e.key) && this.reasonsRef) {
+          const r = this.reasonsRef.reasons[Number(e.key) - 1];
+          if (r) {
+            e.preventDefault();
+            this.pickReason(r);
+          }
+        }
+        return;
+      }
+      // Enter / Space on a focused button presses that button
+      if ((tag === "BUTTON" || tag === "A") && (e.key === "Enter" || e.key === " ")) return;
       const img = this.images[this.focus];
       const cols = this.grid;
       const key = e.key.toLowerCase();
@@ -836,8 +893,8 @@ export default {
         e.preventDefault();
         const to = this.focus + move;
         if (to >= 0 && to < this.images.length) this.focus = to;
-        else if (to >= this.images.length && this.page < this.pages) this.go(this.page + 1);
-        else if (to < 0 && this.page > 1) this.go(this.page - 1);
+        else if (to >= this.images.length && this.page < this.pages && !this.loading) this.go(this.page + 1);
+        else if (to < 0 && this.page > 1 && !this.loading) this.go(this.page - 1);
         return;
       }
       if (key === "y" && e.shiftKey) {
@@ -845,10 +902,10 @@ export default {
         this.approveAll();
       } else if (key === "y" && img) {
         e.preventDefault();
-        this.act(img, "approve");
+        if (this.decided[img.id] !== "approved") this.act(img, "approve");
       } else if (key === "x" && img) {
         e.preventDefault();
-        this.startReject(img);
+        if (this.decided[img.id] !== "rejected") this.startReject(img);
       } else if (key === "enter" && img) {
         e.preventDefault();
         this.openImage(img);
@@ -863,9 +920,9 @@ export default {
       } else if (/^[1-4]$/.test(key)) {
         this.setGrid(parseInt(key, 10));
       } else if (key === "pagedown" || key === "n") {
-        if (this.page < this.pages) this.go(this.page + 1);
+        if (this.page < this.pages && !this.loading) this.go(this.page + 1);
       } else if (key === "pageup" || key === "p") {
-        if (this.page > 1) this.go(this.page - 1);
+        if (this.page > 1 && !this.loading) this.go(this.page - 1);
       }
     }
   },
@@ -875,6 +932,8 @@ export default {
     window.addEventListener("resize", this.measure);
   },
   beforeUnmount() {
+    clearTimeout(this.advanceTimer);
+    this.loadSeq++;
     window.removeEventListener("keydown", this.onKey);
     window.removeEventListener("resize", this.measure);
   }

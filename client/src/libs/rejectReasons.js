@@ -6,21 +6,31 @@ import axios from "axios";
  * annotator and quick review. ``list`` is null until loaded, or when the
  * user never saved any (then the built-in suggestions are shown).
  */
-export const rejectReasons = reactive({ list: null, loaded: false });
+export const rejectReasons = reactive({ list: null, loaded: false, user: null });
 
 let loading = null;
 
-export function loadRejectReasons() {
+export function loadRejectReasons(user = null) {
+  // signed in as someone else in the same tab: their own list
+  if (rejectReasons.user !== user) {
+    rejectReasons.list = null;
+    rejectReasons.loaded = false;
+    rejectReasons.user = user;
+    loading = null;
+  }
   if (rejectReasons.loaded) return Promise.resolve();
   if (!loading) {
     loading = axios
       .get("/api/user/reject-reasons")
       .then(r => {
+        if (rejectReasons.user !== user) return; // switched user meanwhile
         rejectReasons.list = r.data.reasons;
         rejectReasons.loaded = true;
       })
       .catch(() => {})
-      .finally(() => (loading = null));
+      .finally(() => {
+        if (rejectReasons.user === user) loading = null;
+      });
   }
   return loading;
 }

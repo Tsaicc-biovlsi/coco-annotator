@@ -81,6 +81,19 @@ def _dataset_ids(user):
     return [d.id for d in DatasetModel.objects(Q(owner=user.username) | Q(users__contains=user.username)).only('id')]
 
 
+def _ids(item):
+    """The ids of one {"type", "ids"} item; anything that is not a number is skipped."""
+    if not isinstance(item, dict):
+        return []
+    out = []
+    for i in item.get('ids') or []:
+        try:
+            out.append(int(i))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
 def visible(model, user, deleted=True):
     """Trashed documents of this type that the user may see, restore or purge."""
     query = model.objects(deleted=True) if deleted else model.objects
@@ -247,11 +260,11 @@ def restore(user, items, include_parents=False):
     """items: [{"type": ..., "ids": [...]}]. Returns how many were restored."""
     plan = []
     missing_parents = {}
-    for item in items:
-        model = TYPES.get(item.get('type'))
+    for item in items or []:
+        model = TYPES.get(item.get('type')) if isinstance(item, dict) else None
         if model is None:
             continue
-        docs = list(visible(model, user).filter(id__in=[int(i) for i in item.get('ids', [])]))
+        docs = list(visible(model, user).filter(id__in=_ids(item)))
         if not docs:
             continue
         for kind, ids in _parents(item['type'], docs).items():
@@ -313,14 +326,23 @@ def purge_dataset(dataset, keep_files=False):
     dataset.delete()
 
 
+def _purgeable(model, user, docs):
+    """Images (and their files) go for good: only the dataset owner (or an
+    admin) may do that; members can still restore them."""
+    if model is not ImageModel or user.is_admin:
+        return docs
+    owned = {d.id for d in DatasetModel.objects(owner=user.username).only('id')}
+    return [d for d in docs if d.dataset_id in owned]
+
+
 def purge(user, items):
     """Permanently delete trashed items (files on disk too)."""
     count = 0
-    for item in items:
-        model = TYPES.get(item.get('type'))
+    for item in items or []:
+        model = TYPES.get(item.get('type')) if isinstance(item, dict) else None
         if model is None:
             continue
-        docs = list(visible(model, user).filter(id__in=[int(i) for i in item.get('ids', [])]))
+        docs = _purgeable(model, user, list(visible(model, user).filter(id__in=_ids(item))))
         count += _purge_docs(item['type'], docs)
     return count
 
@@ -328,7 +350,7 @@ def purge(user, items):
 def empty(user):
     count = 0
     for kind, model in TYPES.items():
-        count += _purge_docs(kind, list(visible(model, user)))
+        count += _purge_docs(kind, _purgeable(model, user, list(visible(model, user))))
     return count
 
 

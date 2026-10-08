@@ -28,6 +28,19 @@ class AnonymousUser(AnonymousUserMixin):
     def images(self):
         return ImageModel.objects
 
+    # login disabled: everything is editable, like for an admin
+    @property
+    def editable_datasets(self):
+        return self.datasets
+
+    @property
+    def editable_images(self):
+        return self.images
+
+    @property
+    def editable_annotations(self):
+        return self.annotations
+
     @property
     def username(self):
         return "anonymous"

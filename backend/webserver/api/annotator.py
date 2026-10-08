@@ -46,14 +46,17 @@ class AnnotatorData(Resource):
         if image_model is None:
             return {'success': False, 'message': 'Image does not exist'}, 400
 
-        # Check if current user can access dataset
-        db_dataset = current_user.datasets.filter(id=image_model.dataset_id).first()
-        if dataset is None:
-            return {'success': False, 'message': 'Could not find associated dataset'}
-        
-        db_dataset.update(annotate_url=dataset.get('annotate_url', ''))
-        
-        categories = CategoryModel.objects.all()
+        # Saving needs being a member of the dataset (seeing it is not enough)
+        db_dataset = current_user.editable_datasets.filter(id=image_model.dataset_id).first()
+        if db_dataset is None:
+            return {'success': False, 'message': 'You can not edit this dataset'}, 403
+
+        if isinstance(dataset, dict) and 'annotate_url' in dataset:
+            db_dataset.update(annotate_url=dataset.get('annotate_url') or '')
+
+        # only this dataset's categories (and those already used on the image)
+        used = AnnotationModel.objects(image_id=image_id).distinct('category_id')
+        categories = CategoryModel.objects(id__in=list(set(db_dataset.categories or []) | set(used)))
         annotations = AnnotationModel.objects(image_id=image_id)
 
         current_user.update(preferences=data.get('user', {}))
@@ -70,8 +73,12 @@ class AnnotatorData(Resource):
             if db_category is None:
                 continue
 
-            category_update = {'color': category.get('color')}
+            # a category may be shared with other datasets: its colour and
+            # settings are changed only by its creator (or an admin)
+            category_update = {}
             if current_user.can_edit(db_category):
+                if category.get('color'):
+                    category_update['color'] = category.get('color')
                 category_update['keypoint_edges'] = category.get('keypoint_edges', [])
                 category_update['keypoint_labels'] = category.get('keypoint_labels', [])
                 category_update['keypoint_colors'] = category.get('keypoint_colors', [])
@@ -80,7 +87,8 @@ class AnnotatorData(Resource):
                     if parents['supercategories'] != db_category.parents():
                         category_update.update(parents)
             
-            db_category.update(**category_update)
+            if category_update:
+                db_category.update(**category_update)
 
             # Iterate every annotation from the data annotations
             for annotation in category.get('annotations', []):

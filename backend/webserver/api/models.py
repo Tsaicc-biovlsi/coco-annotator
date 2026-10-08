@@ -56,7 +56,8 @@ class SegmentAnything(Resource):
         if box is not None and len(box) != 4:
             return {"message": "box must be [x1, y1, x2, y2]"}, 400
 
-        image_model = ImageModel.objects(id=image_id).first()
+        # only images this user can open
+        image_model = current_user.images.filter(id=image_id, deleted=False).first()
         if not image_model:
             return {"message": "Invalid image ID"}, 400
 
@@ -80,7 +81,7 @@ class SegmentAnythingPrepare(Resource):
         if not sam.available:
             return {"disabled": True, "message": "SAM is not available on this server"}, 400
 
-        image_model = ImageModel.objects(id=image_id).first()
+        image_model = current_user.images.filter(id=image_id, deleted=False).first()
         if not image_model:
             return {"message": "Invalid image ID"}, 400
 
@@ -302,7 +303,7 @@ class YoloImage(Resource):
         if error:
             return error
 
-        image = current_user.images.filter(id=image_id, deleted=False).first()
+        image = current_user.editable_images.filter(id=image_id, deleted=False).first()
         if image is None:
             return {"message": "Invalid image ID"}, 400
         if not current_user.can_edit(image.dataset):
@@ -331,7 +332,7 @@ class YoloDataset(Resource):
         if error:
             return error
 
-        dataset = current_user.datasets.filter(id=dataset_id, deleted=False).first()
+        dataset = current_user.editable_datasets.filter(id=dataset_id, deleted=False).first()
         if dataset is None:
             return {"message": "Invalid dataset ID"}, 400
         if not current_user.can_edit(dataset):

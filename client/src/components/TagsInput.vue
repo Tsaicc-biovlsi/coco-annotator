@@ -6,7 +6,7 @@
         v-for="(badge, index) in tagBadges"
         :key="index"
       >
-        <span v-html="badge"></span>
+        <span class="badge-text">{{ badge }}</span>
 
         <i
           href="#"
@@ -270,7 +270,8 @@ export default {
 
       // Attach the tag if it hasn't been attached yet
       if (!this.tagSelected(slug)) {
-        this.tagBadges.push(text.replace(/\s/g, "&nbsp;"));
+        // plain text (never HTML): names come from other users
+        this.tagBadges.push(text);
         this.tags.push(slug);
       }
 
@@ -470,5 +471,8 @@ export default {
 
 .tags-input-root {
   position: relative;
+}
+.badge-text {
+  white-space: pre;
 }
 </style>

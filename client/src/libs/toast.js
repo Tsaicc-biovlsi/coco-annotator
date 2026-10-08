@@ -91,7 +91,8 @@ function show(type, message, title, opts) {
       el.remove();
       if (!box.children.length) {
         box.remove();
-        delete containers[o.positionClass];
+        // only if it is still this box (clear() may have made a new one)
+        if (containers[o.positionClass] === box) delete containers[o.positionClass];
       }
     }, now ? 150 : 300);
   }

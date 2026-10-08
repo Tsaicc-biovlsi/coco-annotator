@@ -59,7 +59,9 @@ class Undo(Resource):
     @api.expect(model_data)
     @login_required
     def delete(self):
-        """ Permanently delete an item """
+        """ Permanently delete an item (same rules as /api/trash/purge) """
+        if not current_user.can_page('activity'):
+            return {'message': 'You do not have access to the activity log', 'code': 'no_page'}, 403
         args = model_data.parse_args()
         if args['instance'] not in trash.TYPES:
             return {"message": "Instance not found"}, 400

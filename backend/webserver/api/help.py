@@ -7,7 +7,7 @@ from flask_login import login_required, current_user
 from flask_restx import Namespace, Resource, reqparse
 from mongoengine import Q
 
-from database import DatasetModel, HelpModel, ImageModel, UserModel
+from database import AnnotationModel, DatasetModel, HelpModel, ImageModel, UserModel
 from ..util import activity
 
 api = Namespace('help', description='Questions while annotating')
@@ -37,7 +37,8 @@ def _image(image_id):
 def _helpers(dataset):
     """The dataset's creator and reviewers (not the asker), online first."""
     from ..sockets import is_online
-    names = [dataset.owner] + [r for r in (dataset.reviewers or []) if r != dataset.owner]
+    names = [dataset.owner] + [r for r in (dataset.reviewers or [])
+                               if r != dataset.owner and r in (dataset.users or [])]
     users = {u.username: u for u in UserModel.objects(username__in=names).only('username', 'name', 'last_seen')}
     now = datetime.datetime.utcnow()
     out = []
@@ -55,9 +56,11 @@ def _helpers(dataset):
 
 
 def _can_answer(req, dataset):
-    name = current_user.username
-    return name in (req.to or []) or (dataset is not None and (dataset.is_creator(current_user)
-                                                                or name in (dataset.reviewers or [])))
+    """The dataset's creator and reviewers as they are now (someone taken off
+    the dataset can no longer answer, even if they were asked)."""
+    if dataset is None or getattr(dataset, 'deleted', False):
+        return False
+    return dataset.can_review(current_user)
 
 
 def _push(names, event, req):
@@ -117,12 +120,17 @@ class Ask(Resource):
         if not message and region is None and not args.get('annotation_id'):
             return {'message': 'Zoom to the part you are not sure about (or write a note).'}, 400
         allowed = {h['username'] for h in _helpers(dataset)}
-        to = [u for u in (args.get('to') or allowed) if u in allowed]
+        wanted = args.get('to') if isinstance(args.get('to'), list) else None
+        to = [u for u in (wanted or allowed) if isinstance(u, str) and u in allowed]
+        annotation_id = args.get('annotation_id')
+        if annotation_id is not None and AnnotationModel.objects(
+                id=annotation_id, image_id=image.id).only('id').first() is None:
+            annotation_id = None
         if not to:
             return {'message': 'Nobody to ask: the dataset has no creator or reviewers besides you.'}, 400
         req = HelpModel(image_id=image.id, dataset_id=dataset.id, file_name=image.file_name,
                         user=current_user.username, to=to, message=message,
-                        annotation_id=args.get('annotation_id'), region=region)
+                        annotation_id=annotation_id, region=region)
         req.save()
         activity.record('help_request', current_user, dataset_id=dataset.id, image_id=image.id,
                         detail={'file_name': image.file_name, 'to': to, 'message': message[:200]},
@@ -137,7 +145,9 @@ class Inbox(Resource):
     def get(self):
         """ Open questions asked to me, and my questions (answered or not) """
         name = current_user.username
-        incoming = HelpModel.objects(to=name, status='open').order_by('-created_at')[:50]
+        incoming = list(HelpModel.objects(to=name, status='open').order_by('-created_at')[:100])
+        datasets = {d.id: d for d in DatasetModel.objects(id__in=list({r.dataset_id for r in incoming}))}
+        incoming = [r for r in incoming if _can_answer(r, datasets.get(r.dataset_id))][:50]
         # answered ones stay until the asker has looked at them
         mine = HelpModel.objects(user=name, status__in=['open', 'resolved'], seen__ne=True).order_by('-updated_at')[:20]
         return {'incoming': [_out(r) for r in incoming], 'mine': [_out(r) for r in mine]}
@@ -178,6 +188,8 @@ class Reply(Resource):
         mine = req.user == current_user.username
         if not mine and not _can_answer(req, dataset):
             return {'message': 'Only the people asked can answer'}, 403
+        if req.status == 'cancelled':
+            return {'message': 'This question was withdrawn'}, 400
         args = reply_args.parse_args()
         message = (args.get('message') or '').strip()[:2000]
         now = datetime.datetime.utcnow()

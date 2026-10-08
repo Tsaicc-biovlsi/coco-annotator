@@ -161,13 +161,17 @@ class DatasetModel(DynamicDocument):
         """The person who created the dataset (being an admin is not enough)."""
         return bool(self.owner) and user.username.lower() == self.owner.lower()
 
+    def is_reviewer(self, user):
+        """Chosen as a reviewer and still a member of the dataset."""
+        return user.username in (self.reviewers or []) and user.username in (self.users or [])
+
     def can_review(self, user):
         """Approve / reject: only the creator and the reviewers the creator chose
         (not admins as such)."""
-        return self.is_creator(user) or user.username in (self.reviewers or [])
+        return self.is_creator(user) or self.is_reviewer(user)
 
     def can_assign(self, user):
-        return self.is_owner(user) or user.username in (self.reviewers or [])
+        return self.is_owner(user) or self.is_reviewer(user)
     
     def permissions(self, user):
         return {

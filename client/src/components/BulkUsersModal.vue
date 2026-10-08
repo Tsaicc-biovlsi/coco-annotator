@@ -299,7 +299,7 @@ export default {
     },
     /** Rows of text (Excel copy, CSV) into the table from row ``start`` on */
     fill(text, start = 0, field = "username") {
-      const lines = text.replace(/^﻿/, "").split(/\r?\n/).map(splitLine).filter(Boolean);
+      const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).map(splitLine).filter(Boolean);
       // a header line such as "學號,姓名" is skipped
       if (lines.length && !STUDENT_ID.test(lines[0][0] || "") && /學號|帳號|id|user/i.test(lines[0].join(" "))) lines.shift();
       const offset = FIELDS.indexOf(field);

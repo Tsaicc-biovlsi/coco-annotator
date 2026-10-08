@@ -49,9 +49,16 @@ export default {
       this.$parent.current.annotation = -1;
 
       this.$nextTick(() => {
-        const go = this.$parent.saveIfChanged || this.$parent.save;
-        go.call(this.$parent, () => {
-          this.$router.push({ name: "annotate", params: { identifier } });
+        const parent = this.$parent;
+        const go = parent.saveIfChanged || parent.save;
+        const open = () => this.$router.push({ name: "annotate", params: { identifier } });
+        go.call(parent, open, {
+          // saving failed: go anyway only if they say so (the edits are lost)
+          onError: () => {
+            if (!window.confirm(this.$t("annotator.leaveUnsaved"))) return;
+            parent.leaveWithoutSaving = true;
+            open();
+          }
         });
       });
     }

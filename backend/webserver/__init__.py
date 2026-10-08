@@ -63,6 +63,33 @@ if Config.INITIALIZE_FROM_FILE:
     create_from_json(Config.INITIALIZE_FROM_FILE)
 
 
+# The web page may only run scripts from this server: even if someone gets
+# markup into a name, the browser will not run it. (/api keeps the Swagger
+# page working, which needs its own inline script.)
+CSP = "; ".join([
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "media-src 'self' blob:",
+    "font-src 'self' data:",
+    "connect-src 'self' ws: wss:",
+    "worker-src 'self' blob:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "frame-ancestors 'self'",
+])
+
+
+@app.after_request
+def security_headers(response):
+    from flask import request
+    response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    if not request.path.startswith('/api') and not request.path.startswith('/socket.io'):
+        response.headers.setdefault('Content-Security-Policy', CSP)
+    return response
+
+
 @app.before_request
 def serve_built_files():
     """Built files: the gzip copy when the browser takes it, and files with a

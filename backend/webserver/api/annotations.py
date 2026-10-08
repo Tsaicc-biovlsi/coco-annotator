@@ -1,7 +1,7 @@
 from flask_restx import Namespace, Resource, reqparse
 from flask_login import login_required, current_user
 
-from database import AnnotationModel, ImageModel
+from database import AnnotationModel, ImageModel, DatasetModel
 from ..util import query_util
 
 import datetime
@@ -43,9 +43,13 @@ class Annotation(Resource):
         segmentation = args.get('segmentation', [])
         keypoints = args.get('keypoints', [])
 
-        image = current_user.images.filter(id=image_id, deleted=False).first()
+        image = current_user.editable_images.filter(id=image_id, deleted=False).first()
         if image is None:
             return {"message": "Invalid image id"}, 400
+        if category_id is not None:
+            dataset = DatasetModel.objects(id=image.dataset_id).only('categories').first()
+            if dataset is None or category_id not in (dataset.categories or []):
+                return {"message": "Invalid category id"}, 400
         
         logger.info(
             f'{current_user.username} has created an annotation for image {image_id} with {isbbox}')
@@ -87,7 +91,7 @@ class AnnotationId(Resource):
     @login_required
     def delete(self, annotation_id):
         """ Deletes an annotation by ID """
-        annotation = current_user.annotations.filter(id=annotation_id).first()
+        annotation = current_user.editable_annotations.filter(id=annotation_id, deleted=False).first()
 
         if annotation is None:
             return {"message": "Invalid annotation id"}, 400
@@ -101,7 +105,7 @@ class AnnotationId(Resource):
     @login_required
     def put(self, annotation_id):
         """ Updates an annotation by ID """
-        annotation = current_user.annotations.filter(id=annotation_id).first()
+        annotation = current_user.editable_annotations.filter(id=annotation_id, deleted=False).first()
 
         if annotation is None:
             return { "message": "Invalid annotation id" }, 400
@@ -109,7 +113,13 @@ class AnnotationId(Resource):
         args = update_annotation.parse_args()
 
         new_category_id = args.get('category_id')
-        if new_category_id is not None and current_user.categories.filter(id=new_category_id).first() is None:
+        if new_category_id is None:
+            # nothing to change (an empty body must not clear the category)
+            return query_util.fix_ids(annotation)
+        # only a category of this annotation's dataset
+        image = ImageModel.objects(id=annotation.image_id).only('dataset_id').first()
+        dataset = DatasetModel.objects(id=image.dataset_id).only('categories').first() if image else None
+        if dataset is None or new_category_id not in (dataset.categories or []):
             return {"message": "Invalid category id"}, 400
         changed = new_category_id != annotation.category_id
         annotation.update(category_id=new_category_id)
@@ -124,7 +134,7 @@ class AnnotationId(Resource):
         logger.info(
             f'{current_user.username} has updated category for annotation (id: {annotation.id})'
         )
-        newAnnotation = current_user.annotations.filter(id=annotation_id).first()
+        newAnnotation = current_user.editable_annotations.filter(id=annotation_id).first()
         return query_util.fix_ids(newAnnotation)
 
 # @api.route('/<int:annotation_id>/mask')

@@ -44,6 +44,8 @@
     "visibility": "Visibility"
   },
   "annotator": {
+    "saveFailed": "Saving failed",
+    "leaveUnsaved": "Saving failed: the latest changes are not on the server yet. Leave anyway? (they will be lost)",
     "soloOn": "Show only this category (the others fade); hovering a category does it for a moment",
     "soloOff": "Show every category",
     "onlyCategory": "Only: {name}",
@@ -555,6 +557,8 @@
     "connectionLostToTheBackend": "Connection lost to the backend"
   },
   "toolbar": {
+    "copyAnnotations": "Copy annotations",
+    "clearAnnotations": "Clear this image's annotations",
     "mode": {
       "label": "label",
       "segment": "segment"
@@ -719,6 +723,7 @@
     "trainWith": "After unzipping, train with e.g.:"
   },
   "review": {
+    "notSaved": "The latest changes are not saved yet, so the image was not submitted; please try again",
     "showRegions": "Show the marked problem areas ({n})",
     "attachView": "Attach the zoomed-in area",
     "attachViewHint": "Zoom in on the problem before rejecting: the annotator sees a red dashed box there. Nothing is attached when not zoomed in",
