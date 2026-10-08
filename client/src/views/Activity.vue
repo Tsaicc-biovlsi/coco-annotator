@@ -253,7 +253,7 @@ const ACTION_GROUP = {
   delete: "delete", restore: "delete", purge: "delete", undo_import: "delete",
   dataset_create: "dataset", dataset_update: "dataset", dataset_share: "dataset",
   category_create: "dataset", category_update: "dataset", reviewers: "review",
-  review: "review", assign: "review"
+  review: "review", assign: "review", help_request: "review", help_reply: "review"
 };
 const ICONS = {
   annotate: "fa-pencil", copy: "fa-clone", auto_annotate: "fa-magic",
@@ -265,7 +265,7 @@ const ICONS = {
   user_create: "fa-user-plus", user_bulk: "fa-users", user_update: "fa-user", user_delete: "fa-user-times",
   password_change: "fa-key", role_create: "fa-id-badge", role_update: "fa-id-badge", role_delete: "fa-id-badge",
   model_upload: "fa-cubes", model_update: "fa-cubes", model_delete: "fa-cubes", task_delete: "fa-tasks",
-  task_clear: "fa-tasks"
+  task_clear: "fa-tasks", help_request: "fa-life-ring", help_reply: "fa-reply"
 };
 
 export default {
@@ -465,6 +465,10 @@ export default {
             n: c.images || 0,
             people: Object.entries(d.people || {}).map(([u, n]) => `${u} ${n}`).join("、")
           });
+        case "help_request":
+          return t("helpRequest", { file, msg: d.message || "" });
+        case "help_reply":
+          return t("helpReply", { file, msg: d.message || "" });
         case "user_create":
           return t("userCreate", { name: this.who(d), role: this.roleLabel(d.role, d.role_name) });
         case "user_bulk":

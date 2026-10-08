@@ -1093,7 +1093,9 @@
       "modelChanged_note": "note",
       "modelDelete": "Deleted model {name}",
       "taskDelete": "Deleted task {name}",
-      "taskClear": "Cleared {n} finished tasks"
+      "taskClear": "Cleared {n} finished tasks",
+      "helpRequest": "Asked for help on {file}: {msg}",
+      "helpReply": "Answered a question on {file}: {msg}"
     }
   },
   "parents": {
@@ -1209,5 +1211,48 @@
     "hint": "Parents can have levels: \"Vehicles/Land\" puts it in \"Land\" inside \"Vehicles\".",
     "includeBelow": "Include sub-folders",
     "onlyFolders": "No categories directly here: turn on \"Include sub-folders\" or open a folder."
+  },
+  "help": {
+    "inboxTitle": "Help",
+    "inboxEmpty": "No questions",
+    "askedToMe": "Asked to me",
+    "myQuestions": "My questions (answered)",
+    "repliesN": "{n} replies",
+    "resolved": "Solved",
+    "replied": "Answered",
+    "waiting": "Waiting",
+    "someoneAsks": "{name} needs help",
+    "gotAnswer": "{name} answered your question",
+    "followUp": "{name} added to the question",
+    "clickToGo": "click to open",
+    "myQuestion": "My question",
+    "showAnnotation": "Show annotation #{id}",
+    "addMore": "Add more…",
+    "answerPlaceholder": "Answer…",
+    "send": "Send",
+    "sendAndClose": "Answer and close",
+    "markSolved": "Solved",
+    "withdraw": "Withdraw",
+    "ask": "Not sure how to annotate? Ask",
+    "askWho": "Ask whom (green = online)",
+    "nobody": "No creator or reviewer to ask on this dataset",
+    "noneOnline": "Nobody is online now: the question waits until they are.",
+    "online": "online",
+    "offline": "offline",
+    "seen": "seen {t}",
+    "role": {
+      "creator": "creator",
+      "reviewer": "reviewer"
+    },
+    "messagePlaceholder": "What are you not sure about?",
+    "attachAnnotation": "Attach the selected annotation #{id}",
+    "sendQuestion": "Send question",
+    "cancel": "Cancel",
+    "sent": "Sent — they are notified right away",
+    "annotationGone": "That annotation is no longer on this image",
+    "justNow": "just now",
+    "minutesAgo": "{n} min ago",
+    "hoursAgo": "{n} h ago",
+    "daysAgo": "{n} days ago"
   }
 }

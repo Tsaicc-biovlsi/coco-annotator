@@ -1225,7 +1225,9 @@
       "modelChanged_note": "備註",
       "modelDelete": "刪除模型 {name}",
       "taskDelete": "刪除任務 {name}",
-      "taskClear": "清除 {n} 個已完成的任務"
+      "taskClear": "清除 {n} 個已完成的任務",
+      "helpRequest": "在 {file} 求助：{msg}",
+      "helpReply": "回覆 {file} 的問題：{msg}"
     }
   },
   "parents": {
@@ -1341,5 +1343,48 @@
     "hint": "上層類別可以有很多層：在「上層類別」輸入「交通工具/陸地」就會放在「交通工具」裡的「陸地」。",
     "includeBelow": "包含下層",
     "onlyFolders": "這一層沒有直接放類別，打開「包含下層」或點下面的資料夾。"
+  },
+  "help": {
+    "inboxTitle": "求助",
+    "inboxEmpty": "目前沒有求助",
+    "askedToMe": "別人問我的",
+    "myQuestions": "我問的（已有回覆）",
+    "repliesN": "{n} 則回覆",
+    "resolved": "已解決",
+    "replied": "有回覆",
+    "waiting": "等待回覆",
+    "someoneAsks": "{name} 需要協助",
+    "gotAnswer": "{name} 回覆了你的問題",
+    "followUp": "{name} 補充了問題",
+    "clickToGo": "點這裡前往",
+    "myQuestion": "我的問題",
+    "showAnnotation": "看問題中的標註 #{id}",
+    "addMore": "補充說明…",
+    "answerPlaceholder": "回覆…",
+    "send": "送出",
+    "sendAndClose": "回覆並結案",
+    "markSolved": "已解決",
+    "withdraw": "撤回問題",
+    "ask": "不確定怎麼標？求助",
+    "askWho": "問誰（綠點＝線上）",
+    "nobody": "這個資料集沒有其他建立者或審核者可以問",
+    "noneOnline": "目前都不在線上，問題會留著，他們下次上線就會看到。",
+    "online": "線上",
+    "offline": "離線",
+    "seen": "{t}上線",
+    "role": {
+      "creator": "建立者",
+      "reviewer": "審核者"
+    },
+    "messagePlaceholder": "哪裡不確定？例如：這個被手擋住一半的針筒要框整支還是只框看得到的部分？",
+    "attachAnnotation": "附上目前選取的標註 #{id}",
+    "sendQuestion": "送出問題",
+    "cancel": "取消",
+    "sent": "已送出，對方會馬上收到通知",
+    "annotationGone": "這個標註已經不在這張圖上了",
+    "justNow": "剛剛",
+    "minutesAgo": "{n} 分鐘前",
+    "hoursAgo": "{n} 小時前",
+    "daysAgo": "{n} 天前"
   }
 }

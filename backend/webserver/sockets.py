@@ -1,7 +1,7 @@
 import functools
 import time
 
-from flask import session
+from flask import session, request
 from flask_socketio import (
     SocketIO,
     disconnect,
@@ -26,6 +26,29 @@ from engineio.payload import Payload
 Payload.max_decode_packets = 1000
 
 socketio = SocketIO(async_mode='threading')
+
+# who has the app open right now: username -> socket ids (one web worker)
+ONLINE = {}
+
+
+def is_online(username):
+    return bool(ONLINE.get(username))
+
+
+def _join_user():
+    if not current_user.is_authenticated:
+        return
+    join_room(user_room(current_user.username))
+    ONLINE.setdefault(current_user.username, set()).add(request.sid)
+
+
+def user_room(username):
+    return f"user:{username}"
+
+
+def notify_user(username, event, data):
+    """Push to every page that user has open"""
+    socketio.emit(event, data, room=user_room(username))
 
 
 def authenticated_only(f):
@@ -111,12 +134,27 @@ def annotating(data):
 @socketio.on('connect')
 def connect():
     logger.info(f'Socket connection created with {current_user.username}')
+    _join_user()
+
+
+@socketio.on('join_user')
+def join_user(data=None):
+    """Sent by the page once it knows who is logged in. The socket keeps the
+    session it connected with: False tells a page that logged in after
+    connecting to reconnect."""
+    _join_user()
+    return bool(current_user.is_authenticated)
 
 
 @socketio.on('disconnect')
 def disconnect():
     if current_user.is_authenticated:
         logger.info(f'Socket connection has been disconnected with {current_user.username}')
+        sids = ONLINE.get(current_user.username)
+        if sids is not None:
+            sids.discard(request.sid)
+            if not sids:
+                ONLINE.pop(current_user.username, None)
         image_id = session.get('annotating')
 
         # Remove user from room

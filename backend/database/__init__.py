@@ -13,6 +13,7 @@ from .tasks import *
 from .activity import *
 from .model_info import *
 from .roles import RoleModel
+from .help import HelpModel
 
 import json
 
@@ -58,7 +59,7 @@ def ensure_indexes():
     """
     CategoryModel.drop_old_unique_index()
     for model in (ImageModel, AnnotationModel, DatasetModel, CategoryModel,
-                  UserModel, TaskModel, ExportModel, ActivityModel):
+                  UserModel, TaskModel, ExportModel, ActivityModel, HelpModel):
         model.ensure_indexes()
 
 

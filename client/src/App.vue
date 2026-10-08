@@ -36,6 +36,10 @@ export default {
     pageNeeded() {
       return (this.$route.meta && this.$route.meta.page) || null;
     },
+    currentUsername() {
+      const user = this.$store.state.user.user;
+      return user ? user.username : null;
+    },
     /** logged in with a password an admin chose: pick one before anything else */
     mustChangePassword() {
       const user = this.$store.state.user.user;
@@ -89,6 +93,19 @@ export default {
           options
         );
       }, 1000);
+    },
+    /** the socket joins the user's room when it connects: reconnect after logging in / out */
+    currentUsername(now) {
+      // join this user's room (pushed questions / answers): the socket may
+      // have connected before logging in
+      if (now && this.$socket) {
+        this.$socket.emit("join_user", null, ok => {
+          if (ok === false) {
+            this.$socket.disconnect();
+            this.$socket.connect();
+          }
+        });
+      }
     },
     loginRequired: {
       handler(newValue) {

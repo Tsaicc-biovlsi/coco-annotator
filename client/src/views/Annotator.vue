@@ -126,6 +126,14 @@
         @navigate="id => $refs.filetitle.route(id)"
       />
 
+      <HelpPanel
+        v-if="image.id != null && loginEnabledForHelp"
+        :image-id="image.id"
+        :selected-annotation-id="currentAnnotation && currentAnnotation.annotation ? currentAnnotation.annotation.id : null"
+        :focus-id="$route.query.help ? Number($route.query.help) : null"
+        @show-annotation="showAnnotationById"
+      />
+
       <ImageClassPicker
         v-if="image.id != null && (!dataset.task || dataset.task === 'classify' || image.imageClass != null)"
         v-model:value="image.imageClass"
@@ -285,6 +293,7 @@ import shortcuts from "@/mixins/shortcuts";
 
 import FileTitle from "@/components/annotator/FileTitle.vue";
 import ReviewBar from "@/components/annotator/ReviewBar.vue";
+import HelpPanel from "@/components/annotator/HelpPanel.vue";
 import ImageClassPicker from "@/components/annotator/ImageClassPicker.vue";
 import { TASK_TOOLS } from "@/components/TaskPicker.vue";
 import Category from "@/components/annotator/Category.vue";
@@ -333,6 +342,7 @@ export default {
   components: {
     FileTitle,
     ReviewBar,
+    HelpPanel,
     ImageClassPicker,
     CopyAnnotationsButton,
     Category,
@@ -743,6 +753,19 @@ export default {
 
         this.loading.image = false;
       };
+    },
+    /** select the annotation a question is about */
+    showAnnotationById(id) {
+      const categories = this.categoryRefs();
+      for (const category of categories) {
+        const annotations = category.annotationRefs();
+        const index = annotations.findIndex(a => a.annotation && a.annotation.id === id);
+        if (index >= 0) {
+          this.onCategoryClick({ category: category.index, annotation: index, keypoint: -1 });
+          return;
+        }
+      }
+      this.$toastr.info(this.$t("help.annotationGone"));
     },
     /* ---------- left + right button: temporary Select tool ---------- */
     toolRef(name) {
@@ -1514,6 +1537,10 @@ export default {
   },
   computed: {
     /** parent heading above each category (computed once, not on every redraw) */
+    /** questions need accounts (not with login turned off) */
+    loginEnabledForHelp() {
+      return !!this.$store.state.info.loginEnabled;
+    },
     groupTitles() {
       const firsts = this.categories.map(c => parentsOf(c)[0] || "");
       if (!firsts.some(Boolean)) return this.categories.map(() => null);

@@ -68,6 +68,7 @@
         </li>
       </ul>
       <Status class="nav-link left" />
+      <HelpInbox v-if="$store.state.user.user && loginEnabled" class="me-2" />
       <LanguageSwitcher />
       <User class="nav-link left" v-if="loginEnabled" />
     </div>
@@ -78,11 +79,12 @@
 import User from "@/components/User.vue";
 import Status from "@/components/Status.vue";
 import LanguageSwitcher from "@/components/LanguageSwitcher.vue";
+import HelpInbox from "@/components/HelpInbox.vue";
 import { DOCS_URL } from "@/links";
 
 export default {
   name: "NavBar",
-  components: { Status, User, LanguageSwitcher },
+  components: { Status, User, LanguageSwitcher, HelpInbox },
   data() {
     return {
       docsUrl: DOCS_URL,
