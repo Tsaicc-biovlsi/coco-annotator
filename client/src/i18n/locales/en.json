@@ -733,8 +733,6 @@
     "notePlaceholder": "Why (the annotator sees this), e.g. a boat in the lower left is missing",
     "submittedBy": "Submitted by {name}",
     "approvedBy": "Approved by {name}",
-    "autoNextReview": "Then go to the next image to review",
-    "autoNextWork": "After submitting, go to my next image",
     "done": {
       "submit": "Submitted",
       "approve": "Approved",
@@ -778,7 +776,8 @@
     "all": "All",
     "assignedToMe": "Assigned to me",
     "onlyApproved": "Only images that were approved",
-    "submitOnNext": "When going to the next image (N or →), submit it (reviewers: approve it) if it has annotations",
+    "submitOnNext": "Auto-submit",
+    "submitOnNextHint": "When going to the next image (N or →), submit it (reviewers: approve it) if it has annotations",
     "submittedOnNext": "Submitted {name}",
     "submitApprove": "Done (approve directly)",
     "approvedOnNext": "Approved {name}",

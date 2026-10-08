@@ -123,7 +123,6 @@
         :can-review="!!(permissions.dataset && permissions.dataset.review)"
         @before-submit="done => save(done)"
         @updated="review = $event"
-        @navigate="id => $refs.filetitle.route(id)"
       />
 
       <HelpPanel

@@ -35,7 +35,7 @@
           type="button"
           class="btn btn-sm btn-success"
           :disabled="busy"
-          @click="act('approve', null, true)"
+          @click="act('approve')"
         >
           <i class="fa fa-check" /> {{ $t('review.approve') }}
         </button>
@@ -67,11 +67,11 @@
         class="form-control form-control-sm"
         rows="2"
         :placeholder="$t('review.notePlaceholder')"
-        @keydown.enter.ctrl.prevent="act('reject', note, true)"
+        @keydown.enter.ctrl.prevent="act('reject', note)"
         @keydown.esc.prevent="rejecting = false"
       />
       <div class="d-flex gap-1 mt-1">
-        <button type="button" class="btn btn-sm btn-danger" :disabled="busy" @click="act('reject', note, true)">
+        <button type="button" class="btn btn-sm btn-danger" :disabled="busy" @click="act('reject', note)">
           {{ $t('review.rejectConfirm') }}
         </button>
         <button type="button" class="btn btn-sm btn-link text-light" @click="rejecting = false">
@@ -82,12 +82,8 @@
 
     <div v-if="canEdit" class="form-check form-switch mt-2 small">
       <input id="reviewSubmitOnNext" v-model="submitOnNext" class="form-check-input" type="checkbox" />
-      <label class="form-check-label" for="reviewSubmitOnNext">{{ $t('review.submitOnNext') }}</label>
-    </div>
-    <div class="form-check form-switch mt-1 small">
-      <input id="reviewAutoNext" v-model="autoNext" class="form-check-input" type="checkbox" />
-      <label class="form-check-label" for="reviewAutoNext">
-        {{ canReview ? $t('review.autoNextReview') : $t('review.autoNextWork') }}
+      <label class="form-check-label" for="reviewSubmitOnNext" :title="$t('review.submitOnNextHint')">
+        {{ $t('review.submitOnNext') }}
       </label>
     </div>
   </div>
@@ -96,7 +92,6 @@
 <script>
 import axios from "axios";
 
-const AUTO_NEXT_KEY = "review/autoNext";
 const SUBMIT_ON_NEXT_KEY = "review/submitOnNext";
 
 export function statusClass(status) {
@@ -118,21 +113,15 @@ export default {
     canEdit: { type: Boolean, default: false },
     canReview: { type: Boolean, default: false }
   },
-  emits: ["updated", "navigate", "before-submit"],
+  emits: ["updated", "before-submit"],
   data() {
-    let autoNext = true;
-    try {
-      autoNext = localStorage.getItem(AUTO_NEXT_KEY) !== "false";
-    } catch {
-      // storage unavailable: keep the default
-    }
     let submitOnNext = false;
     try {
       submitOnNext = localStorage.getItem(SUBMIT_ON_NEXT_KEY) === "true";
     } catch {
       // storage unavailable: off
     }
-    return { busy: false, rejecting: false, note: "", autoNext, submitOnNext };
+    return { busy: false, rejecting: false, note: "", submitOnNext };
   },
   computed: {
     status() {
@@ -140,13 +129,6 @@ export default {
     }
   },
   watch: {
-    autoNext(value) {
-      try {
-        localStorage.setItem(AUTO_NEXT_KEY, String(value));
-      } catch {
-        // ignore
-      }
-    },
     submitOnNext(value) {
       try {
         localStorage.setItem(SUBMIT_ON_NEXT_KEY, String(value));
@@ -161,7 +143,7 @@ export default {
   },
   methods: {
     statusClass,
-    async act(action, note = null, reviewing = false) {
+    async act(action, note = null) {
       this.busy = true;
       try {
         // the latest edits are saved before submitting
@@ -177,7 +159,6 @@ export default {
         this.note = "";
         const approvedOwn = action === "submit" && r.data.status === "approved";
         this.$toastr.success(this.$t(approvedOwn ? "review.done.selfApprove" : "review.done." + action));
-        if (this.autoNext && (action === "submit" || reviewing)) await this.goNext(reviewing ? "review" : "work");
       } catch (error) {
         const data = (error.response && error.response.data) || {};
         this.$toastr.error(data.message || String(error));
@@ -185,16 +166,11 @@ export default {
         this.busy = false;
       }
     },
-    /**
-     * Called when moving to the next image (N or the arrow), after saving:
-     * with the switch on, an image that has annotations and is not
-     * submitted yet is submitted. Never stops the move.
-     */
     /** Y: approve (reviewers) or "done" (annotators), whichever this image offers */
     shortcutApprove() {
       if (this.busy) return;
       if (this.canEdit && (this.status === "unlabeled" || this.status === "rejected")) this.act("submit");
-      else if (this.canReview && this.status !== "unlabeled" && this.status !== "approved") this.act("approve", null, true);
+      else if (this.canReview && this.status !== "unlabeled" && this.status !== "approved") this.act("approve");
       else this.$toastr.info(this.$t("review.nothingToApprove"));
     },
     /** X: open the reject box (Ctrl+Enter sends, Esc closes) */
@@ -206,6 +182,11 @@ export default {
       this.rejecting = true;
       this.$nextTick(() => this.$refs.note && this.$refs.note.focus());
     },
+    /**
+     * Called when moving to the next image (N or the arrow), after saving:
+     * with the switch on, an image that has annotations and is not
+     * submitted yet is submitted. Never stops the move.
+     */
     async submitBeforeNext() {
       if (!this.submitOnNext || !this.canEdit || !(this.status === "unlabeled" || this.status === "rejected")) return;
       try {
@@ -218,17 +199,6 @@ export default {
       } catch (error) {
         const data = (error.response && error.response.data) || {};
         this.$toastr.error(data.message || String(error));
-      }
-    },
-    async goNext(mode) {
-      if (!this.datasetId) return;
-      const r = await axios.get(`/api/review/dataset/${this.datasetId}/next`, {
-        params: { mode, after: this.filename }
-      });
-      if (r.data.id && r.data.id !== this.imageId) {
-        this.$emit("navigate", r.data.id);
-      } else {
-        this.$toastr.info(this.$t(mode === "review" ? "review.nothingToReview" : "review.nothingToDo"));
       }
     }
   }
