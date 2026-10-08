@@ -13,6 +13,14 @@
         >
           <i class="fa fa-search" /> {{ $t('review.startReview', { n: progress.total.labeled }) }}
         </button>
+        <RouterLink
+          v-if="progress && progress.can_review"
+          :to="`/review/${datasetId}`"
+          class="btn btn-sm btn-outline-warning"
+          :title="$t('quickReview.hint')"
+        >
+          <i class="fa fa-th" /> {{ $t('quickReview.title') }}
+        </RouterLink>
         <button type="button" class="btn btn-sm btn-primary" :disabled="!myOpen" @click="openNext('work')">
           <i class="fa fa-pencil" /> {{ $t('review.startWork', { n: myOpen }) }}
         </button>

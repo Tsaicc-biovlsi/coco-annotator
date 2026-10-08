@@ -171,3 +171,31 @@ def test_admin_is_not_a_reviewer(review_world):
     w["owner"].post(f"/api/review/image/{img}", json={"action": "approve"})
     assert w["owner"].get(f"/api/review/image/{img}").get_json()["status"] == "approved"
     w["owner"].post(f"/api/review/image/{img}", json={"action": "reopen"})
+
+
+def test_quick_review_queue(world, dataset_directory):
+    import os
+    from PIL import Image
+    from database import CategoryModel, ImageModel
+    c = world["client"]
+    ds = c.post("/api/dataset/", json={"name": "quickrev", "categories": ["qr_cat"]}).get_json()["id"]
+    folder = os.path.join(dataset_directory, "quickrev")
+    os.makedirs(folder, exist_ok=True)
+    for i in range(5):
+        Image.new("RGB", (40, 30)).save(os.path.join(folder, f"q{i}.jpg"))
+    c.get(f"/api/dataset/{ds}/scan")
+    images = sorted(ImageModel.objects(dataset_id=ds), key=lambda i: i.file_name)
+    cat = CategoryModel.objects(name="qr_cat").first().id
+    c.post("/api/annotation/", json={"image_id": images[0].id, "category_id": cat,
+                                     "segmentation": [[1, 1, 20, 1, 20, 20, 1, 20]]})
+    ImageModel.objects(id__in=[i.id for i in images[:4]]).update(set__status="labeled", set__labeled_by="smoke")
+
+    q = c.get(f"/api/review/dataset/{ds}/queue", query_string={"per_page": 3}).get_json()
+    assert q["total"] == 4 and q["pages"] == 2 and len(q["images"]) == 3
+    first = next(i for i in q["images"] if i["id"] == images[0].id)
+    assert first["annotations"][0]["category_id"] == cat and first["width"] == 40
+    assert q["labelers"] == ["smoke"] and q["categories"][0]["name"] == "qr_cat"
+    # approve a whole page at once
+    ids = [i["id"] for i in q["images"]]
+    r = c.post(f"/api/review/image/{ids[0]}", json={"action": "approve", "image_ids": ids})
+    assert r.status_code in (200, 403)

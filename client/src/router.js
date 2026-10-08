@@ -12,6 +12,7 @@ import Dataset from "@/views/Dataset.vue";
 import Auth from "@/views/Auth.vue";
 import User from "@/views/User.vue";
 import Tasks from "@/views/Tasks.vue";
+import Review from "@/views/Review.vue";
 import PageNotFound from "@/views/PageNotFound.vue";
 
 export default createRouter({
@@ -63,6 +64,12 @@ export default createRouter({
       path: "/dataset/:identifier",
       name: "dataset",
       component: Dataset,
+      props: true
+    },
+    {
+      path: "/review/:identifier",
+      name: "quickReview",
+      component: Review,
       props: true
     },
     {

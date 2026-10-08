@@ -1265,5 +1265,24 @@
     "handledBy": "Handled by {name}",
     "handledToast": "{name} handled your question",
     "gotIt": "Got it, close"
+  },
+  "quickReview": {
+    "title": "Quick review",
+    "back": "Back to the dataset",
+    "layout": "Images at a time",
+    "single": "One",
+    "gridN": "{n} at a time",
+    "show": "Show",
+    "by": "Annotated by",
+    "anyone": "Anyone",
+    "showShapes": "Annotations",
+    "range": "{from}–{to} of {n}",
+    "approvePage": "Approve these {n}",
+    "allDone": "Nothing left to review 🎉",
+    "nShapes": "{n} annotations",
+    "open": "Open in the annotator",
+    "approvedN": "{n} approved",
+    "hint": "See several images at once, approve or reject directly",
+    "keys": "Arrows: pick  Y: approve  X: reject (Enter sends)  Shift+Y: approve page  Enter / double-click: open  H: show / hide annotations  1–4: 1 / 4 / 9 / 16 at a time  N / P: next / previous page"
   }
 }

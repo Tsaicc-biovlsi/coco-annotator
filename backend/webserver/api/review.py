@@ -16,7 +16,7 @@ from flask_login import login_required, current_user
 from flask_restx import Namespace, Resource, reqparse
 from mongoengine.queryset.visitor import Q
 
-from database import DatasetModel, ImageModel
+from database import AnnotationModel, CategoryModel, DatasetModel, ImageModel
 
 api = Namespace('review', description='Image status, assignment and review')
 
@@ -281,3 +281,64 @@ class DatasetNextImage(Resource):
 
 
 __all__ = ['api', 'image_review_info', 'change_status']
+
+
+queue_args = reqparse.RequestParser()
+queue_args.add_argument('status', location='args', default='labeled',
+                        choices=('labeled', 'approved', 'rejected', 'unlabeled', 'all'))
+queue_args.add_argument('user', location='args', default='', help='only images labeled by this member')
+queue_args.add_argument('page', location='args', type=int, default=1)
+queue_args.add_argument('per_page', location='args', type=int, default=9)
+
+
+@api.route('/dataset/<int:dataset_id>/queue')
+class ReviewQueue(Resource):
+
+    @api.expect(queue_args)
+    @login_required
+    def get(self, dataset_id):
+        """ Quick review: a page of images with their annotations (oldest submitted first) """
+        dataset = _dataset(dataset_id)
+        if dataset is None:
+            return {'message': 'Invalid dataset id'}, 400
+        args = queue_args.parse_args()
+        per_page = max(1, min(int(args.get('per_page') or 9), 50))
+        page = max(1, int(args.get('page') or 1))
+
+        query = ImageModel.objects(dataset_id=dataset.id, deleted=False)
+        status = args.get('status') or 'labeled'
+        if status == 'unlabeled':
+            query = query.filter(Q(status=None) | Q(status='unlabeled'))
+        elif status != 'all':
+            query = query.filter(status=status)
+        if args.get('user'):
+            query = query.filter(labeled_by=args['user'])
+        total = query.count()
+        images = list(query.order_by('labeled_at', 'file_name').skip((page - 1) * per_page).limit(per_page)
+                      .only('id', 'file_name', 'width', 'height', 'status', 'labeled_by', 'labeled_at',
+                            'reviewed_by', 'review_note', 'assignee'))
+        annotations = AnnotationModel.objects(image_id__in=[i.id for i in images], deleted=False)\
+            .only('id', 'image_id', 'category_id', 'segmentation', 'bbox', 'isbbox', 'color', 'keypoints')
+        by_image = {}
+        for a in annotations:
+            by_image.setdefault(a.image_id, []).append({
+                'id': a.id, 'category_id': a.category_id, 'segmentation': a.segmentation or [],
+                'bbox': a.bbox or [], 'isbbox': bool(a.isbbox), 'isrbbox': bool(getattr(a, 'isrbbox', False)),
+                'keypoints': a.keypoints or []})
+        categories = CategoryModel.objects(id__in=dataset.categories).only('id', 'name', 'color')
+        members = sorted({i for i in ImageModel.objects(dataset_id=dataset.id, deleted=False,
+                                                         labeled_by__ne=None).distinct('labeled_by') if i})
+        out = []
+        for image in images:
+            info = image_review_info(image)
+            out.append({'id': image.id, 'file_name': image.file_name, 'width': image.width,
+                        'height': image.height, **info, 'annotations': by_image.get(image.id, [])})
+        return {
+            'total': total, 'page': page, 'per_page': per_page,
+            'pages': max(1, (total + per_page - 1) // per_page),
+            'images': out,
+            'categories': [{'id': c.id, 'name': c.name, 'color': c.color} for c in categories],
+            'labelers': members,
+            'can_review': dataset.can_review(current_user),
+            'dataset_name': dataset.name,
+        }
