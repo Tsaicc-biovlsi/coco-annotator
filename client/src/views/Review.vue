@@ -31,6 +31,10 @@
         <option value="approved">{{ $t('review.status.approved') }}</option>
         <option value="all">{{ $t('review.all') }}</option>
       </select>
+      <select v-model="order" class="form-select form-select-sm w-auto" :aria-label="$t('quickReview.order')">
+        <option value="file_name">{{ $t('quickReview.byFileName') }}</option>
+        <option value="submitted">{{ $t('quickReview.bySubmitted') }}</option>
+      </select>
       <select v-model="labeler" class="form-select form-select-sm w-auto" :aria-label="$t('quickReview.by')">
         <option value="">{{ $t('quickReview.anyone') }}</option>
         <option v-for="u in labelers" :key="u" :value="u">{{ u }}</option>
@@ -190,6 +194,7 @@ export default {
       grid: readGrid(),
       status: this.$route.query.status || "labeled",
       labeler: "",
+      order: (() => { try { return localStorage.getItem("review/quickOrder") || "file_name"; } catch { return "file_name"; } })(),
       showShapes: true,
       images: [],
       categories: {},
@@ -221,7 +226,15 @@ export default {
   },
   watch: {
     status() { this.go(1); },
-    labeler() { this.go(1); }
+    labeler() { this.go(1); },
+    order(value) {
+      try {
+        localStorage.setItem("review/quickOrder", value);
+      } catch {
+        // not remembered
+      }
+      this.go(1);
+    }
   },
   methods: {
     statusClass,
@@ -261,7 +274,7 @@ export default {
       this.loading = true;
       try {
         const r = await axios.get(`/api/review/dataset/${this.datasetId}/queue`, {
-          params: { status: this.status, user: this.labeler, page: this.page, per_page: this.perPage }
+          params: { status: this.status, user: this.labeler, order: this.order, page: this.page, per_page: this.perPage }
         });
         const d = r.data;
         this.images = d.images || [];

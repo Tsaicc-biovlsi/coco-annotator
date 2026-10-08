@@ -287,6 +287,8 @@ queue_args = reqparse.RequestParser()
 queue_args.add_argument('status', location='args', default='labeled',
                         choices=('labeled', 'approved', 'rejected', 'unlabeled', 'all'))
 queue_args.add_argument('user', location='args', default='', help='only images labeled by this member')
+queue_args.add_argument('order', location='args', default='file_name', choices=('file_name', 'submitted'),
+                        help='file name (as on the dataset page) or when it was submitted')
 queue_args.add_argument('page', location='args', type=int, default=1)
 queue_args.add_argument('per_page', location='args', type=int, default=9)
 
@@ -297,7 +299,7 @@ class ReviewQueue(Resource):
     @api.expect(queue_args)
     @login_required
     def get(self, dataset_id):
-        """ Quick review: a page of images with their annotations (oldest submitted first) """
+        """ Quick review: a page of images with their annotations, in file name order """
         dataset = _dataset(dataset_id)
         if dataset is None:
             return {'message': 'Invalid dataset id'}, 400
@@ -314,7 +316,8 @@ class ReviewQueue(Resource):
         if args.get('user'):
             query = query.filter(labeled_by=args['user'])
         total = query.count()
-        images = list(query.order_by('labeled_at', 'file_name').skip((page - 1) * per_page).limit(per_page)
+        order = ('labeled_at', 'file_name') if args.get('order') == 'submitted' else ('file_name',)
+        images = list(query.order_by(*order).skip((page - 1) * per_page).limit(per_page)
                       .only('id', 'file_name', 'width', 'height', 'status', 'labeled_by', 'labeled_at',
                             'reviewed_by', 'review_note', 'assignee'))
         annotations = AnnotationModel.objects(image_id__in=[i.id for i in images], deleted=False)\
