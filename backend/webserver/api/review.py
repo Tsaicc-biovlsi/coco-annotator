@@ -321,14 +321,16 @@ class ReviewQueue(Resource):
                       .only('id', 'file_name', 'width', 'height', 'status', 'labeled_by', 'labeled_at',
                             'reviewed_by', 'review_note', 'assignee'))
         annotations = AnnotationModel.objects(image_id__in=[i.id for i in images], deleted=False)\
-            .only('id', 'image_id', 'category_id', 'segmentation', 'bbox', 'isbbox', 'color', 'keypoints')
+            .only('id', 'image_id', 'category_id', 'segmentation', 'bbox', 'isbbox', 'isrbbox', 'color', 'keypoints')
         by_image = {}
         for a in annotations:
             by_image.setdefault(a.image_id, []).append({
                 'id': a.id, 'category_id': a.category_id, 'segmentation': a.segmentation or [],
                 'bbox': a.bbox or [], 'isbbox': bool(a.isbbox), 'isrbbox': bool(getattr(a, 'isrbbox', False)),
                 'keypoints': a.keypoints or []})
-        categories = CategoryModel.objects(id__in=dataset.categories).only('id', 'name', 'color')
+        used = {a['category_id'] for anns in by_image.values() for a in anns}
+        categories = CategoryModel.objects(id__in=list(set(dataset.categories or []) | used))\
+            .only('id', 'name', 'color', 'supercategory', 'supercategories')
         members = sorted({i for i in ImageModel.objects(dataset_id=dataset.id, deleted=False,
                                                          labeled_by__ne=None).distinct('labeled_by') if i})
         out = []
@@ -340,7 +342,8 @@ class ReviewQueue(Resource):
             'total': total, 'page': page, 'per_page': per_page,
             'pages': max(1, (total + per_page - 1) // per_page),
             'images': out,
-            'categories': [{'id': c.id, 'name': c.name, 'color': c.color} for c in categories],
+            'categories': [{'id': c.id, 'name': c.name, 'color': c.color, 'parents': c.parents()}
+                           for c in categories],
             'labelers': members,
             'can_review': dataset.can_review(current_user),
             'dataset_name': dataset.name,

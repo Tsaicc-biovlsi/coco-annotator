@@ -48,6 +48,10 @@
         <input id="qrShow" v-model="showShapes" type="checkbox" class="form-check-input" role="switch" />
         <label class="form-check-label" for="qrShow">{{ $t('quickReview.showShapes') }} (H)</label>
       </div>
+      <div class="form-check form-switch m-0 text-white-50 small" :title="$t('quickReview.showNamesHint')">
+        <input id="qrNames" v-model="showNames" type="checkbox" class="form-check-input" role="switch" :disabled="!showShapes" />
+        <label class="form-check-label" for="qrNames">{{ $t('quickReview.showNames') }} (L)</label>
+      </div>
 
       <div class="ms-auto d-flex align-items-center gap-2">
         <span class="small text-white-50">
@@ -96,10 +100,17 @@
           preserveAspectRatio="xMidYMid meet"
           @wheel.prevent="onWheel($event, img)"
           @mousedown="onPanStart($event, img)"
+          @mouseleave="hover = null"
         >
           <image :href="imageUrl(img)" x="0" y="0" :width="img.width" :height="img.height" />
           <g v-if="showShapes">
-            <g v-for="a in img.annotations" :key="a.id">
+            <g
+              v-for="a in img.annotations"
+              :key="a.id"
+              :class="{ dim: hover && hover.img === img.id && hover.cat !== a.category_id, lit: hover && hover.img === img.id && hover.cat === a.category_id }"
+              @mouseenter="hover = { img: img.id, cat: a.category_id }"
+            >
+              <title>{{ catLabel(a.category_id) }}</title>
               <polygon
                 v-for="(ring, k) in a.segmentation"
                 :key="k"
@@ -114,8 +125,35 @@
                 <circle :cx="p[0]" :cy="p[1]" :r="Math.max(img.width, img.height) / 250" :fill="colorOf(a)" stroke="#fff" stroke-width="1" vector-effect="non-scaling-stroke" />
               </template>
             </g>
+            <!-- category names, a fixed size on screen whatever the zoom -->
+            <g v-if="showNames" class="names" pointer-events="none">
+              <text
+                v-for="l in nameLabels(img)"
+                :key="l.id"
+                :x="l.x"
+                :y="l.y"
+                :font-size="l.size"
+                :stroke-width="l.size / 4"
+                :fill="l.color"
+                :class="{ dim: hover && hover.img === img.id && hover.cat !== l.cat }"
+              >{{ l.text }}</text>
+            </g>
           </g>
         </svg>
+
+        <div v-if="showShapes && showNames && img.annotations.length" class="legend" @click.stop @dblclick.stop>
+          <span
+            v-for="c in catCounts(img)"
+            :key="c.id"
+            class="chip"
+            :class="{ off: hover && hover.img === img.id && hover.cat !== c.id }"
+            :title="catLabel(c.id)"
+            @mouseenter="hover = { img: img.id, cat: c.id }"
+            @mouseleave="hover = null"
+          >
+            <i class="dot" :style="{ background: c.color }" />{{ c.name }}<b>{{ c.n }}</b>
+          </span>
+        </div>
 
         <div v-if="decided[img.id]" class="stamp" :class="decided[img.id]">
           <i class="fa" :class="decided[img.id] === 'approved' ? 'fa-check' : 'fa-undo'" />
@@ -179,6 +217,7 @@
 import axios from "axios";
 import { statusClass } from "@/components/annotator/ReviewBar.vue";
 import { modalOpen } from "@/libs/modal";
+import { pathLabel } from "@/libs/parents";
 
 const GRIDS = [1, 2, 3, 4];
 const GRID_KEY = "review/quickGrid";
@@ -207,6 +246,11 @@ export default {
       labeler: "",
       order: (() => { try { return localStorage.getItem("review/quickOrder") || "file_name"; } catch { return "file_name"; } })(),
       showShapes: true,
+      // category names on the shapes and a per-image list of categories
+      showNames: (() => { try { return localStorage.getItem("review/showNames") !== "false"; } catch { return true; } })(),
+      hover: null,
+      // the size of one picture on screen, for names that keep their size
+      picPx: { w: 400, h: 300 },
       images: [],
       categories: {},
       labelers: [],
@@ -242,6 +286,16 @@ export default {
   watch: {
     status() { this.go(1); },
     labeler() { this.go(1); },
+    showNames(value) {
+      try {
+        localStorage.setItem("review/showNames", String(value));
+      } catch {
+        // not remembered
+      }
+    },
+    grid() {
+      this.$nextTick(this.measure);
+    },
     syncZoom(value) {
       try {
         localStorage.setItem("review/syncZoom", String(value));
@@ -385,6 +439,61 @@ export default {
       for (let i = 0; i + 2 < k.length; i += 3) if (k[i + 2] > 0) out.push([k[i], k[i + 1]]);
       return out;
     },
+    catLabel(id) {
+      const c = this.categories[id];
+      if (!c) return this.$t("quickReview.noCategory");
+      const parent = (c.parents || [])[0];
+      return parent ? `${pathLabel(parent)} › ${c.name}` : c.name;
+    },
+    /** categories used on one image, most used first */
+    catCounts(img) {
+      const counts = {};
+      img.annotations.forEach(a => (counts[a.category_id] = (counts[a.category_id] || 0) + 1));
+      return Object.entries(counts)
+        .map(([id, n]) => {
+          const c = this.categories[id];
+          return { id: Number(id), n, name: c ? c.name : this.$t("quickReview.noCategory"), color: (c && c.color) || "#00e5ff" };
+        })
+        .sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+    },
+    measure() {
+      const svg = this.$el && this.$el.querySelector && this.$el.querySelector(".pic");
+      if (svg && svg.clientWidth) this.picPx = { w: svg.clientWidth, h: svg.clientHeight };
+    },
+    /** the top-left corner of a shape, in image coordinates */
+    corner(a) {
+      let x = Infinity, y = Infinity;
+      (a.segmentation || []).forEach(ring => {
+        for (let i = 0; i + 1 < ring.length; i += 2) {
+          if (ring[i + 1] < y || (ring[i + 1] === y && ring[i] < x)) {
+            x = ring[i];
+            y = ring[i + 1];
+          }
+        }
+      });
+      if (y === Infinity && a.bbox && a.bbox.length === 4) [x, y] = a.bbox;
+      if (y === Infinity) {
+        const k = this.keypoints(a)[0];
+        if (k) [x, y] = k;
+      }
+      return y === Infinity ? null : [x, y];
+    },
+    nameLabels(img) {
+      const v = this.viewOf(img);
+      // image units per screen pixel ("meet" fits the whole view box)
+      const unit = Math.max(v.w / this.picPx.w, v.h / this.picPx.h);
+      const size = 12 * unit;
+      const out = [];
+      img.annotations.forEach(a => {
+        const p = this.corner(a);
+        if (!p) return;
+        const c = this.categories[a.category_id];
+        // just above the shape, or inside it at the top edge of the picture
+        const y = p[1] - 3 * unit > v.y + size ? p[1] - 3 * unit : p[1] + size;
+        out.push({ id: a.id, cat: a.category_id, x: p[0], y, size, text: c ? c.name : "?", color: (c && c.color) || "#00e5ff" });
+      });
+      return out;
+    },
     colorOf(a) {
       const c = this.categories[a.category_id];
       return (c && c.color) || "#00e5ff";
@@ -413,6 +522,7 @@ export default {
         this.rejecting = null;
       } finally {
         this.loading = false;
+        this.$nextTick(this.measure);
       }
     },
     go(page) {
@@ -505,6 +615,8 @@ export default {
         this.resetZoom();
       } else if (key === "h") {
         this.showShapes = !this.showShapes;
+      } else if (key === "l") {
+        this.showNames = !this.showNames;
       } else if (/^[1-4]$/.test(key)) {
         this.setGrid(parseInt(key, 10));
       } else if (key === "pagedown" || key === "n") {
@@ -517,9 +629,11 @@ export default {
   created() {
     this.load();
     window.addEventListener("keydown", this.onKey);
+    window.addEventListener("resize", this.measure);
   },
   beforeUnmount() {
     window.removeEventListener("keydown", this.onKey);
+    window.removeEventListener("resize", this.measure);
   }
 };
 </script>
@@ -611,6 +725,54 @@ export default {
 }
 .min-w-0 {
   min-width: 0;
+}
+.names text {
+  font-weight: 700;
+  stroke: rgba(0, 0, 0, 0.85);
+  paint-order: stroke;
+  stroke-linejoin: round;
+}
+.dim {
+  opacity: 0.15;
+}
+.lit polygon {
+  fill-opacity: 0.5;
+}
+.legend {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  max-width: calc(100% - 110px);
+  max-height: 45%;
+  overflow: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  cursor: default;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(20, 23, 31, 0.82);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.chip b {
+  color: #adb5bd;
+  font-weight: 600;
+}
+.chip.off {
+  opacity: 0.35;
+}
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  display: inline-block;
 }
 .qr-empty {
   margin-top: 18vh;

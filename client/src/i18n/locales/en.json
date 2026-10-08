@@ -1266,6 +1266,9 @@
     "gotIt": "Got it, close"
   },
   "quickReview": {
+    "showNames": "Category names",
+    "showNamesHint": "Write the category next to each shape and list the categories used on each image; hover one to light up only that category",
+    "noCategory": "(no category)",
     "title": "Quick review",
     "back": "Back to the dataset",
     "layout": "Images at a time",
@@ -1282,7 +1285,7 @@
     "open": "Open in the annotator",
     "approvedN": "{n} approved",
     "hint": "See several images at once, approve or reject directly",
-    "keys": "Arrows: pick  Wheel: zoom at the cursor (all together when \"Zoom together\" is on, Shift the other way)  Drag: move  0: reset  Y: approve  X: reject (Enter sends)  Shift+Y: approve page  Enter / double-click: open  H: show / hide annotations  1–4: 1 / 4 / 9 / 16 at a time  N / P: page",
+    "keys": "Arrows: pick  Wheel: zoom at the cursor (all together when \"Zoom together\" is on, Shift the other way)  Drag: move  0: reset  Y: approve  X: reject (Enter sends)  Shift+Y: approve page  Enter / double-click: open  H: show / hide annotations  L: show / hide category names  1–4: 1 / 4 / 9 / 16 at a time  N / P: page",
     "order": "Order",
     "byFileName": "By file name",
     "bySubmitted": "By time submitted",
