@@ -1480,5 +1480,19 @@
     "edit": "編輯常用原因",
     "done": "完成",
     "remove": "移除"
+  },
+  "members": {
+    "inviteHint": "輸入帳號或姓名搜尋後選取；也可以一次貼上多個帳號（例如從 Excel 複製一欄學號），按 Enter 或「加入」。",
+    "searchPlaceholder": "搜尋帳號或姓名，或貼上多個帳號",
+    "removePending": "移除",
+    "add": "加入 {n} 人",
+    "unknown": "找不到這些帳號：{names}（請先在管理面板建立）",
+    "count": "共 {n} 人",
+    "lastSeen": "最後上線：{ago}前",
+    "neverSeen": "還沒登入過",
+    "remove": "移出資料集",
+    "removeConfirm": "要把 {name} 移出這個資料集嗎？（指派給他的圖片不會刪除，審核者身分會一併移除）",
+    "added": "已加入 {n} 人",
+    "removed": "已移出 {name}"
   }
 }

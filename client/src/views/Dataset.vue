@@ -161,31 +161,10 @@
           </div>
         </div>
 
-        <div class="page-container" v-show="tab == 'members'">
-
-          <div class="card my-3 p-3 shadow-sm me-2">
-            <h6 class="border-bottom border-gray pb-2"><b>{{ $t('dataset.inviteMembers') }}</b></h6>
-            
-          </div>
-          
-          <div class="card my-3 p-3 shadow-sm me-2">
-            <h6 class="border-bottom border-gray pb-2"><b>{{ $t('dataset.existingMembers') }}</b></h6>
-            
-            <div class="d-flex align-items-start text-muted pt-3" v-for="user in users" :key="user.username">
-              <img :src="userAvatar" class="me-2 rounded" style="width: 32px; height: 32px;">
-              <div class="flex-grow-1 pb-3 mb-0 small lh-125 border-bottom border-gray">
-                <div class="d-flex justify-content-between align-items-center w-100">
-                  <div class="text-gray-dark">
-                    <strong>{{ user.name }}</strong> @{{user.username}}
-                  </div>
-                  <a href="#">{{ user.group }}</a>
-                </div>
-                <span class="d-block">{{ lastSeen(user) }}</span>
-              </div>
-            </div>
-          </div>
-
+        <div class="page-container" v-if="tab == 'members'">
+          <DatasetMembers :dataset-id="dataset.id" @changed="getUsers()" />
         </div>
+
         <div class="page-container" v-show="tab == 'settings'">
           <div class="card my-3 p-3 shadow-sm me-2">
             <h6 class="border-bottom border-gray pb-2"><b>{{ $t('datasetTask.label') }}</b></h6>
@@ -650,7 +629,6 @@
 </template>
 
 <script>
-import userAvatar from "@/assets/user.png";
 import { hideModal, showModal } from "@/libs/modal";
 import toastrs from "@/mixins/toastrs";
 import Dataset, { isYoloFile } from "@/models/datasets";
@@ -665,6 +643,7 @@ import ModelRunModal from "@/components/ModelRunModal.vue";
 import ExportCategories from "@/components/ExportCategories.vue";
 import ReviewPanel from "@/components/ReviewPanel.vue";
 import TaskPicker from "@/components/TaskPicker.vue";
+import DatasetMembers from "@/components/DatasetMembers.vue";
 import DatasetHealth from "@/components/DatasetHealth.vue";
 import ExportSplit, { splitSizes, splitValid } from "@/components/ExportSplit.vue";
 import axios from "axios";
@@ -697,6 +676,7 @@ export default {
   name: "Dataset",
   components: {
     ImageCard,
+    DatasetMembers,
     ReviewPanel,
     TaskPicker,
     DatasetHealth,
@@ -718,7 +698,6 @@ export default {
   },
   data() {
     return {
-      userAvatar,
       page: 1,
       pages: 1,
       limit: 48,
@@ -1091,15 +1070,6 @@ export default {
     },
     /** Fallback for a progress update sent before this page was listening */
     /** "last seen" text; accounts that never logged in have no date */
-    lastSeen(user) {
-      const raw = user.last_seen && (user.last_seen["$date"] ?? user.last_seen);
-      const date = raw != null ? new Date(raw) : null;
-      if (!date || isNaN(date)) return this.$t("dataset.neverSeen");
-      const pad = n => String(n).padStart(2, "0");
-      const time = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
-        `${pad(date.getHours())}:${pad(date.getMinutes())}`;
-      return this.$t("dataset.lastSeen", { time });
-    },
     pollImportTask() {
       clearTimeout(this.importPoll);
       const id = this.importing.id;

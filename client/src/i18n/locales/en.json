@@ -1348,5 +1348,19 @@
     "edit": "Edit saved reasons",
     "done": "Done",
     "remove": "Remove"
+  },
+  "members": {
+    "inviteHint": "Search by username or name and pick; or paste several usernames at once (e.g. a column from Excel), then press Enter or \"Add\".",
+    "searchPlaceholder": "Search username or name, or paste several",
+    "removePending": "Remove",
+    "add": "Add {n}",
+    "unknown": "No such accounts: {names} (create them in the admin panel first)",
+    "count": "{n} people",
+    "lastSeen": "Last seen {ago} ago",
+    "neverSeen": "Never signed in",
+    "remove": "Remove from the dataset",
+    "removeConfirm": "Remove {name} from this dataset? (images assigned to them stay; they stop being a reviewer)",
+    "added": "Added {n}",
+    "removed": "Removed {name}"
   }
 }

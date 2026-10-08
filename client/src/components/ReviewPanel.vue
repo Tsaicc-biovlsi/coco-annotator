@@ -114,8 +114,7 @@
               </td>
               <td>{{ f.images }}</td>
               <td class="text-start small">
-                <span v-for="(n, who) in f.assignees" :key="who" class="me-2">{{ who }}<span v-if="Object.keys(f.assignees).length > 1 || f.unassigned"> {{ n }}</span></span>
-                <span v-if="f.unassigned" class="text-muted">{{ $t('review.unassigned') }} {{ f.unassigned }}</span>
+                <span v-for="p in assigneeParts(f)" :key="p.who" class="me-2" :class="{ 'text-muted': !p.who }">{{ p.text }}</span>
               </td>
               <td v-for="s in STATUSES" :key="s">{{ f.status[s] || '' }}</td>
               <td>
@@ -208,8 +207,7 @@
                   <small v-if="inScope(f) !== f.images" class="text-muted">/ {{ f.images }}</small>
                 </td>
                 <td class="small">
-                  <span v-for="(n, who) in f.assignees" :key="who" class="me-2">{{ who }} {{ n }}</span>
-                  <span v-if="f.unassigned" class="text-muted">{{ $t('review.unassigned') }} {{ f.unassigned }}</span>
+                  <span v-for="p in assigneeParts(f)" :key="p.who" class="me-2" :class="{ 'text-muted': !p.who }">{{ p.text }}</span>
                 </td>
                 <td>
                   <select v-model="folderPlan[f.folder]" class="form-select form-select-sm" :disabled="!inScope(f)">
@@ -327,6 +325,16 @@ export default {
     rowPct(row) {
       const total = this.sumRow(row);
       return total ? Math.round((100 * (row.approved || 0)) / total) : 0;
+    },
+    /** "test03(all)" for a whole folder, else "test01(21) test02(43) 未指派(5)" */
+    assigneeParts(f) {
+      const people = Object.entries(f.assignees || {}).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+      if (people.length === 1 && !f.unassigned) return [{ who: people[0][0], text: `${people[0][0]}(all)` }];
+      const parts = people.map(([who, n]) => ({ who, text: `${who}(${n})` }));
+      if (f.unassigned) {
+        parts.push({ who: "", text: f.unassigned === f.images ? this.$t("review.unassigned") : `${this.$t("review.unassigned")}(${f.unassigned})` });
+      }
+      return parts;
     },
     folderPct(f, n) {
       return f.images ? Math.round((100 * (n || 0)) / f.images) : 0;

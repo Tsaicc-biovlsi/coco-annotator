@@ -13,7 +13,8 @@ from database import (
     DatasetModel,
     CategoryModel,
     AnnotationModel,
-    ExportModel
+    ExportModel,
+    UserModel
 )
 
 import datetime
@@ -169,6 +170,102 @@ class DatasetMembers(Resource):
 
         users = dataset.get_users()
         return query_util.fix_ids(users)
+
+
+members_args = reqparse.RequestParser()
+members_args.add_argument('add', location='json', type=list, default=[])
+members_args.add_argument('remove', location='json', type=list, default=[])
+
+candidates_args = reqparse.RequestParser()
+candidates_args.add_argument('q', location='args', default='')
+
+
+def _member_rows(dataset):
+    reviewers = set(dataset.reviewers or [])
+    rows = []
+    for u in dataset.get_users().only('username', 'name', 'last_seen'):
+        role = 'owner' if u.username == dataset.owner else ('reviewer' if u.username in reviewers else 'member')
+        rows.append({'username': u.username, 'name': u.name or '', 'role': role,
+                     'last_seen': u.last_seen.isoformat() + 'Z' if u.last_seen else None})
+    order = {'owner': 0, 'reviewer': 1, 'member': 2}
+    rows.sort(key=lambda r: (order[r['role']], r['username'].lower()))
+    return rows
+
+
+@api.route('/<int:dataset_id>/members')
+class DatasetMemberList(Resource):
+
+    @login_required
+    def get(self, dataset_id):
+        """ Members with their role, and whether I may invite / remove """
+        dataset = current_user.datasets.filter(id=dataset_id, deleted=False).first()
+        if dataset is None:
+            return {"message": "Invalid dataset id"}, 400
+        return {'members': _member_rows(dataset), 'can_manage': dataset.can_share(current_user)}
+
+    @api.expect(members_args)
+    @login_required
+    def post(self, dataset_id):
+        """ Add and / or remove members (the owner only) """
+        dataset = current_user.datasets.filter(id=dataset_id, deleted=False).first()
+        if dataset is None:
+            return {"message": "Invalid dataset id"}, 400
+        if not dataset.can_share(current_user):
+            return {"message": "Only the owner can invite or remove members"}, 403
+        args = members_args.parse_args()
+        add = [u.strip() for u in (args.get('add') or []) if isinstance(u, str) and u.strip()]
+        remove = {u for u in (args.get('remove') or []) if isinstance(u, str)}
+        # usernames are matched without case (student IDs are typed either way)
+        found = {u.username.lower(): u.username for u in
+                 UserModel.objects(username__in=add).only('username')} if add else {}
+        for u in add:
+            if u.lower() not in found:
+                hit = UserModel.objects(username__iexact=u).only('username').first()
+                if hit is not None:
+                    found[u.lower()] = hit.username
+        unknown = [u for u in add if u.lower() not in found]
+        if unknown:
+            return {"message": "No such accounts: " + ", ".join(unknown), "unknown": unknown}, 400
+
+        before = list(dataset.users or [])
+        users = [u for u in before if u not in remove]
+        added = []
+        for u in add:
+            name = found[u.lower()]
+            if name != dataset.owner and name not in users:
+                users.append(name)
+                added.append(name)
+        removed = sorted(set(before) - set(users))
+        reviewers = [r for r in (dataset.reviewers or []) if r in users or r == dataset.owner]
+        dataset.update(users=users, reviewers=reviewers)
+        if added or removed:
+            from ..util import activity
+            activity.record('dataset_share', current_user, dataset_id=dataset.id,
+                            detail={'added': sorted(added), 'removed': removed},
+                            text=" ".join(sorted(added) + removed))
+        dataset.reload()
+        return {'members': _member_rows(dataset), 'added': added, 'removed': removed}
+
+
+@api.route('/<int:dataset_id>/candidates')
+class DatasetCandidates(Resource):
+
+    @api.expect(candidates_args)
+    @login_required
+    def get(self, dataset_id):
+        """ Accounts the owner can invite (username or name contains q) """
+        dataset = current_user.datasets.filter(id=dataset_id, deleted=False).first()
+        if dataset is None:
+            return {"message": "Invalid dataset id"}, 400
+        if not dataset.can_share(current_user):
+            return {"message": "Only the owner can invite members"}, 403
+        q = (candidates_args.parse_args().get('q') or '').strip()
+        taken = set(dataset.users or []) | {dataset.owner}
+        query = UserModel.objects(username__nin=list(taken))
+        if q:
+            query = query.filter(Q(username__icontains=q) | Q(name__icontains=q))
+        rows = query.only('username', 'name').order_by('username').limit(20)
+        return {'users': [{'username': u.username, 'name': u.name or ''} for u in rows]}
 
 
 @api.route('/<int:dataset_id>/reset/metadata')
@@ -448,6 +545,10 @@ class DatasetIdShare(Resource):
             return {"message": "You do not have permission to share this dataset"}, 403
 
         users = [u for u in (args.get('users') or []) if isinstance(u, str) and u]
+        known = {u.username for u in UserModel.objects(username__in=users).only('username')}
+        unknown = [u for u in users if u not in known]
+        if unknown:
+            return {"message": "No such accounts: " + ", ".join(unknown), "unknown": unknown}, 400
         before = set(dataset.users or [])
         after = set(users)
         # someone taken off the dataset is no longer one of its reviewers either
