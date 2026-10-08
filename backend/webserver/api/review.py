@@ -39,6 +39,9 @@ assign_args.add_argument('image_ids', location='json', type=list, default=None,
 assign_args.add_argument('scope', location='json', default='unassigned',
                          choices=('unassigned', 'all', 'unlabeled'),
                          help='Which images when image_ids is not given')
+assign_args.add_argument('folders', location='json', type=dict, default=None,
+                         help='{"folder": "username", ...}: each folder (e.g. the frames of one video) '
+                              'goes whole to one person ("" unassigns it); "scope" still applies')
 
 reviewers_args = reqparse.RequestParser()
 reviewers_args.add_argument('reviewers', location='json', type=list, default=[])
@@ -185,6 +188,54 @@ class ImageStatus(Resource):
         return {'success': True, 'count': count, **image_review_info(image)}
 
 
+def image_folder(dataset, path):
+    """The image's folder inside the dataset ("" for the dataset's own folder)."""
+    import os
+    base = (dataset.directory or '').rstrip('/')
+    rel = os.path.relpath(path or '', base) if base and (path or '').startswith(base + '/') else (path or '')
+    folder = os.path.dirname(rel)
+    return '' if folder in ('.', '') else folder
+
+
+def _in_scope(row, scope):
+    if scope == 'unassigned':
+        return not row.get('assignee')
+    if scope == 'unlabeled':
+        return (row.get('status') or 'unlabeled') in ('unlabeled', 'rejected')
+    return True
+
+
+@api.route('/dataset/<int:dataset_id>/folders')
+class DatasetFolders(Resource):
+
+    @login_required
+    def get(self, dataset_id):
+        """ Folders of the dataset (one per imported video): image counts per status,
+        how many have annotations, and who they are assigned to """
+        dataset = _dataset(dataset_id)
+        if dataset is None:
+            return {'message': 'Invalid dataset id'}, 400
+        folders = {}
+        for row in ImageModel.objects(dataset_id=dataset.id, deleted=False) \
+                .only('path', 'status', 'assignee', 'num_annotations').as_pymongo():
+            name = image_folder(dataset, row.get('path'))
+            f = folders.setdefault(name, {'folder': name, 'images': 0, 'unassigned': 0,
+                                          'unlabeled': 0, 'annotated': 0, 'assignees': {},
+                                          'status': {s: 0 for s in ImageModel.STATUSES}})
+            f['images'] += 1
+            status = row.get('status') or 'unlabeled'
+            f['status'][status] = f['status'].get(status, 0) + 1
+            if row.get('num_annotations'):
+                f['annotated'] += 1
+            if _in_scope(row, 'unassigned'):
+                f['unassigned'] += 1
+            else:
+                f['assignees'][row['assignee']] = f['assignees'].get(row['assignee'], 0) + 1
+            if _in_scope(row, 'unlabeled'):
+                f['unlabeled'] += 1
+        return {'folders': sorted(folders.values(), key=lambda f: f['folder'])}
+
+
 @api.route('/dataset/<int:dataset_id>/assign')
 class DatasetAssign(Resource):
 
@@ -204,6 +255,9 @@ class DatasetAssign(Resource):
         unknown = [u for u in usernames if u not in members]
         if unknown:
             return {'message': 'Not members of this dataset: ' + ', '.join(unknown)}, 400
+
+        if args.get('folders') is not None:
+            return self.by_folder(dataset, members, args)
 
         query = ImageModel.objects(dataset_id=dataset.id, deleted=False)
         if args.get('image_ids') is not None:
@@ -238,6 +292,39 @@ class DatasetAssign(Resource):
                             counts={'images': len(images)}, detail={'people': counts},
                             text=" ".join(counts))
         return {'success': True, 'assigned': counts, 'unassigned': 0}
+
+    @staticmethod
+    def by_folder(dataset, members, args):
+        """Each folder goes whole to one person."""
+        plan = args['folders']
+        if not isinstance(plan, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in plan.items()):
+            return {'message': 'folders must map folder names to usernames'}, 400
+        unknown = sorted({u for u in plan.values() if u and u not in members})
+        if unknown:
+            return {'message': 'Not members of this dataset: ' + ', '.join(unknown)}, 400
+
+        targets = {}  # username ("" = unassign) -> image ids
+        for row in ImageModel.objects(dataset_id=dataset.id, deleted=False) \
+                .only('id', 'path', 'status', 'assignee').as_pymongo():
+            folder = image_folder(dataset, row.get('path'))
+            if folder in plan and _in_scope(row, args['scope']):
+                targets.setdefault(plan[folder], []).append(row['_id'])
+
+        counts, unassigned = {}, 0
+        for username, ids in targets.items():
+            if username:
+                ImageModel.objects(id__in=ids).update(set__assignee=username)
+                counts[username] = counts.get(username, 0) + len(ids)
+            else:
+                ImageModel.objects(id__in=ids).update(unset__assignee=True)
+                unassigned += len(ids)
+        if counts or unassigned:
+            from ..util import activity
+            activity.record('assign', current_user, dataset_id=dataset.id,
+                            counts={'images': sum(counts.values()) + unassigned},
+                            detail={'people': counts, 'folders': {k: v for k, v in plan.items()}},
+                            text=" ".join(list(counts) + list(plan)))
+        return {'success': True, 'assigned': counts, 'unassigned': unassigned}
 
 
 @api.route('/dataset/<int:dataset_id>/progress')

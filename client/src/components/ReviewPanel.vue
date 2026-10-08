@@ -93,10 +93,69 @@
       </div>
     </div>
 
+    <!-- per folder (e.g. one per video) -->
+    <div v-if="progress && folders && folders.length > 1" class="card my-3 p-3 shadow-sm">
+      <h6 class="border-bottom pb-2"><b>{{ $t('review.byFolder') }}</b></h6>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0 text-center">
+          <thead>
+            <tr>
+              <th class="text-start">{{ $t('review.folder') }}</th>
+              <th>{{ $t('review.folderImages') }}</th>
+              <th class="text-start">{{ $t('review.folderNow') }}</th>
+              <th v-for="s in STATUSES" :key="s">{{ $t('review.status.' + s) }}</th>
+              <th style="width: 26%">{{ $t('review.folderProgress') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="f in folders" :key="f.folder">
+              <td class="text-start text-truncate" style="max-width: 280px" :title="f.folder">
+                <i class="fa fa-folder-o me-1" />{{ f.folder || $t('review.rootFolder') }}
+              </td>
+              <td>{{ f.images }}</td>
+              <td class="text-start small">
+                <span v-for="(n, who) in f.assignees" :key="who" class="me-2">{{ who }}<span v-if="Object.keys(f.assignees).length > 1 || f.unassigned"> {{ n }}</span></span>
+                <span v-if="f.unassigned" class="text-muted">{{ $t('review.unassigned') }} {{ f.unassigned }}</span>
+              </td>
+              <td v-for="s in STATUSES" :key="s">{{ f.status[s] || '' }}</td>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="progress-stacked flex-grow-1" style="height: 10px">
+                    <div
+                      v-for="s in STATUSES"
+                      :key="s"
+                      class="progress"
+                      :style="{ width: folderPct(f, f.status[s]) + '%' }"
+                      :title="$t('review.status.' + s) + ': ' + (f.status[s] || 0)"
+                    >
+                      <div class="progress-bar" :class="barClass(s)" />
+                    </div>
+                  </div>
+                  <small class="text-muted folder-pct" :title="$t('review.folderDoneHint')">
+                    {{ folderPct(f, (f.status.labeled || 0) + (f.status.approved || 0)) }}%
+                  </small>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- assign -->
     <div v-if="progress && (progress.can_assign ?? progress.can_review)" class="card my-3 p-3 shadow-sm">
-      <h6 class="border-bottom pb-2"><b>{{ $t('review.assignTitle') }}</b></h6>
-      <div class="small text-muted mb-2">{{ $t('review.assignHint') }}</div>
+      <h6 class="border-bottom pb-2 d-flex align-items-center flex-wrap gap-2">
+        <b class="me-auto">{{ $t('review.assignTitle') }}</b>
+        <span class="btn-group btn-group-sm" role="group">
+          <button type="button" class="btn" :class="assignMode === 'even' ? 'btn-secondary' : 'btn-outline-secondary'" @click="setAssignMode('even')">
+            <i class="fa fa-random" /> {{ $t('review.modeEven') }}
+          </button>
+          <button type="button" class="btn" :class="assignMode === 'folder' ? 'btn-secondary' : 'btn-outline-secondary'" @click="setAssignMode('folder')">
+            <i class="fa fa-folder-o" /> {{ $t('review.modeFolder') }}
+          </button>
+        </span>
+      </h6>
+      <div class="small text-muted mb-2">{{ assignMode === 'folder' ? $t('review.folderHint') : $t('review.assignHint') }}</div>
       <div class="d-flex flex-wrap gap-3 mb-2">
         <div v-for="name in progress.members" :key="name" class="form-check">
           <input :id="'assign-' + name" v-model="assignTo" class="form-check-input" type="checkbox" :value="name" />
@@ -109,12 +168,64 @@
           <option value="unlabeled">{{ $t('review.scope.unlabeled', { n: progress.total.unlabeled + progress.total.rejected }) }}</option>
           <option value="all">{{ $t('review.scope.all', { n: progress.images }) }}</option>
         </select>
-        <button type="button" class="btn btn-sm btn-primary" :disabled="!assignTo.length || busy" @click="assign">
+        <button v-if="assignMode === 'even'" type="button" class="btn btn-sm btn-primary" :disabled="!assignTo.length || busy" @click="assign">
           <i class="fa fa-random" /> {{ $t('review.assignEven', { n: assignTo.length }) }}
         </button>
+        <template v-else>
+          <button type="button" class="btn btn-sm btn-outline-primary" :disabled="!assignTo.length || !folders || busy" @click="autoFolders">
+            <i class="fa fa-magic" /> {{ $t('review.folderAuto', { n: assignTo.length }) }}
+          </button>
+          <button type="button" class="btn btn-sm btn-primary" :disabled="!folderChanges || busy" @click="assignFolders">
+            <i class="fa fa-check" /> {{ $t('review.folderApply', { n: folderChanges }) }}
+          </button>
+        </template>
         <button type="button" class="btn btn-sm btn-outline-danger ms-auto" :disabled="busy" @click="unassignAll">
           {{ $t('review.unassignAll') }}
         </button>
+      </div>
+
+      <!-- whole folders (one per video) to one person each -->
+      <div v-if="assignMode === 'folder'" class="mt-3">
+        <div v-if="!folders" class="text-muted small"><i class="fa fa-spinner fa-spin" /></div>
+        <div v-else-if="folders.length < 2" class="text-muted small">{{ $t('review.noFolders') }}</div>
+        <template v-else>
+          <table class="table table-sm align-middle mb-2 folder-table">
+            <thead>
+              <tr>
+                <th>{{ $t('review.folder') }}</th>
+                <th class="text-end">{{ $t('review.folderImages') }}</th>
+                <th>{{ $t('review.folderNow') }}</th>
+                <th style="width: 200px">{{ $t('review.folderTo') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="f in folders" :key="f.folder" :class="{ 'text-muted': !inScope(f) }">
+                <td class="text-truncate" style="max-width: 320px" :title="f.folder">
+                  <i class="fa fa-folder-o me-1" />{{ f.folder || $t('review.rootFolder') }}
+                </td>
+                <td class="text-end">
+                  {{ inScope(f) }}
+                  <small v-if="inScope(f) !== f.images" class="text-muted">/ {{ f.images }}</small>
+                </td>
+                <td class="small">
+                  <span v-for="(n, who) in f.assignees" :key="who" class="me-2">{{ who }} {{ n }}</span>
+                  <span v-if="f.unassigned" class="text-muted">{{ $t('review.unassigned') }} {{ f.unassigned }}</span>
+                </td>
+                <td>
+                  <select v-model="folderPlan[f.folder]" class="form-select form-select-sm" :disabled="!inScope(f)">
+                    <option :value="undefined">{{ $t('review.folderKeep') }}</option>
+                    <option v-for="name in progress.members" :key="name" :value="name">{{ name }}</option>
+                    <option value="">{{ $t('review.folderClear') }}</option>
+                  </select>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div v-if="folderTotals.length" class="small">
+            {{ $t('review.folderTotals') }}
+            <span v-for="t in folderTotals" :key="t.name" class="badge text-bg-light border me-1">{{ t.name }} {{ t.n }}</span>
+          </div>
+        </template>
       </div>
     </div>
 
@@ -151,7 +262,13 @@ export default {
   },
   emits: ["changed"],
   data() {
-    return { STATUSES, progress: null, assignTo: [], scope: "unassigned", reviewers: [], busy: false };
+    return {
+      STATUSES, progress: null, assignTo: [], scope: "unassigned", reviewers: [], busy: false,
+      assignMode: "even",
+      folders: null,
+      // folder -> username ("" unassigns, missing: leave as it is)
+      folderPlan: {}
+    };
   },
   computed: {
     memberRows() {
@@ -166,6 +283,20 @@ export default {
         .forEach(p => rows.push({ ...p, assigned: this.sumRow(p) }));
       rows.push({ username: "", ...this.progress.unassigned, assigned: this.sumRow(this.progress.unassigned) });
       return rows;
+    },
+    /** folders with a person chosen (and images in scope) */
+    folderChanges() {
+      if (!this.folders) return 0;
+      return this.folders.filter(f => this.folderPlan[f.folder] !== undefined && this.inScope(f)).length;
+    },
+    /** what each person gets with the current plan */
+    folderTotals() {
+      const totals = {};
+      (this.folders || []).forEach(f => {
+        const who = this.folderPlan[f.folder];
+        if (who) totals[who] = (totals[who] || 0) + this.inScope(f);
+      });
+      return Object.entries(totals).map(([name, n]) => ({ name, n })).sort((a, b) => b.n - a.n);
     },
     /** my images that still need work */
     myOpen() {
@@ -197,7 +328,12 @@ export default {
       const total = this.sumRow(row);
       return total ? Math.round((100 * (row.approved || 0)) / total) : 0;
     },
+    folderPct(f, n) {
+      return f.images ? Math.round((100 * (n || 0)) / f.images) : 0;
+    },
     load() {
+      // folders: progress per folder, and the "by folder" assignment
+      axios.get(`/api/review/dataset/${this.datasetId}/folders`).then(r => (this.folders = r.data.folders)).catch(() => {});
       return axios.get(`/api/review/dataset/${this.datasetId}/progress`).then(r => {
         this.progress = r.data;
         this.reviewers = [...r.data.reviewers];
@@ -213,6 +349,46 @@ export default {
         const parts = Object.entries(r.data.assigned).map(([k, v]) => `${k} ${v}`);
         this.$toastr.success(this.$t("review.assigned_done", { list: parts.join("、") }));
       });
+    },
+    setAssignMode(mode) {
+      this.assignMode = mode;
+      if (mode === "folder") this.folderPlan = {};
+    },
+    /** images of a folder that the chosen scope covers */
+    inScope(f) {
+      if (this.scope === "unassigned") return f.unassigned;
+      if (this.scope === "unlabeled") return f.unlabeled;
+      return f.images;
+    },
+    /** biggest folders first, each to whoever has the least so far: even without splitting */
+    autoFolders() {
+      const people = [...this.assignTo];
+      if (!people.length || !this.folders) return;
+      const load = Object.fromEntries(people.map(p => [p, 0]));
+      const plan = {};
+      [...this.folders]
+        .filter(f => this.inScope(f) > 0)
+        .sort((a, b) => this.inScope(b) - this.inScope(a) || a.folder.localeCompare(b.folder))
+        .forEach(f => {
+          const who = people.reduce((best, p) => (load[p] < load[best] ? p : best), people[0]);
+          plan[f.folder] = who;
+          load[who] += this.inScope(f);
+        });
+      this.folderPlan = plan;
+    },
+    async assignFolders() {
+      const plan = {};
+      this.folders.forEach(f => {
+        if (this.folderPlan[f.folder] !== undefined && this.inScope(f)) plan[f.folder] = this.folderPlan[f.folder];
+      });
+      if (!Object.keys(plan).length) return;
+      if (!confirm(this.$t("review.folderConfirm", { n: Object.keys(plan).length }))) return;
+      await this.post("assign", { folders: plan, scope: this.scope }, r => {
+        const parts = Object.entries(r.data.assigned).map(([k, v]) => `${k} ${v}`);
+        if (r.data.unassigned) parts.push(`${this.$t("review.unassigned")} ${r.data.unassigned}`);
+        this.$toastr.success(this.$t("review.assigned_done", { list: parts.join("、") }));
+      });
+      this.folderPlan = {};
     },
     async unassignAll() {
       if (!confirm(this.$t("review.unassignConfirm"))) return;
