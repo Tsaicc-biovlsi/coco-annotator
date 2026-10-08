@@ -26,7 +26,7 @@ from mongoengine import Q
 @shared_task
 def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
                        fmt="coco", yolo_task="detect", with_images=False, split=None, seed=42,
-                       folder=None, only_approved=False):
+                       folder=None, only_approved=False, augment=None):
 
     task = TaskModel.objects.get(id=task_id)
     dataset = DatasetModel.objects.get(id=dataset_id)
@@ -161,6 +161,73 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
         task.info("Split (seed {}): {}".format(
             seed, ", ".join(f"{k} {split[k]}% = {split_counts[k]} images" for k in split_counts)))
 
+    # augmentation: new versions of the training images (all of them without a split)
+    from geometry.augment import parse_options, augment_coco
+    aug = parse_options(augment)
+    aug_dir, aug_count = None, 0
+    if aug:
+        targets = [img for img in coco["images"] if not subsets or subsets.get(img["id"]) == "train"]
+        names = ", ".join(f"{k}" + (f" {v}" if v is not True else "") for k, v in aug["ops"].items())
+        task.info(f"Augmenting {len(targets)} {'training ' if subsets else ''}images, "
+                  f"{aug['copies']} copies each ({names})")
+        if not subsets:
+            task.warning("No split: every image is augmented (keep originals of the same picture out of "
+                         "validation yourself)")
+        aug_dir = f"{directory}.augment-{timestamp}/"
+        new_images, new_annotations, source = augment_coco(coco, targets, aug, seed, aug_dir, log=task.info)
+        coco["images"].extend(new_images)
+        coco["annotations"].extend(new_annotations)
+        aug_count = len(new_images)
+        if subsets is not None:
+            for new_id in source:
+                subsets[new_id] = "train"
+            split_counts["train"] += aug_count
+        if classes is not None:
+            for new_id, old_id in source.items():
+                classes[new_id] = classes[old_id]
+        # the new pictures only exist as files: they go into the export
+        with_images = True
+        task.info(f"Added {aug_count} augmented images ({len(new_annotations)} annotations)")
+
+    try:
+        file_path, tags = _write_export(coco, fmt, yolo_task, with_images, subsets, split, classes,
+                                        dataset, folder, directory, timestamp, task, category_names, aug)
+    finally:
+        if aug_dir:
+            import shutil
+            shutil.rmtree(aug_dir, ignore_errors=True)
+
+    task.info("Creating export object")
+    export = ExportModel(dataset_id=dataset.id, path=file_path, tags=tags)
+    if fmt == "yolo":
+        export.prefix_dataset = True
+        export.folder = safe_folder_name(folder, dataset)
+    if only_approved:
+        export.only_approved = True
+    if subsets:
+        export.split = split
+        export.split_counts = split_counts
+        export.seed = seed
+    if aug:
+        export.augment = dict(aug, images=aug_count)
+    export.save()
+    ActivityModel.objects(task_id=task_id, action='export').update(
+        set__counts={'images': len(coco.get('images', [])), 'annotations': len(coco.get('annotations', [])),
+                     'categories': len(category_names)},
+        set__detail__categories=list(category_names)[:50], set__detail__export_id=export.id,
+        set__updated_at=datetime.datetime.utcnow())
+
+    task.set_progress(100, socket=socket)
+
+
+def safe_folder_name(folder, dataset):
+    from geometry.yolo_format import safe_folder
+    return safe_folder(folder, safe_folder(dataset.name))
+
+
+def _write_export(coco, fmt, yolo_task, with_images, subsets, split, classes, dataset, folder,
+                  directory, timestamp, task, category_names, aug):
+    """Write the file; returns (path, tags)."""
     if fmt == "yolo":
         file_path = f"{directory}yolo-{yolo_task}-{timestamp}.zip"
         task.info(f"Writing YOLO {yolo_task} labels to {file_path}")
@@ -182,6 +249,13 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
             task.info(f"Wrote {result['written']} labels ({result['skipped']} annotations "
                       f"could not be converted to {yolo_task})")
         tags = ["YOLO", yolo_task, *category_names]
+    elif aug:
+        # augmented pictures only exist as files: COCO json(s) + images in a zip
+        file_path = f"{directory}coco-{'split-' if subsets else ''}{timestamp}.zip"
+        task.info(f"Writing COCO with images to {file_path}")
+        written = _write_coco_images_zip(coco, subsets, file_path, task)
+        task.info(f"Wrote {written} images")
+        tags = ["COCO", *category_names]
     elif subsets:
         file_path = f"{directory}coco-split-{timestamp}.zip"
         task.info(f"Writing COCO train / val / test files to {file_path}")
@@ -194,25 +268,36 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
             json.dump(coco, fp)
         tags = ["COCO", *category_names]
 
-    task.info("Creating export object")
-    export = ExportModel(dataset_id=dataset.id, path=file_path, tags=tags)
-    if fmt == "yolo":
-        export.prefix_dataset = True
-        export.folder = folder
-    if only_approved:
-        export.only_approved = True
-    if subsets:
-        export.split = split
-        export.split_counts = split_counts
-        export.seed = seed
-    export.save()
-    ActivityModel.objects(task_id=task_id, action='export').update(
-        set__counts={'images': len(coco.get('images', [])), 'annotations': len(coco.get('annotations', [])),
-                     'categories': len(category_names)},
-        set__detail__categories=list(category_names)[:50], set__detail__export_id=export.id,
-        set__updated_at=datetime.datetime.utcnow())
+    return file_path, tags
 
-    task.set_progress(100, socket=socket)
+
+def _write_coco_images_zip(coco, subsets, file_path, task):
+    """images/<subset>/<name> + <subset>.json (or images/ + annotations.json),
+    each image's file_name being its path inside images/."""
+    import zipfile
+    names = _unique_names(coco, "")
+    tmp_path = file_path + ".tmp"
+    written = 0
+    with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        parts = ("train", "val", "test") if subsets else (None,)
+        for part in parts:
+            images = [img for img in coco["images"] if part is None or subsets.get(img["id"]) == part]
+            if not images:
+                continue
+            out = []
+            for img in images:
+                ext = os.path.splitext(img.get("path") or "")[1] or ".jpg"
+                rel = f"{part + '/' if part else ''}{names[img['id']]}{ext}"
+                if _add_image(zf, img, f"images/{rel}"[:-len(ext)], task):
+                    written += 1
+                clean = {k: v for k, v in img.items() if k not in ("path", "augment_ops")}
+                clean["file_name"] = rel
+                out.append(clean)
+            ids = {img["id"] for img in images}
+            data = dict(coco, images=out, annotations=[a for a in coco["annotations"] if a.get("image_id") in ids])
+            zf.writestr(f"{part or 'annotations'}.json", json.dumps(data))
+    os.replace(tmp_path, file_path)
+    return written
 
 
 def _write_coco_split_zip(coco, subsets, file_path):

@@ -62,6 +62,8 @@ export.add_argument('split', default='', help='train,val,test percentages, e.g. 
 export.add_argument('seed', type=int, default=42, help='Random seed for the split')
 export.add_argument('only_approved', type=inputs.boolean, default=False, help='Only images a reviewer approved')
 export.add_argument('folder', default='', help='YOLO: folder in the zip that holds train / val / test (default: dataset name)')
+export.add_argument('augment', default='', help='JSON: {"copies": 2, "ops": {"hflip": true, "rotate": 15, '
+                                                '"scale": 0.7, "color": true, ...}} (training images only)')
 
 video_upload = reqparse.RequestParser()
 video_upload.add_argument('video', location='files', type=FileStorage, required=False,
@@ -846,6 +848,7 @@ class DatasetExports(Resource):
                 'prefix_dataset': bool(getattr(export, 'prefix_dataset', False)),
                 'folder': getattr(export, 'folder', None),
                 'only_approved': bool(getattr(export, 'only_approved', False)),
+                'augment': getattr(export, 'augment', None),
                 'exists': exists,
             })
 
@@ -883,6 +886,14 @@ class DatasetExport(Resource):
         except ValueError as e:
             return {'message': str(e)}, 400
 
+        augment = None
+        if args.get('augment'):
+            from geometry.augment import parse_options
+            try:
+                augment = parse_options(json.loads(args['augment']))
+            except ValueError:
+                return {'message': 'augment must be JSON'}, 400
+
         return dataset.export_coco(categories=categories, with_empty_images=with_empty_images,
                                    split=split, seed=args.get('seed') if args.get('seed') is not None else 42,
                                    fmt=args.get('format') or 'coco',
@@ -890,6 +901,7 @@ class DatasetExport(Resource):
                                    with_images=bool(args.get('with_images')),
                                    folder=args.get('folder') or None,
                                    only_approved=bool(args.get('only_approved')),
+                                   augment=augment,
                                    user=current_user)
     
     @api.expect(coco_upload)

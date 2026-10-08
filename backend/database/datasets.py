@@ -84,7 +84,7 @@ class DatasetModel(DynamicDocument):
 
     def export_coco(self, categories=None, style="COCO", with_empty_images=False,
                     fmt="coco", yolo_task="detect", with_images=False, split=None, seed=42,
-                    folder=None, only_approved=False, user=None):
+                    folder=None, only_approved=False, augment=None, user=None):
 
         from workers.tasks import export_annotations
 
@@ -101,11 +101,12 @@ class DatasetModel(DynamicDocument):
         if user is not None:
             task.creator = user.username
         task.save()
-        self._log('export', user, task, format=style, split=bool(split), only_approved=only_approved or None)
+        self._log('export', user, task, format=style, split=bool(split), only_approved=only_approved or None,
+                  augment=augment or None)
 
         cel_task = export_annotations.delay(task.id, self.id, categories, with_empty_images,
                                             fmt, yolo_task, with_images, split, seed, folder,
-                                            only_approved)
+                                            only_approved, augment)
 
         return {
             "celery_id": cel_task.id,

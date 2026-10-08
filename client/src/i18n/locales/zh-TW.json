@@ -803,7 +803,8 @@
     "deleted": "已刪除匯出 #{id}",
     "downloadFailed": "下載失敗",
     "splitPart": "{name} {pct}%（{n} 張）",
-    "seed": "亂數種子 {seed}"
+    "seed": "亂數種子 {seed}",
+    "augmented": "增強 +{n} 張（每張 ×{copies}）"
   },
   "exportSplit": {
     "title": "切分成訓練 / 驗證 / 測試集",
@@ -852,7 +853,8 @@
     "zipContents": "zip 內容",
     "notReady": "還有步驟沒完成，請點上方的步驟修改。",
     "classifyCount": "約 {images} 張圖（只含單一類別的圖）",
-    "trainWith": "解壓後的訓練指令範例："
+    "trainWith": "解壓後的訓練指令範例：",
+    "stepSplit": "切分與增強"
   },
   "review": {
     "byFolder": "各資料夾進度",
@@ -1494,5 +1496,39 @@
     "removeConfirm": "要把 {name} 移出這個資料集嗎？（指派給他的圖片不會刪除，審核者身分會一併移除）",
     "added": "已加入 {n} 人",
     "removed": "已移出 {name}"
+  },
+  "exportAugment": {
+    "title": "資料增強（只增強訓練集）",
+    "short": "資料增強",
+    "off": "不增強：只輸出原圖和原本的標註。",
+    "copies": "每張訓練圖多產生",
+    "copiesHint": "張增強版本（原圖保留）",
+    "op": {
+      "hflip": "水平翻轉",
+      "vflip": "垂直翻轉",
+      "rot90": "旋轉 90°",
+      "rotate": "小角度旋轉",
+      "scale": "放大裁切",
+      "color": "亮度／對比／色調",
+      "blur": "模糊",
+      "noise": "雜訊"
+    },
+    "hint": {
+      "hflip": "左右鏡像；關鍵點的左／右會互換",
+      "vflip": "上下顛倒（空拍、顯微影像較適合）",
+      "rot90": "隨機轉 90°、180° 或 270°",
+      "rotate": "隨機轉一個小角度，畫布放大不切掉物件",
+      "scale": "隨機裁一塊再放大回原尺寸；被切掉大半的物件會移除",
+      "color": "隨機調整亮度、對比、飽和度和色調",
+      "blur": "輕微高斯模糊",
+      "noise": "加入輕微雜訊"
+    },
+    "pickOne": "至少勾選一種增強方式",
+    "summarySplit": "訓練集 {n} 張 × {copies} = 多 {total} 張增強圖；驗證集、測試集維持原圖。",
+    "summaryAll": "{n} 張 × {copies} = 多 {total} 張增強圖。",
+    "noSplitWarning": "沒有切分：所有圖片都會增強。如果之後自己再分驗證集，同一張圖的增強版本可能跑進驗證集，分數會虛高；建議在上面先切分。",
+    "withImages": "每張增強圖都會隨機套用勾選的方式（至少一種），標註會一起轉換；匯出會包含圖片（COCO 會變成 zip：images/ + json）。",
+    "summaryShort": "每張訓練圖 +{copies} 張（{ops}）",
+    "none": "不增強"
   }
 }

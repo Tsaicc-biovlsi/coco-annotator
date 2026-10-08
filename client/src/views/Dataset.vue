@@ -111,6 +111,9 @@
                         class="small text-muted lh-sm"
                         :title="$t('exportList.seed', { seed: exp.seed })"
                       >{{ part }}</div>
+                      <div v-if="exp.augment" class="small text-muted lh-sm" :title="augmentTitle(exp.augment)">
+                        <i class="fa fa-magic" /> {{ $t('exportList.augmented', { n: exp.augment.images, copies: exp.augment.copies }) }}
+                      </div>
                     </td>
                     <td class="text-center">
                       <span
@@ -413,7 +416,7 @@
                   <i v-else-if="exporting.step > i + 1" class="fa fa-check" />
                   <template v-else>{{ i + 1 }}</template>
                 </span>
-                <span class="step-name">{{ $t('exportSteps.' + name) }}</span>
+                <span class="step-name">{{ $t('exportSteps.' + (name === 'split' ? 'stepSplit' : name)) }}</span>
               </li>
             </ol>
 
@@ -512,6 +515,13 @@
                   :image-count="exportImageCount"
                   :yolo="exporting.format === 'yolo'"
                 />
+                <hr class="my-3" />
+                <ExportAugment
+                  v-model="exporting.augment"
+                  :image-count="exportImageCount"
+                  :train-count="exportSplitSizes.train || 0"
+                  :split-on="exporting.split_on"
+                />
               </div>
 
               <!-- step 5: review -->
@@ -566,6 +576,14 @@
                         <div class="text-muted">{{ $t('exportSplit.seed') }} {{ exporting.seed }}</div>
                       </template>
                       <template v-else>{{ $t('exportSteps.noSplit') }}</template>
+                      <a href="#" class="ms-1 small" @click.prevent="goToStep(4)">{{ $t('exportSteps.edit') }}</a>
+                    </dd>
+                    <dt class="col-4">{{ $t('exportAugment.short') }}</dt>
+                    <dd class="col-8 mb-0">
+                      <template v-if="exportAugmentPayload">
+                        {{ $t('exportAugment.summaryShort', { copies: exportAugmentPayload.copies, ops: exportAugmentNames }) }}
+                      </template>
+                      <template v-else>{{ $t('exportAugment.none') }}</template>
                       <a href="#" class="ms-1 small" @click.prevent="goToStep(4)">{{ $t('exportSteps.edit') }}</a>
                     </dd>
                   </dl>
@@ -646,6 +664,7 @@ import TaskPicker from "@/components/TaskPicker.vue";
 import DatasetMembers from "@/components/DatasetMembers.vue";
 import DatasetHealth from "@/components/DatasetHealth.vue";
 import ExportSplit, { splitSizes, splitValid } from "@/components/ExportSplit.vue";
+import ExportAugment, { augmentPayload, defaultAugment, OPS as AUGMENT_OPS } from "@/components/ExportAugment.vue";
 import axios from "axios";
 
 import { mapMutations } from "vuex";
@@ -682,6 +701,7 @@ export default {
     DatasetHealth,
     ExportCategories,
     ExportSplit,
+    ExportAugment,
     Pagination,
     PanelString,
     PanelToggle,
@@ -749,6 +769,7 @@ export default {
         format: "coco",
         yolo_task: "detect",
         with_images: false,
+        augment: defaultAugment(),
         id: null
       },
       yoloTasks: ["detect", "segment", "obb", "pose"],
@@ -999,6 +1020,9 @@ export default {
         .then(r => (this.exporting.counts = r.data))
         .catch(() => (this.exporting.counts = { categories: {}, image_categories: [], total_images: null }));
     },
+    augmentTitle(aug) {
+      return AUGMENT_OPS.filter(o => aug.ops && aug.ops[o.key]).map(o => this.$t("exportAugment.op." + o.key)).join("、");
+    },
     exportCOCO() {
       hideModal("#exportDataset");
       const options = { format: this.exporting.format };
@@ -1008,6 +1032,7 @@ export default {
         options.with_images = this.exportWithImages;
         options.folder = this.exportFolderName;
       }
+      if (this.exportAugmentPayload) options.augment = JSON.stringify(this.exportAugmentPayload);
       if (this.exporting.split_on) {
         const r = this.exporting.split;
         options.split = [r.train, r.val, r.test].map(v => Number(v) || 0).join(",");
@@ -1173,7 +1198,15 @@ export default {
     },
     /** classify always ships the images (they are the dataset) */
     exportWithImages() {
-      return this.exporting.yolo_task === "classify" || this.exporting.with_images;
+      // augmented pictures only exist in the export
+      return this.exporting.yolo_task === "classify" || this.exporting.with_images || !!this.exportAugmentPayload;
+    },
+    exportAugmentPayload() {
+      return augmentPayload(this.exporting.augment);
+    },
+    exportAugmentNames() {
+      const ops = (this.exportAugmentPayload && this.exportAugmentPayload.ops) || {};
+      return AUGMENT_OPS.filter(o => ops[o.key]).map(o => this.$t("exportAugment.op." + o.key)).join(this.$t("exportSteps.separator"));
     },
     /** What the zip will contain */
     exportTree() {
@@ -1226,6 +1259,7 @@ export default {
     },
     exportReady() {
       if (this.exporting.format === "yolo" && !this.exportFolderName) return false;
+      if (this.exporting.augment.enabled && !this.exportAugmentPayload) return false;
       return this.exporting.categories.length > 0 && (!this.exporting.split_on || this.exportSplitValid);
     },
     exportSelectedNames() {

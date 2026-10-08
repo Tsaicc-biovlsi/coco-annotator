@@ -671,7 +671,8 @@
     "deleted": "Export #{id} deleted",
     "downloadFailed": "Download failed",
     "splitPart": "{name} {pct}% ({n})",
-    "seed": "Random seed {seed}"
+    "seed": "Random seed {seed}",
+    "augmented": "Augmented +{n} ({copies} per image)"
   },
   "exportSplit": {
     "title": "Split into train / val / test",
@@ -720,7 +721,8 @@
     "zipContents": "Zip contents",
     "notReady": "A step is not finished yet; click it above to fix it.",
     "classifyCount": "about {images} images (single-category images only)",
-    "trainWith": "After unzipping, train with e.g.:"
+    "trainWith": "After unzipping, train with e.g.:",
+    "stepSplit": "Split & augment"
   },
   "review": {
     "byFolder": "Progress per folder",
@@ -1362,5 +1364,39 @@
     "removeConfirm": "Remove {name} from this dataset? (images assigned to them stay; they stop being a reviewer)",
     "added": "Added {n}",
     "removed": "Removed {name}"
+  },
+  "exportAugment": {
+    "title": "Augment (training images only)",
+    "short": "Augmentation",
+    "off": "No augmentation: only the original images and annotations.",
+    "copies": "Extra versions of each training image:",
+    "copiesHint": "(the originals stay)",
+    "op": {
+      "hflip": "Horizontal flip",
+      "vflip": "Vertical flip",
+      "rot90": "Rotate 90°",
+      "rotate": "Small rotation",
+      "scale": "Zoom crop",
+      "color": "Brightness / contrast / hue",
+      "blur": "Blur",
+      "noise": "Noise"
+    },
+    "hint": {
+      "hflip": "Mirror left-right; left / right keypoints swap",
+      "vflip": "Upside down (aerial, microscope images)",
+      "rot90": "A random 90°, 180° or 270° turn",
+      "rotate": "A random small angle; the canvas grows so nothing is cut",
+      "scale": "Crop a random part and scale it back; mostly cut objects are removed",
+      "color": "Random brightness, contrast, saturation and hue",
+      "blur": "A light Gaussian blur",
+      "noise": "A little random noise"
+    },
+    "pickOne": "Tick at least one augmentation",
+    "summarySplit": "{n} training images × {copies} = {total} extra images; validation and test stay original.",
+    "summaryAll": "{n} images × {copies} = {total} extra images.",
+    "noSplitWarning": "No split: every image is augmented. If you split later yourself, versions of one picture can end up in validation and inflate the scores; better split above first.",
+    "withImages": "Each version applies a random mix of the ticked operations (at least one) and transforms the annotations with it; the export includes the images (COCO becomes a zip: images/ + json).",
+    "summaryShort": "+{copies} per training image ({ops})",
+    "none": "None"
   }
 }

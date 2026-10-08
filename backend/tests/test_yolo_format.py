@@ -427,3 +427,68 @@ def test_whole_image_class(yolo_world):
     assert c.post(f"/api/image/{p1}/class", json={"category_id": None}).status_code == 200
     assert ImageModel.objects(id=p1).first().image_class is None
     assert c.get(f"/api/dataset/{ds}/data?image_class=none").get_json()["total"] == 2
+
+
+def test_api_export_with_augmentation(yolo_world):
+    """Training images get augmented copies; boxes, polygons, rotated boxes and
+    keypoints follow the picture; validation stays untouched."""
+    import json as _json
+    import cv2
+    import numpy as np
+    from database import AnnotationModel, ExportModel
+    c, ds = yolo_world["client"], yolo_world["dataset"]["id"]
+    cat = c.get("/api/category/").get_json()
+    ship = next(x["id"] for x in cat if x["name"] == "ship")
+    AnnotationModel.objects(dataset_id=ds).delete()  # (earlier tests share this dataset)
+    # a white box on each (dark) picture, annotated exactly
+    import os
+    for name, img in yolo_world["images"].items():
+        pic = np.full((H, W, 3), 40, np.uint8)
+        pic[20:60, 30:90] = 255
+        from database import ImageModel
+        cv2.imwrite(ImageModel.objects(id=img["id"]).first().path, pic)
+        r = c.post("/api/annotation/", json={"image_id": img["id"], "category_id": ship,
+                                             "segmentation": [[30, 20, 90, 20, 90, 60, 30, 60]]})
+        assert r.status_code == 200, r.data
+    AnnotationModel.objects(dataset_id=ds).update(set__isbbox=True)
+
+    aug = {"copies": 3, "ops": {"hflip": True, "vflip": True, "rot90": True, "rotate": 10, "color": True}}
+    r = c.get(f"/api/dataset/{ds}/export", query_string={"format": "yolo", "yolo_task": "detect", "split": "50,50,0",
+                                                          "seed": 5, "augment": _json.dumps(aug)})
+    assert r.status_code == 200, r.data
+    export = ExportModel.objects(dataset_id=ds).order_by("-id").first()
+    assert export.augment["images"] == 3
+    row = next(x for x in c.get(f"/api/dataset/{ds}/exports").get_json() if x["id"] == export.id)
+    assert row["augment"]["copies"] == 3 and "ship" in row["categories"] and "augmented" not in row["categories"]
+    with zipfile.ZipFile(export.path) as zf:
+        names = zf.namelist()
+        train_imgs = sorted(n for n in names if "/train/images/" in n)
+        assert len(train_imgs) == 4  # the original + 3 copies
+        assert sum("/val/images/" in n for n in names) == 1 and not any("_aug" in n for n in names if "/val/" in n)
+        for n in train_imgs:
+            pic = cv2.imdecode(np.frombuffer(zf.read(n), np.uint8), cv2.IMREAD_GRAYSCALE)
+            h, w = pic.shape
+            label = zf.read(n.replace("/images/", "/labels/").rsplit(".", 1)[0] + ".txt").decode().split()
+            cls, cx, cy, bw, bh = int(label[0]), *map(float, label[1:5])
+            ys, xs = np.where(pic > 200)
+            # the label box is where the white box is (within a couple of pixels)
+            assert abs(xs.min() - (cx - bw / 2) * w) < 3 and abs(xs.max() + 1 - (cx + bw / 2) * w) < 3, n
+            assert abs(ys.min() - (cy - bh / 2) * h) < 3 and abs(ys.max() + 1 - (cy + bh / 2) * h) < 3, n
+
+    # COCO: a zip with the pictures and one json per part
+    r = c.get(f"/api/dataset/{ds}/export", query_string={"format": "coco", "split": "50,50,0", "seed": 5,
+                                                          "augment": _json.dumps({"copies": 2, "ops": {"hflip": True}})})
+    export = ExportModel.objects(dataset_id=ds).order_by("-id").first()
+    with zipfile.ZipFile(export.path) as zf:
+        train = _json.loads(zf.read("train.json"))
+        val = _json.loads(zf.read("val.json"))
+        assert len(train["images"]) == 3 and len(val["images"]) == 1
+        for img in train["images"] + val["images"]:
+            assert f"images/{img['file_name']}" in zf.namelist() and "path" not in img
+        assert len(train["annotations"]) == 3
+
+    # nothing chosen: no augmentation
+    c.get(f"/api/dataset/{ds}/export", query_string={"format": "coco", "augment": _json.dumps({"copies": 2, "ops": {}})})
+    export = ExportModel.objects(dataset_id=ds).order_by("-id").first()
+    assert export.path.endswith(".json") and not getattr(export, "augment", None)
+    assert c.get(f"/api/dataset/{ds}/export", query_string={"augment": "{bad"}).status_code == 400
