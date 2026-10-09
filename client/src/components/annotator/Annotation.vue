@@ -1100,6 +1100,12 @@ export default {
       if (annotation.id != this.annotation.id) return;
 
       if (data.action == "modify") {
+        // the kind of shape comes along: a rotated box (or bbox) edited by
+        // someone else must stay one here, or the next edit or save here
+        // would turn it into a polygon
+        this.annotation.isbbox = !!annotation.isbbox;
+        this.annotation.isrbbox = !!annotation.isrbbox;
+        this.annotation.paper_object = annotation.paper_object;
         this.createCompoundPath(
           annotation.paper_object,
           annotation.segmentation
