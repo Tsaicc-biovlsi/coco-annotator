@@ -221,6 +221,8 @@ def test_annotation_events_go_only_to_the_same_image(dataset_directory):
         s_owner.emit("annotation", {"action": "modify", "annotation": ann})
         got = lambda s: [m for m in s.get_received() if m["name"] == "annotation"]
         assert len(got(s_member)) == 1
+        # no echo back to the sender (a late echo would undo a newer edit)
+        assert got(s_owner) == []
         assert got(s_other_image) == []
         assert got(s_stranger) == []
         # a stranger can not send (fake deletes)

@@ -872,6 +872,8 @@ export default {
       this.uuid = Math.random()
         .toString(36)
         .replace(/[^a-z]+/g, "");
+      // remember what we sent: an echo of an older edit must not undo a newer one
+      this.sentUuids = [...(this.sentUuids || []).slice(-49), this.uuid];
       this.annotation.paper_object = this.compoundPath.exportJSON({
         asString: false,
         precision: 1
@@ -1094,6 +1096,7 @@ export default {
       let annotation = data.annotation;
 
       if (this.uuid == data.uuid) return;
+      if (this.sentUuids && this.sentUuids.includes(data.uuid)) return;
       if (annotation.id != this.annotation.id) return;
 
       if (data.action == "modify") {

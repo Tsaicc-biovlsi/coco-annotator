@@ -83,7 +83,9 @@ def annotation(data):
         return
     if current_user.editable_images.filter(id=image_id).only('id').first() is None:
         return
-    emit('annotation', data, room=image_id)
+    # not back to the sender: an echo arriving after a newer local edit
+    # would put the older shape back (e.g. a box rotating back)
+    emit('annotation', data, room=image_id, include_self=False)
 
 
 def dataset_room(dataset_id):
