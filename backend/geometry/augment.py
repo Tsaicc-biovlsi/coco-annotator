@@ -272,47 +272,68 @@ def augment_image(img, annotations, ops, rng, flips):
     return img, out, used
 
 
-def augment_coco(coco, images, options, seed, out_dir, log=None):
+def augment_coco(coco, images, options, seed, out_dir, log=None, progress=None, workers=None):
     """Augmented copies of ``images`` (COCO image dicts with a ``path``).
 
     Returns (new images, new annotations, {new image id: original id}).
-    The pictures are written as JPEG into ``out_dir``.
+    The pictures are written as JPEG into ``out_dir``. Several images are
+    done at once (OpenCV works outside Python's lock); every copy has its own
+    seed, so the result does not depend on that. ``progress(done)`` is called
+    as images finish.
     """
     import cv2
+    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     os.makedirs(out_dir, exist_ok=True)
-    rng = random.Random(seed)
     flips = {c["id"]: flip_map(c.get("keypoints") or c.get("keypoint_labels") or [])
              for c in coco.get("categories", [])}
     by_image = {}
     for a in coco.get("annotations", []):
         by_image.setdefault(a.get("image_id"), []).append(a)
-    next_image = max([i["id"] for i in coco.get("images", [])] + [0]) + 1
-    next_ann = max([a.get("id", 0) for a in coco.get("annotations", [])] + [0]) + 1
 
-    new_images, new_annotations, source = [], [], {}
-    for n, image in enumerate(images):
+    def work(image):
         path = image.get("path")
         picture = cv2.imread(path, cv2.IMREAD_COLOR) if path and os.path.isfile(path) else None
         if picture is None:
+            return None
+        versions = []
+        for k in range(1, options["copies"] + 1):
+            rng = random.Random(f"{seed}:{image['id']}:{k}")
+            pic, anns, used = augment_image(picture, by_image.get(image["id"], []), options["ops"], rng, flips)
+            file = os.path.join(out_dir, f"{image['id']}_{k}.jpg")
+            if not cv2.imwrite(file, pic, [cv2.IMWRITE_JPEG_QUALITY, 95]):
+                raise OSError(f"could not write {file} (disk full?)")
+            versions.append((k, file, pic.shape[1], pic.shape[0], used, anns))
+        return versions
+
+    workers = workers or min(8, os.cpu_count() or 2)
+    results = [None] * len(images)
+    done = 0
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(work, image): n for n, image in enumerate(images)}
+        for future in as_completed(futures):
+            results[futures[future]] = future.result()
+            done += 1
+            if progress and (done % 10 == 0 or done == len(images)):
+                progress(done)
+            if log and done % 200 == 0:
+                log(f"Augmented {done} / {len(images)} images")
+
+    next_image = max([i["id"] for i in coco.get("images", [])] + [0]) + 1
+    next_ann = max([a.get("id", 0) for a in coco.get("annotations", [])] + [0]) + 1
+    new_images, new_annotations, source = [], [], {}
+    for image, versions in zip(images, results):
+        if versions is None:
             if log:
                 log(f"Image file missing, not augmented: {image.get('file_name')}")
             continue
         stem = os.path.splitext(os.path.basename(image.get("file_name") or f"image{image['id']}"))[0]
-        for k in range(1, options["copies"] + 1):
-            pic, anns, used = augment_image(picture, by_image.get(image["id"], []), options["ops"], rng, flips)
-            name = f"{stem}_aug{k}.jpg"
-            file = os.path.join(out_dir, f"{image['id']}_{k}.jpg")
-            cv2.imwrite(file, pic, [cv2.IMWRITE_JPEG_QUALITY, 95])
-            h, w = pic.shape[:2]
-            new = dict(image, id=next_image, file_name=name, path=file, width=w, height=h,
-                       augmented_from=image["id"], augment_ops=used)
-            new_images.append(new)
+        for k, file, w, h, used, anns in versions:
+            new_images.append(dict(image, id=next_image, file_name=f"{stem}_aug{k}.jpg", path=file,
+                                   width=w, height=h, augmented_from=image["id"], augment_ops=used))
             source[next_image] = image["id"]
             for a in anns:
                 new_annotations.append(dict(a, id=next_ann, image_id=next_image))
                 next_ann += 1
             next_image += 1
-        if log and (n + 1) % 50 == 0:
-            log(f"Augmented {n + 1} / {len(images)} images")
     return new_images, new_annotations, source

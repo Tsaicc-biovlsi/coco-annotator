@@ -23,16 +23,38 @@ from ..socket import create_socket
 from mongoengine import Q
 
 
+# export progress: reading the images 0-40 %, augmentation 40-85 %, writing
+# 85-99 %, 100 % only once the export is saved (the page then lists it)
+READ_SHARE, AUGMENT_END, WRITE_START = 40, 85, 85
+
+
 @shared_task
 def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
                        fmt="coco", yolo_task="detect", with_images=False, split=None, seed=42,
                        folder=None, only_approved=False, augment=None):
-
     task = TaskModel.objects.get(id=task_id)
-    dataset = DatasetModel.objects.get(id=dataset_id)
-
     task.update(status="PROGRESS")
     socket = create_socket()
+    try:
+        _export_annotations(task, socket, dataset_id, categories, with_empty_images, fmt, yolo_task,
+                            with_images, split, seed, folder, only_approved, augment)
+    except Exception as e:
+        # say so (the page shows it) instead of leaving a finished-looking bar
+        import traceback
+        task.error(f"Export failed: {e}")
+        task.info(traceback.format_exc()[-2000:])
+        task.update(status="FAILURE", failed=True, completed=True, progress=100,
+                    end_date=datetime.datetime.utcnow())
+        if socket is not None:
+            socket.emit('taskProgress', {'id': task.id, 'progress': 100, 'failed': True,
+                                         'message': str(e)[:300], 'errors': task.errors,
+                                         'warnings': task.warnings})
+        raise
+
+
+def _export_annotations(task, socket, dataset_id, categories, with_empty_images, fmt, yolo_task,
+                        with_images, split, seed, folder, only_approved, augment):
+    dataset = DatasetModel.objects.get(id=dataset_id)
 
     task.info(f"Beginning Export ({'YOLO ' + yolo_task if fmt == 'yolo' else 'COCO'} Format)")
 
@@ -78,7 +100,7 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
         category_names.append(category.get('name'))
 
         progress += 1
-        task.set_progress((progress / total_items) * 100, socket=socket)
+        task.set_progress((progress / total_items) * READ_SHARE, socket=socket)
 
     # classify: images with a whole-image class are exported even without annotations
     explicit = {}
@@ -93,7 +115,7 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
         image = fix_ids(image)
 
         progress += 1
-        task.set_progress((progress / total_items) * 100, socket=socket)
+        task.set_progress((progress / total_items) * READ_SHARE, socket=socket)
 
         annotations = db_annotations.filter(image_id=image.get('id'))\
             .only(*AnnotationModel.COCO_PROPERTIES)
@@ -162,7 +184,10 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
         names = ", ".join(f"{k}" + (f" {v}" if v is not True else "") for k, v in aug["ops"].items())
         task.info(f"Augmenting {len(targets)} images, {aug['copies']} copies each ({names})")
         aug_dir = f"{directory}.augment-{timestamp}/"
-        new_images, new_annotations, source = augment_coco(coco, targets, aug, seed, aug_dir, log=task.info)
+        span = AUGMENT_END - READ_SHARE
+        new_images, new_annotations, source = augment_coco(
+            coco, targets, aug, seed, aug_dir, log=task.info,
+            progress=lambda done: task.set_progress(READ_SHARE + span * done / max(1, len(targets)), socket=socket))
         coco["images"].extend(new_images)
         coco["annotations"].extend(new_annotations)
         aug_count = len(new_images)
@@ -187,6 +212,7 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
             seed, " by original picture" if source else "",
             ", ".join(f"{k} {split[k]}% = {split_counts[k]} images" for k in split_counts)))
 
+    task.set_progress(WRITE_START, socket=socket)
     try:
         file_path, tags = _write_export(coco, fmt, yolo_task, with_images, subsets, split, classes,
                                         dataset, folder, directory, timestamp, task, category_names, aug)
@@ -209,7 +235,7 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
     if aug:
         export.augment = dict(aug, images=aug_count)
     export.save()
-    ActivityModel.objects(task_id=task_id, action='export').update(
+    ActivityModel.objects(task_id=task.id, action='export').update(
         set__counts={'images': len(coco.get('images', [])), 'annotations': len(coco.get('annotations', [])),
                      'categories': len(category_names)},
         set__detail__categories=list(category_names)[:50], set__detail__export_id=export.id,

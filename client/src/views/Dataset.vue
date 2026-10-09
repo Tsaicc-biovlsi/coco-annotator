@@ -1353,6 +1353,13 @@ export default {
       }
 
       if (data.id === this.exporting.id) {
+        if (data.failed) {
+          // tell why, and do not refresh the list as if it had worked
+          this.$toastr.error(data.message || "", this.$t("dataset.exportFailed"), { timeOut: 0, closeButton: true });
+          this.exporting.progress = 0;
+          this.exporting.id = null;
+          return;
+        }
         this.exporting.progress = data.progress;
       }
 

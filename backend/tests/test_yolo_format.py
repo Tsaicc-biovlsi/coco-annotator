@@ -495,3 +495,20 @@ def test_api_export_with_augmentation(yolo_world):
     export = ExportModel.objects(dataset_id=ds).order_by("-id").first()
     assert export.path.endswith(".json") and not getattr(export, "augment", None)
     assert c.get(f"/api/dataset/{ds}/export", query_string={"augment": "{bad"}).status_code == 400
+
+
+def test_failed_export_is_marked_failed(yolo_world, monkeypatch):
+    """An export that breaks while writing says so (the bar must not look done)."""
+    from database import ExportModel, TaskModel
+    from workers.tasks import data
+    c, ds = yolo_world["client"], yolo_world["dataset"]["id"]
+    before = ExportModel.objects(dataset_id=ds).count()
+
+    def broken(*args, **kwargs):
+        raise OSError("No space left on device")
+    monkeypatch.setattr(data, "_write_export", broken)
+    c.get(f"/api/dataset/{ds}/export?format=coco&with_empty_images=true")
+    task = TaskModel.objects(group="Annotation Export").order_by("-id").first()
+    assert task.failed and task.status == "FAILURE"
+    assert any("No space left" in (log or "") for log in task.logs)
+    assert ExportModel.objects(dataset_id=ds).count() == before

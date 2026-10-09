@@ -248,7 +248,8 @@
     "importSource": "Imported",
     "ranBy": "run by {names}",
     "perUserHint": "People's numbers count only what they drew; model runs and imports are listed apart. Model results from before this update mostly cannot be told apart and still count for whoever ran the model.",
-    "taskStillRunning": "This task is still running; the button comes back when it is done."
+    "taskStillRunning": "This task is still running; the button comes back when it is done.",
+    "exportFailed": "Export failed (details on the Tasks page)"
   },
   "datasetCard": {
     "addUsernames": "Add usernames",
