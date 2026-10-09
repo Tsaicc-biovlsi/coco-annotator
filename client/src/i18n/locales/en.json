@@ -1342,7 +1342,9 @@
     "byFileName": "By file name",
     "bySubmitted": "By time submitted",
     "syncZoom": "Zoom together",
-    "syncHint": "On: wheel and drag move every image on the page (Shift: only this one); off: only this one (Shift: all)"
+    "syncHint": "On: wheel and drag move every image on the page (Shift: only this one); off: only this one (Shift: all)",
+    "only": "Only:",
+    "inImages": "on {n} images"
   },
   "rejectReasons": {
     "defaults": "Wrong category\nBox incomplete or too big\nSomething not labeled\nLabeled something that should not be",

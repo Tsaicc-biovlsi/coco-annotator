@@ -53,11 +53,30 @@
         <label class="form-check-label" for="qrNames">{{ $t('quickReview.showNames') }} (L)</label>
       </div>
 
-      <span v-if="soloCat != null" class="solo-tag">
-        <i class="dot" :style="{ background: (categories[soloCat] && categories[soloCat].color) || '#00e5ff' }" />
-        {{ $t('quickReview.onlyCat', { name: catLabel(soloCat) }) }}
-        <button type="button" class="btn-close btn-close-white" :aria-label="$t('quickReview.soloOff')" @click="soloCat = null" />
-      </span>
+      <!-- categories of this page: hover lights one up everywhere, click keeps it -->
+      <div v-if="showShapes && pageCats.length" class="cat-strip" :class="{ solo: soloCat != null }">
+        <span v-if="soloCat != null" class="strip-label">{{ $t('quickReview.only') }}</span>
+        <span
+          v-for="c in pageCats"
+          :key="String(c.id)"
+          class="chip"
+          :class="{ on: soloCat === c.id, off: (soloCat != null && soloCat !== c.id) || (hover && hover.all && hover.cat !== c.id) }"
+          :title="catLabel(c.id) + ' — ' + $t('quickReview.inImages', { n: c.images }) + '\n' + $t(soloCat === c.id ? 'quickReview.soloOff' : 'quickReview.soloOn')"
+          @mouseenter="hover = { cat: c.id, all: true }"
+          @mouseleave="hover = null"
+          @click="c.id != null && toggleSolo(c.id)"
+        >
+          <i class="dot" :style="{ background: c.color }" />{{ c.name }}<b>{{ c.n }}</b>
+        </span>
+        <button
+          v-if="soloCat != null"
+          type="button"
+          class="btn-close btn-close-white"
+          :aria-label="$t('quickReview.soloOff')"
+          :title="$t('quickReview.soloOff') + ' (Esc)'"
+          @click="soloCat = null"
+        />
+      </div>
 
       <div class="ms-auto d-flex align-items-center gap-2">
         <span class="small text-white-50">
@@ -170,21 +189,6 @@
           </g>
         </svg>
 
-        <div v-if="showShapes && showNames && img.annotations.length" class="legend" @click.stop @dblclick.stop>
-          <span
-            v-for="c in catCounts(img)"
-            :key="c.id"
-            class="chip"
-            :class="{ off: isDim(img, c.id), on: soloCat === c.id }"
-            :title="catLabel(c.id) + ' — ' + $t(soloCat === c.id ? 'quickReview.soloOff' : 'quickReview.soloOn')"
-            @mouseenter="hover = { cat: c.id, all: true }"
-            @mouseleave="hover = null"
-            @click.stop="toggleSolo(c.id)"
-          >
-            <i class="dot" :style="{ background: c.color }" />{{ c.name }}<b>{{ c.n }}</b>
-          </span>
-        </div>
-
         <div v-if="decided[img.id]" class="stamp" :class="decided[img.id]">
           <i class="fa" :class="decided[img.id] === 'approved' ? 'fa-check' : 'fa-undo'" />
           {{ $t('review.status.' + decided[img.id]) }}
@@ -207,7 +211,7 @@
             <div class="fname text-truncate" :title="img.file_name">{{ img.file_name }}</div>
             <div class="meta text-truncate">
               <span v-if="img.labeled_by"><i class="fa fa-user-o" /> {{ img.labeled_by }}</span>
-              <span>{{ $t('quickReview.nShapes', { n: img.annotations.length }) }}</span>
+              <span :title="catCounts(img).map(c => `${c.name} ${c.n}`).join('\n')">{{ $t('quickReview.nShapes', { n: img.annotations.length }) }}</span>
               <span v-if="img.review_note" class="text-warning" :title="img.review_note"><i class="fa fa-comment-o" /> {{ img.review_note }}</span>
             </div>
           </div>
@@ -384,6 +388,27 @@ export default {
         .filter(c => c.in_dataset !== false)
         .filter(c => !q || c.name.toLowerCase().includes(q) || (c.parents || []).some(p => p.toLowerCase().includes(q)))
         .sort((a, b) => a.name.localeCompare(b.name, "zh-Hant", { numeric: true }) || a.id - b.id);
+    },
+    /** categories used on this page: how many shapes, on how many images */
+    pageCats() {
+      const rows = {};
+      this.images.forEach(img => {
+        const seen = new Set();
+        img.annotations.forEach(a => {
+          const key = String(a.category_id);
+          const c = this.categories[a.category_id];
+          const row = rows[key] || (rows[key] = {
+            id: a.category_id == null ? null : a.category_id, n: 0, images: 0,
+            name: c ? c.name : this.$t("quickReview.noCategory"), color: (c && c.color) || "#00e5ff"
+          });
+          row.n += 1;
+          if (!seen.has(key)) {
+            seen.add(key);
+            row.images += 1;
+          }
+        });
+      });
+      return Object.values(rows).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
     },
     pending() {
       return this.images.filter(i => !this.decided[i.id] && i.status !== "approved");
@@ -696,7 +721,8 @@ export default {
     },
     measure() {
       const svg = this.$el && this.$el.querySelector && this.$el.querySelector(".pic");
-      if (svg && svg.clientWidth) this.picPx = { w: svg.clientWidth, h: svg.clientHeight };
+      // (a picture being laid out can be 0 high for a moment)
+      if (svg && svg.clientWidth > 0 && svg.clientHeight > 0) this.picPx = { w: svg.clientWidth, h: svg.clientHeight };
     },
     /** the top-left corner of a shape, in image coordinates */
     corner(a) {
@@ -719,7 +745,7 @@ export default {
     nameLabels(img) {
       const v = this.viewOf(img);
       // image units per screen pixel ("meet" fits the whole view box)
-      const unit = Math.max(v.w / this.picPx.w, v.h / this.picPx.h);
+      const unit = Math.max(v.w / Math.max(1, this.picPx.w), v.h / Math.max(1, this.picPx.h)) || 1;
       const size = 12 * unit;
       const out = [];
       img.annotations.forEach(a => {
@@ -1068,10 +1094,36 @@ export default {
   font-weight: 600;
 }
 .chip {
+  flex: none;
   cursor: pointer;
 }
 .chip.on {
   box-shadow: inset 0 0 0 1.5px #ffc107;
+}
+.cat-strip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 46vw;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding: 2px 4px;
+  border-radius: 999px;
+}
+.cat-strip.solo {
+  background: rgba(255, 193, 7, 0.12);
+  box-shadow: inset 0 0 0 1px #ffc107;
+}
+.strip-label {
+  color: #ffc107;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  padding-left: 6px;
+}
+.cat-strip .btn-close {
+  flex: none;
+  font-size: 0.6rem;
+  margin: 0 4px;
 }
 .solo-tag {
   display: inline-flex;
