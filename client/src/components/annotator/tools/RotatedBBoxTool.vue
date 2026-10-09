@@ -74,6 +74,14 @@ export default {
     annotationComponent() {
       return this.$parent.currentAnnotation;
     },
+    /** The category new boxes go to, when it is not the selected box's one */
+    drawCategoryComponent() {
+      const id = this.$parent.drawCategoryId;
+      if (id == null) return null;
+      const current = this.$parent.currentCategory;
+      if (current && current.category.id === id) return null;
+      return (this.$parent.categoryRefs() || []).find(c => c.category.id === id) || null;
+    },
     boxInfo() {
       if (!this.box) return null;
       return {
@@ -87,10 +95,11 @@ export default {
         if (this.drawing.points.length === 1) return this.$t("rbbox.step2");
         return this.$t("rbbox.step3");
       }
-      if (this.boxInfo) {
-        return `${this.boxInfo.w} × ${this.boxInfo.h} px, ${this.boxInfo.angle}°`;
-      }
-      return this.$t("rbbox.step1");
+      const base = this.boxInfo
+        ? `${this.boxInfo.w} × ${this.boxInfo.h} px, ${this.boxInfo.angle}°`
+        : this.$t("rbbox.step1");
+      const other = this.drawCategoryComponent;
+      return other ? `${base} · ${this.$t("rbbox.newIn", { name: other.category.name })}` : base;
     }
   },
   methods: {
@@ -347,8 +356,16 @@ export default {
       let parent = this.$parent;
       let annotation = target || parent.currentAnnotation;
 
-      const category = (target && target.$parent && target.$parent.createAnnotation) ? target.$parent : parent.currentCategory;
-      if (isNew && this.annotationHasShape(annotation) && category) {
+      let category = (target && target.$parent && target.$parent.createAnnotation) ? target.$parent : parent.currentCategory;
+      let needsNew = this.annotationHasShape(annotation);
+      // a box selected on the image (to edit it) belongs to another category:
+      // a new box still goes to the category being drawn
+      const drawing = isNew ? this.drawCategoryComponent : null;
+      if (drawing && drawing !== category) {
+        category = drawing;
+        needsNew = true;
+      }
+      if (isNew && needsNew && category) {
         await category.createAnnotation();
         // wait until the new annotation is mounted and selected
         for (let i = 0; i < 5 && parent.currentAnnotation === annotation; i++) {
@@ -423,7 +440,7 @@ export default {
       if (!this.mod(event, "ctrl")) {
         let target = this.boxAt(point);
         if (target) {
-          this.$parent.onCategoryClick({ ...target, keypoint: -1 });
+          this.$parent.onCategoryClick({ ...target, keypoint: -1, fromCanvas: true });
           this.syncFromAnnotation();
           let picked = this.hitTest(point);
           if (picked) this.startDrag(picked, point);

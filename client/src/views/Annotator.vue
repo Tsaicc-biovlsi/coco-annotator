@@ -411,6 +411,11 @@ export default {
       // "only this category": hovered in the list, or kept with the crosshairs icon
       hoverCategory: null,
       soloCategory: null,
+      // the category new rotated boxes go to: the one picked in the list or
+      // with the keyboard; clicking another box on the image to edit it
+      // does not change it
+      drawCategoryId: null,
+      canvasPick: false,
       zoom: 0.2,
       cursor: "move",
       mode: "segment",
@@ -1118,6 +1123,13 @@ export default {
         .finally(() => this.removeProcess(process));
     },
     onCategoryClick(indices) {
+      if (indices.fromCanvas) {
+        // only skip the category watcher when it will actually fire
+        this.canvasPick = indices.category !== this.current.category;
+      } else {
+        const c = this.categories[indices.category];
+        if (c) this.drawCategoryId = c.id;
+      }
       this.current.annotation = indices.annotation;
       this.current.category = indices.category;
       if (!indices.hasOwnProperty('keypoint')) {
@@ -1675,6 +1687,8 @@ export default {
       // working on another category: show everything again (what is drawn
       // there would be faded out otherwise)
       const c = this.categories[this.current.category];
+      if (this.canvasPick) this.canvasPick = false;
+      else this.drawCategoryId = c ? c.id : null;
       if (this.soloCategory != null && c && c.id !== this.soloCategory) this.soloCategory = null;
     },
     "current.annotation"(ca) {

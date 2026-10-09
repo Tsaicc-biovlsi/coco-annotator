@@ -470,6 +470,7 @@
     "noAnnotation": "請先選取或新增一個標註",
     "step1": "1/3 · 點第一個角（點既有的框可選取它；按住 Ctrl 點可在框內畫新框）",
     "step2": "2/3 · 點第二個角",
+    "newIn": "新框加到「{name}」",
     "step3": "3/3 · 拉出寬度後點擊 · Esc 取消"
   },
   "rotatedBBoxPanel": {
