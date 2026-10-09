@@ -40,7 +40,7 @@
             :key="s"
             class="progress"
             role="progressbar"
-            :style="{ width: pct(progress.total[s]) + '%' }"
+            :style="{ width: share(progress.total[s], progress.images) + '%' }"
             :title="$t('review.status.' + s) + ': ' + progress.total[s]"
           >
             <div class="progress-bar" :class="barClass(s)">
@@ -127,7 +127,7 @@
                       v-for="s in BAR_ORDER"
                       :key="s"
                       class="progress"
-                      :style="{ width: folderPct(f, f.status[s]) + '%' }"
+                      :style="{ width: share(f.status[s], f.images) + '%' }"
                       :title="$t('review.status.' + s) + ': ' + (f.status[s] || 0)"
                     >
                       <div class="progress-bar" :class="barClass(s)" />
@@ -329,6 +329,10 @@ export default {
     },
     sumRow(row) {
       return STATUSES.reduce((n, s) => n + ((row && row[s]) || 0), 0);
+    },
+    /** exact share for bar widths: rounded ones may not add up to 100 */
+    share(n, total) {
+      return total ? (100 * (n || 0)) / total : 0;
     },
     pct(n) {
       return this.progress && this.progress.images ? Math.round((100 * n) / this.progress.images) : 0;
