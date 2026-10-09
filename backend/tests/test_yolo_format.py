@@ -430,8 +430,9 @@ def test_whole_image_class(yolo_world):
 
 
 def test_api_export_with_augmentation(yolo_world):
-    """Every image gets augmented copies (boxes follow the picture), then the
-    split keeps each picture and its copies in the same part."""
+    """Split first, then augmented copies of the training images (boxes follow
+    the picture); with scope "all" every part gets them, each picture's copies
+    staying in its part."""
     import json as _json
     import cv2
     import numpy as np
@@ -457,17 +458,16 @@ def test_api_export_with_augmentation(yolo_world):
                                                           "seed": 5, "augment": _json.dumps(aug)})
     assert r.status_code == 200, r.data
     export = ExportModel.objects(dataset_id=ds).order_by("-id").first()
-    assert export.augment["images"] == 6  # 2 pictures x 3
+    assert export.augment["images"] == 3 and export.augment["parts"] == {"train": 3}
+    assert export.split_counts == {"train": 1, "val": 1, "test": 0}  # the originals
     row = next(x for x in c.get(f"/api/dataset/{ds}/exports").get_json() if x["id"] == export.id)
     assert row["augment"]["copies"] == 3 and "ship" in row["categories"] and "augmented" not in row["categories"]
     with zipfile.ZipFile(export.path) as zf:
         names = zf.namelist()
         train_imgs = sorted(n for n in names if "/train/images/" in n)
         val_imgs = sorted(n for n in names if "/val/images/" in n)
-        assert len(train_imgs) == 4 and len(val_imgs) == 4  # each: the original + 3 copies
-        stem = lambda n: n.rsplit("/", 1)[1].split("_aug")[0].rsplit(".", 1)[0]
-        assert len({stem(n) for n in train_imgs}) == 1 and len({stem(n) for n in val_imgs}) == 1
-        assert {stem(n) for n in train_imgs} != {stem(n) for n in val_imgs}
+        assert len(train_imgs) == 4 and len(val_imgs) == 1  # validation stays original
+        assert not any("_aug" in n for n in val_imgs)
         for n in train_imgs + val_imgs:
             pic = cv2.imdecode(np.frombuffer(zf.read(n), np.uint8), cv2.IMREAD_GRAYSCALE)
             h, w = pic.shape
@@ -485,10 +485,21 @@ def test_api_export_with_augmentation(yolo_world):
     with zipfile.ZipFile(export.path) as zf:
         train = _json.loads(zf.read("train.json"))
         val = _json.loads(zf.read("val.json"))
-        assert len(train["images"]) == 3 and len(val["images"]) == 3
+        assert len(train["images"]) == 3 and len(val["images"]) == 1
         for img in train["images"] + val["images"]:
             assert f"images/{img['file_name']}" in zf.namelist() and "path" not in img
         assert len(train["annotations"]) == 3
+
+    # every part, each picture's versions in its own part
+    r = c.get(f"/api/dataset/{ds}/export", query_string={
+        "format": "yolo", "split": "50,50,0", "seed": 5, "with_images": "true",
+        "augment": _json.dumps({"copies": 2, "ops": {"hflip": True}, "scope": "all"})})
+    export = ExportModel.objects(dataset_id=ds).order_by("-id").first()
+    assert export.augment["parts"] == {"train": 2, "val": 2}
+    with zipfile.ZipFile(export.path) as zf:
+        stem = lambda n: n.rsplit("/", 1)[1].split("_aug")[0].rsplit(".", 1)[0]
+        parts = {p: {stem(n) for n in zf.namelist() if f"/{p}/images/" in n} for p in ("train", "val")}
+        assert len(parts["train"]) == 1 and len(parts["val"]) == 1 and parts["train"] != parts["val"]
 
     # nothing chosen: no augmentation
     c.get(f"/api/dataset/{ds}/export", query_string={"format": "coco", "augment": _json.dumps({"copies": 2, "ops": {}})})

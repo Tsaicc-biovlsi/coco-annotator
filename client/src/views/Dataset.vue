@@ -506,25 +506,25 @@
                 </div>
               </div>
 
-              <!-- step 4: augmentation (before the split) -->
+              <!-- step 4: split (of the original pictures) -->
               <div v-show="exporting.step === 4">
-                <ExportAugment v-model="exporting.augment" :image-count="exportImageCount" />
-              </div>
-
-              <!-- step 5: split (of the originals and their augmented versions) -->
-              <div v-show="exporting.step === 5">
                 <ExportSplit
                   v-model:enabled="exporting.split_on"
                   v-model:ratios="exporting.split"
                   v-model:seed="exporting.seed"
                   :image-count="exportImageCount"
-                  :per-image="exportVersions"
                   :yolo="exporting.format === 'yolo'"
                 />
-                <div v-if="exportAugmentPayload && exporting.split_on" class="form-text mt-2">
-                  <i class="fa fa-info-circle" />
-                  {{ $t('exportAugment.splitTogether', { copies: exportAugmentPayload.copies }) }}
-                </div>
+              </div>
+
+              <!-- step 5: augmentation (of the training images, after the split) -->
+              <div v-show="exporting.step === 5">
+                <ExportAugment
+                  v-model="exporting.augment"
+                  :image-count="exportImageCount"
+                  :split-on="exporting.split_on"
+                  :split-sizes="exportSplitSizes"
+                />
               </div>
 
               <!-- step 6: review -->
@@ -572,24 +572,24 @@
                         </div>
                       </template>
                     </dd>
-                    <dt class="col-4">{{ $t('exportAugment.short') }}</dt>
-                    <dd class="col-8">
-                      <template v-if="exportAugmentPayload">
-                        {{ $t('exportAugment.summaryShort', { copies: exportAugmentPayload.copies, ops: exportAugmentNames }) }}
-                      </template>
-                      <template v-else>{{ $t('exportAugment.none') }}</template>
-                      <a href="#" class="ms-1 small" @click.prevent="goToStep(4)">{{ $t('exportSteps.edit') }}</a>
-                    </dd>
                     <dt class="col-4">{{ $t('exportSteps.split') }}</dt>
-                    <dd class="col-8 mb-0">
+                    <dd class="col-8">
                       <template v-if="exporting.split_on">
                         <span v-for="k in ['train', 'val', 'test']" :key="k" class="me-2">
                           {{ $t('exportSplit.' + k) }} {{ exporting.split[k] }}%
-                          <span class="text-muted">({{ exportSplitSizes[k] }})</span>
+                          <span class="text-muted">({{ exportSplitSizes[k] }}<template v-if="exportAugCounts[k].extra"> + {{ $t('exportAugment.augShort', { n: exportAugCounts[k].extra }) }}</template>)</span>
                         </span>
                         <div class="text-muted">{{ $t('exportSplit.seed') }} {{ exporting.seed }}</div>
                       </template>
                       <template v-else>{{ $t('exportSteps.noSplit') }}</template>
+                      <a href="#" class="ms-1 small" @click.prevent="goToStep(4)">{{ $t('exportSteps.edit') }}</a>
+                    </dd>
+                    <dt class="col-4">{{ $t('exportAugment.short') }}</dt>
+                    <dd class="col-8 mb-0">
+                      <template v-if="exportAugmentPayload">
+                        {{ $t(exporting.split_on && exportAugmentPayload.scope === 'train' ? 'exportAugment.summaryShortTrain' : 'exportAugment.summaryShort', { copies: exportAugmentPayload.copies, ops: exportAugmentNames }) }}
+                      </template>
+                      <template v-else>{{ $t('exportAugment.none') }}</template>
                       <a href="#" class="ms-1 small" @click.prevent="goToStep(5)">{{ $t('exportSteps.edit') }}</a>
                     </dd>
 
@@ -671,7 +671,7 @@ import TaskPicker from "@/components/TaskPicker.vue";
 import DatasetMembers from "@/components/DatasetMembers.vue";
 import DatasetHealth from "@/components/DatasetHealth.vue";
 import ExportSplit, { splitSizes, splitValid } from "@/components/ExportSplit.vue";
-import ExportAugment, { augmentPayload, defaultAugment, OPS as AUGMENT_OPS } from "@/components/ExportAugment.vue";
+import ExportAugment, { augmentPayload, augmentedCounts, defaultAugment, OPS as AUGMENT_OPS } from "@/components/ExportAugment.vue";
 import axios from "axios";
 
 import { mapMutations } from "vuex";
@@ -781,7 +781,7 @@ export default {
       },
       yoloTasks: ["detect", "segment", "obb", "pose"],
       exportYoloTasks: ["detect", "segment", "obb", "pose", "classify", "semantic"],
-      exportStepNames: ["format", "folder", "categories", "augment", "split", "review"],
+      exportStepNames: ["format", "folder", "categories", "split", "augment", "review"],
       importFile: null,
       importYoloTask: "auto",
       selected: {
@@ -905,6 +905,11 @@ export default {
       if (!exp.split) return [];
       return ["train", "val", "test"].filter(k => exp.split[k] > 0).map(k => {
         const n = exp.split_counts ? exp.split_counts[k] : null;
+        // originals, plus the augmented images of that part
+        const extra = exp.augment && exp.augment.parts ? exp.augment.parts[k] || 0 : 0;
+        if (extra) {
+          return this.$t("exportList.splitPartAug", { name: this.$t("exportSplit." + k), pct: exp.split[k], n, extra });
+        }
         return this.$t("exportList.splitPart", { name: this.$t("exportSplit." + k), pct: exp.split[k], n });
       });
     },
@@ -1004,8 +1009,8 @@ export default {
       if (this.stepSkipped(step)) return false;
       if (step > 2 && this.exporting.format === "yolo" && !this.exportFolderName) return false;
       if (step > 3 && !this.exporting.categories.length) return false;
-      if (step > 4 && this.exporting.augment.enabled && !this.exportAugmentPayload) return false;
-      if (step > 5 && this.exporting.split_on && !this.exportSplitValid) return false;
+      if (step > 4 && this.exporting.split_on && !this.exportSplitValid) return false;
+      if (step > 5 && this.exporting.augment.enabled && !this.exportAugmentPayload) return false;
       return true;
     },
     goToStep(step) {
@@ -1263,18 +1268,20 @@ export default {
       return { image: name + ext, label: name + ".txt" };
     },
     exportSplitSizes() {
-      // the originals are split; each takes its augmented versions along
-      const sizes = splitSizes(this.exportImageCount || 0, this.exporting.split);
-      return Object.fromEntries(Object.entries(sizes).map(([k, v]) => [k, v * this.exportVersions]));
+      // the original pictures per part (augmentation comes after)
+      return splitSizes(this.exportImageCount || 0, this.exporting.split);
     },
-    exportVersions() {
-      return 1 + (this.exportAugmentPayload ? this.exportAugmentPayload.copies : 0);
+    /** originals and augmented images per part */
+    exportAugCounts() {
+      const sizes = this.exporting.split_on ? this.exportSplitSizes : { train: this.exportImageCount || 0, val: 0, test: 0 };
+      const value = this.exporting.split_on ? this.exporting.augment : { ...this.exporting.augment, scope: "all" };
+      return augmentedCounts(sizes, value);
     },
     /** originals plus their augmented versions */
     exportTotalImages() {
       if (this.exportImageCount == null) return null;
-      const copies = this.exportAugmentPayload ? this.exportAugmentPayload.copies : 0;
-      return this.exportImageCount * (1 + copies);
+      const c = this.exportAugCounts;
+      return this.exportImageCount + c.train.extra + c.val.extra + c.test.extra;
     },
     exportReady() {
       if (this.exporting.format === "yolo" && !this.exportFolderName) return false;

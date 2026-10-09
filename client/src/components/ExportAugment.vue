@@ -14,7 +14,7 @@
 
     <template v-else>
       <div class="d-flex align-items-center gap-2 mt-2">
-        <label class="small mb-0" for="exportAugmentCopies">{{ $t('exportAugment.copies') }}</label>
+        <label class="small mb-0" for="exportAugmentCopies">{{ $t(splitOn && modelValue.scope !== 'all' ? 'exportAugment.copies' : 'exportAugment.copiesAll') }}</label>
         <select
           id="exportAugmentCopies"
           class="form-select form-select-sm w-auto"
@@ -53,12 +53,38 @@
         </div>
       </div>
 
-      <div class="small mt-2" :class="chosen ? 'text-body' : 'text-danger'">
-        <template v-if="!chosen">{{ $t('exportAugment.pickOne') }}</template>
-        <template v-else>
-          {{ $t('exportAugment.summaryAll', { n: imageCount || 0, copies: modelValue.copies, total: (imageCount || 0) * modelValue.copies, all: (imageCount || 0) * (modelValue.copies + 1) }) }}
-        </template>
+      <div v-if="splitOn" class="form-check d-flex align-items-center gap-2 ps-0 mt-3">
+        <input
+          id="exportAugmentAll"
+          type="checkbox"
+          class="form-check-input m-0"
+          :checked="modelValue.scope === 'all'"
+          @change="set({ scope: $event.target.checked ? 'all' : 'train' })"
+        />
+        <label class="form-check-label mb-0" for="exportAugmentAll">{{ $t('exportAugment.alsoValTest') }}</label>
       </div>
+      <div v-if="splitOn && modelValue.scope === 'all'" class="small text-warning-emphasis ms-4">
+        <i class="fa fa-exclamation-triangle" /> {{ $t('exportAugment.alsoValTestWarning') }}
+      </div>
+
+      <div v-if="!chosen" class="small mt-2 text-danger">{{ $t('exportAugment.pickOne') }}</div>
+      <div v-else-if="splitOn" class="small mt-2">
+        <div v-for="k in ['train', 'val', 'test']" v-show="counts[k].orig" :key="k">
+          <b class="me-1">{{ $t('exportSplit.' + k) }}</b>
+          <template v-if="counts[k].extra">
+            {{ $t('exportAugment.partWith', { orig: counts[k].orig, extra: counts[k].extra, total: counts[k].orig + counts[k].extra }) }}
+          </template>
+          <template v-else>{{ $t('exportAugment.partOriginal', { orig: counts[k].orig }) }}</template>
+        </div>
+      </div>
+      <template v-else>
+        <div class="small mt-2">
+          {{ $t('exportAugment.partWith', { orig: imageCount || 0, extra: (imageCount || 0) * modelValue.copies, total: (imageCount || 0) * (modelValue.copies + 1) }) }}
+        </div>
+        <div class="small text-warning-emphasis mt-1">
+          <i class="fa fa-exclamation-triangle" /> {{ $t('exportAugment.noSplitWarning') }}
+        </div>
+      </template>
       <div class="form-text mt-1">{{ $t('exportAugment.withImages') }}</div>
     </template>
   </div>
@@ -78,21 +104,39 @@ export const OPS = [
 ];
 
 export function defaultAugment() {
-  return { enabled: false, copies: 2, ops: { hflip: true, color: true } };
+  return { enabled: false, copies: 2, ops: { hflip: true, color: true }, scope: "train" };
+}
+
+/**
+ * Originals and augmented images per part: {train: {orig, extra}, ...}.
+ * ``sizes`` are the originals per part (the split comes first).
+ */
+export function augmentedCounts(sizes, value) {
+  const payload = augmentPayload(value);
+  const out = {};
+  ["train", "val", "test"].forEach(k => {
+    const orig = (sizes && sizes[k]) || 0;
+    const augmented = payload && (payload.scope === "all" || k === "train");
+    out[k] = { orig, extra: augmented ? orig * payload.copies : 0 };
+  });
+  return out;
 }
 
 /** What the server gets (null when off or nothing chosen). */
 export function augmentPayload(value) {
   if (!value || !value.enabled) return null;
   const ops = Object.fromEntries(Object.entries(value.ops).filter(([, v]) => v));
-  return Object.keys(ops).length ? { copies: value.copies, ops } : null;
+  return Object.keys(ops).length ? { copies: value.copies, ops, scope: value.scope === "all" ? "all" : "train" } : null;
 }
 
 export default {
   name: "ExportAugment",
   props: {
     modelValue: { type: Object, required: true },
-    imageCount: { type: Number, default: null }
+    imageCount: { type: Number, default: null },
+    // the split (it comes first): originals per part
+    splitOn: { type: Boolean, default: false },
+    splitSizes: { type: Object, default: () => ({}) }
   },
   emits: ["update:modelValue"],
   data() {
@@ -101,6 +145,9 @@ export default {
   computed: {
     chosen() {
       return Object.values(this.modelValue.ops).some(Boolean);
+    },
+    counts() {
+      return augmentedCounts(this.splitSizes, this.modelValue);
     }
   },
   methods: {

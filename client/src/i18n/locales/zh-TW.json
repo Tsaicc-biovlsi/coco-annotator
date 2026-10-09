@@ -805,7 +805,8 @@
     "downloadFailed": "下載失敗",
     "splitPart": "{name} {pct}%（{n} 張）",
     "seed": "亂數種子 {seed}",
-    "augmented": "增強 +{n} 張（每張 ×{copies}）"
+    "augmented": "增強 +{n} 張（每張 ×{copies}）",
+    "splitPartAug": "{name} {pct}%（{n} 張 + 增強 {extra} 張）"
   },
   "exportSplit": {
     "title": "切分成訓練 / 驗證 / 測試集",
@@ -1502,7 +1503,7 @@
     "title": "資料增強",
     "short": "資料增強",
     "off": "不增強：只輸出原圖和原本的標註。",
-    "copies": "每張圖多產生",
+    "copies": "每張訓練圖多產生",
     "copiesHint": "張增強版本（原圖保留）",
     "op": {
       "hflip": "水平翻轉",
@@ -1525,11 +1526,17 @@
       "noise": "加入輕微雜訊"
     },
     "pickOne": "至少勾選一種增強方式",
-    "summaryAll": "{n} 張 × {copies} = 多 {total} 張增強圖，共 {all} 張（下一步再一起切分）。",
     "withImages": "每張增強圖都會隨機套用勾選的方式（至少一種），標註會一起轉換；匯出會包含圖片（COCO 會變成 zip：images/ + json）。",
     "summaryShort": "每張圖 +{copies} 張（{ops}）",
     "none": "不增強",
-    "splitTogether": "先增強再切分：每張原圖和它的 {copies} 張增強圖一定分在同一組，同一張照片不會同時出現在訓練集和驗證集。",
-    "plus": "含增強圖 +{n} 張，共 {total} 張"
+    "plus": "含增強圖 +{n} 張，共 {total} 張",
+    "alsoValTest": "驗證集、測試集也增強（通常不建議）",
+    "alsoValTestWarning": "驗證／測試集應反映真實資料；也增強時，同一張原圖的增強圖仍會留在同一組，但評估分數會混入人工變形的圖。",
+    "partWith": "{orig} 張原圖 + {extra} 張增強 = {total} 張",
+    "partOriginal": "{orig} 張（維持原圖）",
+    "augShort": "增強 {n}",
+    "noSplitWarning": "沒有切分：所有圖片都會增強。之後若自己再切分，請讓每張原圖和它的增強圖分在同一組；建議在上一步先切分。",
+    "summaryShortTrain": "每張訓練圖 +{copies} 張（{ops}）",
+    "copiesAll": "每張圖多產生"
   }
 }

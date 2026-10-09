@@ -66,4 +66,5 @@ def test_options():
     assert A.parse_options(None) is None
     assert A.parse_options({"copies": 2, "ops": {"hflip": "yes"}}) is None
     assert A.parse_options({"copies": 99, "ops": {"rotate": 200, "scale": 0.1, "blur": True}}) == \
-        {"copies": 5, "ops": {"blur": True, "rotate": 45.0, "scale": 0.5}}
+        {"copies": 5, "ops": {"blur": True, "rotate": 45.0, "scale": 0.5}, "scope": "train"}
+    assert A.parse_options({"copies": 1, "ops": {"hflip": True}, "scope": "all"})["scope"] == "all"

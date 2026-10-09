@@ -11,7 +11,8 @@ Options (``parse_options``)::
      "ops": {"hflip": true, "vflip": false, "rot90": false,
              "rotate": 15,          # degrees (0 / false: off)
              "scale": 0.7,          # smallest zoom crop (0 / false: off)
-             "color": true, "blur": false, "noise": false}}
+             "color": true, "blur": false, "noise": false},
+     "scope": "train"}              # with a split: "train" only, or "all" parts
 """
 import math
 import os
@@ -57,7 +58,9 @@ def parse_options(raw):
         ops["scale"] = min(max(scale, 0.5), 0.95)
     if copies < 1 or not ops:
         return None
-    return {"copies": min(copies, MAX_COPIES), "ops": ops}
+    # which parts of a split get augmented: the training images (usual) or all
+    scope = "all" if raw.get("scope") == "all" else "train"
+    return {"copies": min(copies, MAX_COPIES), "ops": ops, "scope": scope}
 
 
 # ---- keypoints: left <-> right on a horizontal flip --------------------------
