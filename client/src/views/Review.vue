@@ -54,28 +54,41 @@
       </div>
 
       <!-- categories of this page: hover lights one up everywhere, click keeps it -->
-      <div v-if="showShapes && pageCats.length" class="cat-strip" :class="{ solo: soloCat != null }">
-        <span v-if="soloCat != null" class="strip-label">{{ $t('quickReview.only') }}</span>
-        <span
+      <div v-if="showShapes && pageCats.length" class="cat-bar" :class="{ solo: soloCat != null }">
+      <div
+        ref="strip"
+        class="cat-strip"
+        :class="{ 'fade-left': stripFade.left, 'fade-right': stripFade.right }"
+        @wheel="onStripWheel"
+        @scroll="updateStripFade"
+      >
+        <button
           v-for="c in pageCats"
           :key="String(c.id)"
-          class="chip"
+          type="button"
+          class="cat-chip"
           :class="{ on: soloCat === c.id, off: (soloCat != null && soloCat !== c.id) || (hover && hover.all && hover.cat !== c.id) }"
+          :style="{ '--c': c.color }"
           :title="catLabel(c.id) + ' — ' + $t('quickReview.inImages', { n: c.images }) + '\n' + $t(soloCat === c.id ? 'quickReview.soloOff' : 'quickReview.soloOn')"
           @mouseenter="hover = { cat: c.id, all: true }"
           @mouseleave="hover = null"
           @click="c.id != null && toggleSolo(c.id)"
         >
-          <i class="dot" :style="{ background: c.color }" />{{ c.name }}<b>{{ c.n }}</b>
-        </span>
+          <span class="swatch" />
+          <span class="name">{{ c.name }}</span>
+          <span class="count">{{ c.n }}</span>
+        </button>
+      </div>
         <button
           v-if="soloCat != null"
           type="button"
-          class="btn-close btn-close-white"
+          class="strip-clear"
           :aria-label="$t('quickReview.soloOff')"
           :title="$t('quickReview.soloOff') + ' (Esc)'"
           @click="soloCat = null"
-        />
+        >
+          <i class="fa fa-times" />
+        </button>
       </div>
 
       <div class="ms-auto d-flex align-items-center gap-2">
@@ -338,6 +351,8 @@ export default {
       showNames: (() => { try { return localStorage.getItem("review/showNames") !== "false"; } catch { return true; } })(),
       // a category hovered (a shape or the category list): lit in every image
       hover: null,
+      // the category strip in the bar: fade the edges that can be scrolled to
+      stripFade: { left: false, right: false },
       // a category clicked in a list: only that one shows in every image
       soloCat: null,
       // the shape whose category is being changed: { img, ann, style }
@@ -419,6 +434,14 @@ export default {
     labeler() { this.go(1); },
     catQuery() {
       this.catIndex = 0;
+    },
+    soloCat(cat) {
+      // keep the kept category visible in the strip
+      if (cat == null) return;
+      this.$nextTick(() => {
+        const el = this.$refs.strip && this.$refs.strip.querySelector(".cat-chip.on");
+        if (el) el.scrollIntoView({ block: "nearest", inline: "nearest" });
+      });
     },
     showNames(value) {
       try {
@@ -697,6 +720,21 @@ export default {
         this.busy = false;
       }
     },
+    /** the mouse wheel scrolls the category strip sideways */
+    onStripWheel(e) {
+      const el = this.$refs.strip;
+      if (!el || el.scrollWidth <= el.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    },
+    updateStripFade() {
+      const el = this.$refs.strip;
+      if (!el) return;
+      this.stripFade = {
+        left: el.scrollLeft > 2,
+        right: el.scrollLeft + el.clientWidth < el.scrollWidth - 2
+      };
+    },
     toggleSolo(cat) {
       this.soloCat = this.soloCat === cat ? null : cat;
       this.hover = null;
@@ -720,6 +758,7 @@ export default {
         .sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
     },
     measure() {
+      this.$nextTick(this.updateStripFade);
       const svg = this.$el && this.$el.querySelector && this.$el.querySelector(".pic");
       // (a picture being laid out can be 0 high for a moment)
       if (svg && svg.clientWidth > 0 && svg.clientHeight > 0) this.picPx = { w: svg.clientWidth, h: svg.clientHeight };
@@ -1100,30 +1139,128 @@ export default {
 .chip.on {
   box-shadow: inset 0 0 0 1.5px #ffc107;
 }
-.cat-strip {
+.cat-bar {
+  /* takes the room left in its row of the bar */
+  flex: 1 1 240px;
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 4px;
-  max-width: 46vw;
-  overflow-x: auto;
-  scrollbar-width: thin;
-  padding: 2px 4px;
+  padding: 3px;
   border-radius: 999px;
+  background: #1c2029;
+  border: 1px solid #3a4150;
+  transition: border-color 0.15s;
 }
-.cat-strip.solo {
-  background: rgba(255, 193, 7, 0.12);
-  box-shadow: inset 0 0 0 1px #ffc107;
+.cat-bar.solo {
+  border-color: rgba(255, 193, 7, 0.6);
 }
-.strip-label {
-  color: #ffc107;
-  font-size: 0.78rem;
-  white-space: nowrap;
-  padding-left: 6px;
+.cat-strip {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow-x: auto;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
 }
-.cat-strip .btn-close {
+/* soft edges where there is more to scroll to */
+.cat-strip.fade-right {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+.cat-strip.fade-left {
+  -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent);
+}
+.cat-strip.fade-left.fade-right {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+}
+.cat-strip::-webkit-scrollbar {
+  height: 4px;
+}
+.cat-strip::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 0 14px;
+}
+.cat-strip::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+}
+.cat-strip:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.35);
+}
+.cat-chip {
   flex: none;
-  font-size: 0.6rem;
-  margin: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #ced4da;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, opacity 0.15s, box-shadow 0.15s;
+}
+.cat-chip:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.cat-chip .swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 30%, transparent);
+}
+.cat-chip .count {
+  min-width: 24px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+  color: #adb5bd;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.cat-chip.on {
+  background: color-mix(in srgb, var(--c) 26%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 75%, white 10%);
+  color: #fff;
+}
+.cat-chip.on .count {
+  background: color-mix(in srgb, var(--c) 55%, transparent);
+  color: #fff;
+}
+.cat-chip.off {
+  opacity: 0.38;
+}
+.cat-chip.off:hover {
+  opacity: 0.85;
+}
+.strip-clear {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin-left: 2px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ced4da;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.strip-clear:hover {
+  background: rgba(255, 193, 7, 0.25);
+  color: #fff;
 }
 .solo-tag {
   display: inline-flex;
