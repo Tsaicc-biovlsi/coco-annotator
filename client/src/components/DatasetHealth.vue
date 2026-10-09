@@ -53,6 +53,7 @@
             <h6><b>{{ $t('health.classBalance') }}</b></h6>
             <div class="small text-secondary mb-2">{{ $t('health.classBalanceHint') }}</div>
             <div v-if="!data.classes.length" class="text-muted small">{{ $t('health.noData') }}</div>
+            <div v-if="data.classes.length" class="hbar-list">
             <div v-for="row in data.classes" :key="row.id" class="hbar-row" :title="classTitle(row)">
               <span class="hbar-label">
                 <span class="swatch" :style="{ backgroundColor: row.color || '#adb5bd' }" />
@@ -61,11 +62,11 @@
               <span class="hbar-track">
                 <span v-if="row.annotations" class="hbar" :style="{ width: pctOf(row.annotations, maxClass) + '%' }" />
               </span>
-              <span class="hbar-value">
-                {{ row.annotations }}
-                <small class="text-secondary">· {{ $t('health.imagesN', { n: row.images }) }}</small>
-                <small v-if="row.classified" class="text-secondary">· {{ $t('health.classifiedN', { n: row.classified }) }}</small>
-              </span>
+              <span class="hbar-value">{{ row.annotations }}</span>
+              <small class="hbar-extra text-secondary">
+                {{ $t('health.imagesN', { n: row.images }) }}<template v-if="row.classified"> · {{ $t('health.classifiedN', { n: row.classified }) }}</template>
+              </small>
+            </div>
             </div>
           </div>
         </div>
@@ -437,10 +438,16 @@ export default {
   font-size: 0.8rem;
   color: var(--text-secondary);
 }
-.hbar-row {
+/* one grid for all rows, so every bar starts and ends at the same place */
+.hbar-list {
   display: grid;
-  grid-template-columns: minmax(80px, 30%) 1fr auto;
-  gap: 8px;
+  grid-template-columns: minmax(80px, 30%) 1fr auto auto;
+  column-gap: 8px;
+}
+.hbar-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
   align-items: center;
   font-size: 0.85rem;
   padding: 3px 0;
@@ -473,6 +480,12 @@ export default {
 .hbar-value {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.hbar-extra {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 .histogram {
   display: flex;
