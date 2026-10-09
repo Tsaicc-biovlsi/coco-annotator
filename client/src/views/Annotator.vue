@@ -288,6 +288,7 @@
 <script>
 import paper from "paper";
 import { makeColorSampler } from "@/libs/colorSampler";
+import { toolCursor } from "@/libs/cursors";
 
 // images already asked for ahead of time (the browser keeps them)
 const prefetched = new Set();
@@ -1192,7 +1193,8 @@ export default {
     },
 
     setCursor(newCursor) {
-      this.cursor = newCursor;
+      // drawing tools get a crosshair that does not get lost on the picture
+      this.cursor = toolCursor(newCursor);
     },
     incrementCategory() {
       if (this.current.category >= this.categories.length - 1) {
