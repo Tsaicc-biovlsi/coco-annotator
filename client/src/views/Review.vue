@@ -48,10 +48,6 @@
         <input id="qrShow" v-model="showShapes" type="checkbox" class="form-check-input" role="switch" />
         <label class="form-check-label" for="qrShow">{{ $t('quickReview.showShapes') }} (H)</label>
       </div>
-      <div class="form-check form-switch m-0 text-white-50 small" :title="$t('quickReview.showNamesHint')">
-        <input id="qrNames" v-model="showNames" type="checkbox" class="form-check-input" role="switch" :disabled="!showShapes" />
-        <label class="form-check-label" for="qrNames">{{ $t('quickReview.showNames') }} (L)</label>
-      </div>
 
       <!-- categories of this page: hover lights one up everywhere, click keeps it -->
       <div v-if="showShapes && pageCats.length" class="cat-bar" :class="{ solo: soloCat != null }">
@@ -185,19 +181,6 @@
                 :height="drawing.r[3]"
                 vector-effect="non-scaling-stroke"
               />
-            </g>
-            <!-- category names, a fixed size on screen whatever the zoom -->
-            <g v-if="showNames" class="names" pointer-events="none">
-              <text
-                v-for="l in nameLabels(img)"
-                :key="l.id"
-                :x="l.x"
-                :y="l.y"
-                :font-size="l.size"
-                :stroke-width="l.size / 4"
-                :fill="l.color"
-                :class="{ dim: isDim(img, l.cat) }"
-              >{{ l.text }}</text>
             </g>
           </g>
         </svg>
@@ -347,8 +330,6 @@ export default {
       labeler: "",
       order: (() => { try { return localStorage.getItem("review/quickOrder") || "file_name"; } catch { return "file_name"; } })(),
       showShapes: true,
-      // category names on the shapes and a per-image list of categories
-      showNames: (() => { try { return localStorage.getItem("review/showNames") !== "false"; } catch { return true; } })(),
       // a category hovered (a shape or the category list): lit in every image
       hover: null,
       // the category strip in the bar: fade the edges that can be scrolled to
@@ -359,8 +340,6 @@ export default {
       editing: null,
       catQuery: "",
       catIndex: 0,
-      // the size of one picture on screen, for names that keep their size
-      picPx: { w: 400, h: 300 },
       images: [],
       categories: {},
       labelers: [],
@@ -442,13 +421,6 @@ export default {
         const el = this.$refs.strip && this.$refs.strip.querySelector(".cat-chip.on");
         if (el) el.scrollIntoView({ block: "nearest", inline: "nearest" });
       });
-    },
-    showNames(value) {
-      try {
-        localStorage.setItem("review/showNames", String(value));
-      } catch {
-        // not remembered
-      }
     },
     grid() {
       this.$nextTick(this.measure);
@@ -759,43 +731,6 @@ export default {
     },
     measure() {
       this.$nextTick(this.updateStripFade);
-      const svg = this.$el && this.$el.querySelector && this.$el.querySelector(".pic");
-      // (a picture being laid out can be 0 high for a moment)
-      if (svg && svg.clientWidth > 0 && svg.clientHeight > 0) this.picPx = { w: svg.clientWidth, h: svg.clientHeight };
-    },
-    /** the top-left corner of a shape, in image coordinates */
-    corner(a) {
-      let x = Infinity, y = Infinity;
-      (a.segmentation || []).forEach(ring => {
-        for (let i = 0; i + 1 < ring.length; i += 2) {
-          if (ring[i + 1] < y || (ring[i + 1] === y && ring[i] < x)) {
-            x = ring[i];
-            y = ring[i + 1];
-          }
-        }
-      });
-      if (y === Infinity && a.bbox && a.bbox.length === 4) [x, y] = a.bbox;
-      if (y === Infinity) {
-        const k = this.keypoints(a)[0];
-        if (k) [x, y] = k;
-      }
-      return y === Infinity ? null : [x, y];
-    },
-    nameLabels(img) {
-      const v = this.viewOf(img);
-      // image units per screen pixel ("meet" fits the whole view box)
-      const unit = Math.max(v.w / Math.max(1, this.picPx.w), v.h / Math.max(1, this.picPx.h)) || 1;
-      const size = 12 * unit;
-      const out = [];
-      img.annotations.forEach(a => {
-        const p = this.corner(a);
-        if (!p) return;
-        const c = this.categories[a.category_id];
-        // just above the shape, or inside it at the top edge of the picture
-        const y = p[1] - 3 * unit > v.y + size ? p[1] - 3 * unit : p[1] + size;
-        out.push({ id: a.id, cat: a.category_id, x: p[0], y, size, text: c ? c.name : "?", color: (c && c.color) || "#00e5ff" });
-      });
-      return out;
     },
     colorOf(a) {
       const c = this.categories[a.category_id];
@@ -980,8 +915,6 @@ export default {
         this.resetZoom();
       } else if (key === "h") {
         this.showShapes = !this.showShapes;
-      } else if (key === "l") {
-        this.showNames = !this.showNames;
       } else if (/^[1-4]$/.test(key)) {
         this.setGrid(parseInt(key, 10));
       } else if (key === "pagedown" || key === "n") {
@@ -1092,12 +1025,6 @@ export default {
 }
 .min-w-0 {
   min-width: 0;
-}
-.names text {
-  font-weight: 700;
-  stroke: rgba(0, 0, 0, 0.85);
-  paint-order: stroke;
-  stroke-linejoin: round;
 }
 .dim {
   opacity: 0.15;
