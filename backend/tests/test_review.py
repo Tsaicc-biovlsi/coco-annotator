@@ -228,3 +228,13 @@ def test_reject_reasons(review_world):
     assert reasons[0] == "類別錯" and len(reasons[1]) == 200 and len(reasons) == 9
     assert c.get("/api/user/reject-reasons").get_json()["reasons"] == reasons
     assert c.put("/api/user/reject-reasons", json={"reasons": []}).get_json()["reasons"] == []
+
+
+def test_dataset_list_has_status_counts(review_world):
+    w = review_world
+    owner, ds = w["owner"], w["ds"]
+    listed = [d for d in owner.get("/api/dataset/data?limit=100").get_json()["datasets"] if d["id"] == ds][0]
+    progress = owner.get(f"/api/review/dataset/{ds}/progress").get_json()
+    # the cards show the same numbers as the dataset's progress
+    assert listed["statusCounts"] == progress["total"]
+    assert sum(listed["statusCounts"].values()) == listed["numberImages"]

@@ -38,7 +38,27 @@
         <br />
 
         <div>
-          <div v-if="dataset.numberImages > 0">
+          <div v-if="dataset.numberImages > 0 && statusParts" class="status-summary">
+            <!-- the same statuses and colours as the dataset's progress -->
+            <div class="status-legend">
+              <span v-for="p in statusParts.filter(p => p.n)" :key="p.key" class="status-item" :title="p.label + ' ' + p.n + '（' + p.pct + '%）'">
+                <span class="dot" :class="p.cls" />{{ p.label }} {{ p.n }}
+              </span>
+              <span class="ms-auto text-muted">{{ $t('review.totalImages', { n: dataset.numberImages }) }}</span>
+            </div>
+            <div class="progress-stacked status-bar">
+              <div
+                v-for="p in statusParts"
+                :key="p.key"
+                class="progress"
+                :style="{ width: p.share + '%' }"
+                :title="p.label + ' ' + p.n"
+              >
+                <div class="progress-bar" :class="p.cls" />
+              </div>
+            </div>
+          </div>
+          <div v-else-if="dataset.numberImages > 0">
             {{ $t('datasetCard.annotated', { done: dataset.numberAnnotated, total: dataset.numberImages }) }}
             <div class="progress">
               <div
@@ -315,6 +335,18 @@ export default {
     }
   },
   computed: {
+    /** approved / waiting / rejected / not done, like the progress panel */
+    statusParts() {
+      const counts = this.dataset.statusCounts;
+      if (!counts) return null;
+      const total = Object.values(counts).reduce((a, b) => a + b, 0);
+      if (!total) return null;
+      const colours = { approved: "bg-success", labeled: "bg-warning", rejected: "bg-danger", unlabeled: "bg-secondary" };
+      return ["approved", "labeled", "rejected", "unlabeled"].map(key => {
+        const n = counts[key] || 0;
+        return { key, n, cls: colours[key], label: this.$t("review.status." + key), share: (100 * n) / total, pct: Math.round((100 * n) / total) };
+      });
+    },
     percent() {
       return 100 * (this.dataset.numberAnnotated / this.dataset.numberImages);
     },
@@ -420,6 +452,37 @@ p {
 .progress {
   margin: 0 5px 7px 5px;
   height: 5px;
+}
+.status-summary {
+  margin-bottom: 7px;
+}
+.status-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 4px;
+}
+.status-item {
+  white-space: nowrap;
+}
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: 0;
+}
+.status-bar {
+  height: 6px;
+  margin: 0;
+}
+/* the parts of the stacked bar (not the outer margin rule above) */
+.status-bar .progress {
+  margin: 0;
+  height: 100%;
 }
 .card-footer {
   padding: 2px;

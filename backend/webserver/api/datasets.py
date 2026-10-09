@@ -614,6 +614,12 @@ class DatasetData(Resource):
 
             dataset_json['numberImages'] = images.count()
             dataset_json['numberAnnotated'] = images.filter(annotated=True).count()
+            # the same statuses as the dataset's progress bar
+            status_counts = {s: 0 for s in ImageModel.STATUSES}
+            for row in images.aggregate([{'$group': {'_id': '$status', 'n': {'$sum': 1}}}]):
+                key = row['_id'] or 'unlabeled'
+                status_counts[key] = status_counts.get(key, 0) + row['n']
+            dataset_json['statusCounts'] = status_counts
             dataset_json['permissions'] = dataset.permissions(current_user)
             dataset_json['parents'] = dataset_parents[dataset.id]
 
