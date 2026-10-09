@@ -1,8 +1,11 @@
 <template>
   <div class="health viz-root">
     <div class="d-flex align-items-center my-3">
-      <h5 class="mb-0 me-auto">{{ $t('health.title') }}</h5>
-      <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="loading" @click="load">
+      <h5 class="mb-0 me-auto">
+        {{ $t('health.title') }}
+        <small v-if="refreshedAt" class="text-muted fw-normal fs-6 ms-2">{{ $t('review.updatedAt', { time: refreshedAt.toLocaleTimeString() }) }}</small>
+      </h5>
+      <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="loading" @click="load()">
         <i class="fa fa-refresh" :class="{ 'fa-spin': loading }" /> {{ $t('health.refresh') }}
       </button>
     </div>
@@ -218,6 +221,7 @@
 
 <script>
 import axios from "axios";
+import autoRefresh from "@/mixins/autoRefresh";
 
 // sequential blue ramp (light -> dark) for the heatmap
 const RAMP = ["#cde2fb", "#b7d3f6", "#9ec5f4", "#86b6ef", "#6da7ec", "#5598e7", "#3987e5",
@@ -225,6 +229,8 @@ const RAMP = ["#cde2fb", "#b7d3f6", "#9ec5f4", "#86b6ef", "#6da7ec", "#5598e7", 
 
 export default {
   name: "DatasetHealth",
+  // the numbers follow what others annotate (heavier: once a minute)
+  mixins: [autoRefresh("load", 60000)],
   props: {
     datasetId: { type: Number, required: true }
   },
@@ -302,13 +308,14 @@ export default {
     }
   },
   methods: {
-    load() {
-      this.loading = true;
+    load({ background = false } = {}) {
+      // a background refresh does not spin the button
+      if (!background) this.loading = true;
       return Promise.all([
         axios.get(`/api/dataset/${this.datasetId}/health`).then(r => (this.data = r.data)),
         // members, time spent: the counts of the former statistics page
         axios.get(`/api/dataset/${this.datasetId}/stats`).then(r => (this.stats = r.data)).catch(() => {})
-      ]).finally(() => (this.loading = false));
+      ]).then(() => (this.refreshedAt = new Date())).finally(() => (this.loading = false));
     },
     /** seconds -> "2 小時 5 分" / "4 分 10 秒" / "12 秒" */
     duration(seconds) {

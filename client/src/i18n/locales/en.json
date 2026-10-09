@@ -817,7 +817,8 @@
     "filterAnnotated": "Annotated (has annotations)",
     "filterAi": "AI annotated (has model annotations)",
     "nothingToApprove": "Nothing to approve or submit on this image",
-    "nothingToReject": "This image cannot be rejected now"
+    "nothingToReject": "This image cannot be rejected now",
+    "updatedAt": "Updated {time} (refreshes by itself)"
   },
   "imageClass": {
     "title": "Image class",

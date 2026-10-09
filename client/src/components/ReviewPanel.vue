@@ -3,7 +3,10 @@
     <!-- overall progress -->
     <div class="card my-3 p-3 shadow-sm">
       <div class="d-flex align-items-center flex-wrap gap-2 border-bottom pb-2 mb-3">
-        <h6 class="mb-0 me-auto"><b>{{ $t('review.progressTitle') }}</b></h6>
+        <h6 class="mb-0 me-auto">
+          <b>{{ $t('review.progressTitle') }}</b>
+          <small v-if="refreshedAt" class="text-muted fw-normal ms-2 updated">{{ updatedText }}</small>
+        </h6>
         <button
           v-if="progress && progress.can_review"
           type="button"
@@ -24,7 +27,7 @@
         <button type="button" class="btn btn-sm btn-primary" :disabled="!myOpen" @click="openNext('work')">
           <i class="fa fa-pencil" /> {{ $t('review.startWork', { n: myOpen }) }}
         </button>
-        <button type="button" class="btn btn-sm btn-outline-secondary" @click="load">
+        <button type="button" class="btn btn-sm btn-outline-secondary" :title="updatedText" @click="load()">
           <i class="fa fa-refresh" />
         </button>
       </div>
@@ -249,6 +252,7 @@
 
 <script>
 import axios from "axios";
+import autoRefresh from "@/mixins/autoRefresh";
 import { statusClass } from "@/components/annotator/ReviewBar.vue";
 
 const STATUSES = ["unlabeled", "labeled", "approved", "rejected"];
@@ -261,6 +265,8 @@ export default {
     datasetId: { type: Number, required: true }
   },
   emits: ["changed"],
+  // others annotate and review meanwhile: keep the numbers current
+  mixins: [autoRefresh("load", 15000)],
   data() {
     return {
       STATUSES, BAR_ORDER, progress: null, assignTo: [], scope: "unassigned", reviewers: [], busy: false,
@@ -271,6 +277,9 @@ export default {
     };
   },
   computed: {
+    updatedText() {
+      return this.refreshedAt ? this.$t("review.updatedAt", { time: this.refreshedAt.toLocaleTimeString() }) : "";
+    },
     memberRows() {
       if (!this.progress) return [];
       const byName = Object.fromEntries(this.progress.people.map(p => [p.username, p]));
@@ -338,6 +347,9 @@ export default {
       }
       return parts;
     },
+    sameNames(a, b) {
+      return [...(a || [])].sort().join("\n") === [...(b || [])].sort().join("\n");
+    },
     folderPct(f, n) {
       return f.images ? Math.round((100 * (n || 0)) / f.images) : 0;
     },
@@ -345,8 +357,11 @@ export default {
       // folders: progress per folder, and the "by folder" assignment
       axios.get(`/api/review/dataset/${this.datasetId}/folders`).then(r => (this.folders = r.data.folders)).catch(() => {});
       return axios.get(`/api/review/dataset/${this.datasetId}/progress`).then(r => {
+        // reviewer ticks being changed (not saved yet) are kept
+        const untouched = !this.progress || this.sameNames(this.reviewers, this.progress.reviewers);
         this.progress = r.data;
-        this.reviewers = [...r.data.reviewers];
+        this.refreshedAt = new Date();
+        if (untouched) this.reviewers = [...r.data.reviewers];
         if (!this.assignTo.length) {
           // default: everybody except the owner
           this.assignTo = r.data.members.filter(n => n !== r.data.owner);

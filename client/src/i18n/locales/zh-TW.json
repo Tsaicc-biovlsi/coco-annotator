@@ -949,7 +949,8 @@
     "filterAnnotated": "已標註（有任何標註）",
     "filterAi": "AI 標註（有模型標的）",
     "nothingToApprove": "這張圖目前沒有可以核准或送出的",
-    "nothingToReject": "這張圖目前不能退回"
+    "nothingToReject": "這張圖目前不能退回",
+    "updatedAt": "更新於 {time}（自動更新）"
   },
   "imageClass": {
     "title": "整張圖類別",
