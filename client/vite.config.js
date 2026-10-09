@@ -54,12 +54,28 @@ function precompress() {
   };
 }
 
+// Each build gets an id: written to version.json (read by open pages to notice
+// an update) and compiled into the page itself (__BUILD_ID__).
+const BUILD_ID = Date.now().toString(36);
+function versionFile() {
+  return {
+    name: "version-file",
+    apply: "build",
+    generateBundle() {
+      this.emitFile({ type: "asset", fileName: "version.json", source: JSON.stringify({ build: BUILD_ID }) });
+    }
+  };
+}
+
 // In development the Flask backend runs at BACKEND_URL (docker-compose.dev.yml
 // sets it to the "webserver" service); API and websocket calls are proxied.
 const backend = process.env.BACKEND_URL || "http://localhost:5000";
 
 export default defineConfig({
-  plugins: [vue(), paperClassicScript(), precompress()],
+  plugins: [vue(), paperClassicScript(), precompress(), versionFile()],
+  define: {
+    __BUILD_ID__: JSON.stringify(BUILD_ID)
+  },
   resolve: {
     alias: [
       // CommonJS packages (vue-loading-overlay) require("vue"): give them the

@@ -1407,5 +1407,9 @@
     "noSplitWarning": "No split: every image is augmented. If you split later yourself, keep each picture and its versions in the same part; better split in the previous step.",
     "summaryShortTrain": "+{copies} per training image ({ops})",
     "copiesAll": "Extra versions of each image:"
+  },
+  "update": {
+    "message": "The app was updated: reloading in {n} s (your annotations are saved first)",
+    "now": "Reload now"
   }
 }

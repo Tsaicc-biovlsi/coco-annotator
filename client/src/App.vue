@@ -1,5 +1,6 @@
 <template>
   <div id="app">
+    <UpdateBanner ref="update" />
     <NavBar v-show="showNavBar" />
     <ForcePasswordChange v-if="mustChangePassword" :user="$store.state.user.user" />
     <template v-if="pageNeeded">
@@ -14,11 +15,12 @@
 import NavBar from "@/components/NavBar.vue";
 import NoPageAccess from "@/components/NoPageAccess.vue";
 import ForcePasswordChange from "@/components/ForcePasswordChange.vue";
+import UpdateBanner from "@/components/UpdateBanner.vue";
 import { mapMutations } from "vuex";
 
 export default {
   name: "App",
-  components: { NavBar, NoPageAccess, ForcePasswordChange },
+  components: { NavBar, NoPageAccess, ForcePasswordChange, UpdateBanner },
   methods: {
     ...mapMutations("user", ["setUserInfo"]),
     ...mapMutations("info", ["getServerInfo", "socket"]),
@@ -125,6 +127,8 @@ export default {
   sockets: {
     connect() {
       this.socket(true);
+      // a reconnect usually means the server restarted: maybe a new version
+      if (this.$refs.update) this.$refs.update.check();
     },
     disconnect() {
       this.socket(false);
