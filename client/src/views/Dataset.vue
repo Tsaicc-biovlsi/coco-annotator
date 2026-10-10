@@ -169,6 +169,11 @@
                         <div class="small text-muted">
                           {{ exp.exists === false ? $t('exportList.missing') : fileSize(exp.size) }}
                         </div>
+                        <RouterLink
+                          v-if="exp.format === 'YOLO' && exp.exists !== false && $store.getters['user/can']('train')"
+                          class="small"
+                          :to="{ path: '/train', query: { export: exp.id } }"
+                        ><i class="fa fa-graduation-cap" /> {{ $t('train.trainThis') }}</RouterLink>
                       </template>
                     </td>
                     <td class="text-center">

@@ -7,6 +7,7 @@ flask-socketio==5.*
 gunicorn==23.*
 simple-websocket==1.*
 requests
+paramiko==3.*
 PyYAML==6.*
 
 # Database / workers

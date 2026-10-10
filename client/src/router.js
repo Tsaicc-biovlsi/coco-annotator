@@ -15,6 +15,8 @@ const Dataset = () => import("@/views/Dataset.vue");
 const User = () => import("@/views/User.vue");
 const Tasks = () => import("@/views/Tasks.vue");
 const Review = () => import("@/views/Review.vue");
+const Train = () => import("@/views/Train.vue");
+const Terminal = () => import("@/views/Terminal.vue");
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -95,6 +97,18 @@ const router = createRouter({
       name: "tasks",
       component: Tasks,
       meta: { page: "tasks" }
+    },
+    {
+      path: "/train",
+      name: "train",
+      component: Train,
+      meta: { page: "train" }
+    },
+    {
+      path: "/terminal",
+      name: "terminal",
+      component: Terminal,
+      meta: { page: "terminal" }
     },
     { path: "/:pathMatch(.*)*", component: PageNotFound }
   ]

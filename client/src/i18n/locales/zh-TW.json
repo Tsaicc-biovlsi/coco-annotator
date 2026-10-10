@@ -425,7 +425,9 @@
     "tasks": "任務",
     "undo": "復原",
     "activity": "活動紀錄",
-    "models": "模型"
+    "models": "模型",
+    "train": "訓練",
+    "terminal": "終端機"
   },
   "option": {
     "fileName": "檔名",
@@ -1307,7 +1309,9 @@
       "taskDelete": "刪除任務 {name}",
       "taskClear": "清除 {n} 個已完成的任務",
       "helpRequest": "在 {file} 求助：{msg}",
-      "helpReply": "回覆 {file} 的問題：{msg}"
+      "helpReply": "回覆 {file} 的問題：{msg}",
+      "train": "開始訓練 {name}（{task}，{epochs} epochs）",
+      "terminal": "用網頁終端機登入 {user}@{host}"
     }
   },
   "parents": {
@@ -1388,7 +1392,9 @@
       "tasks": "任務",
       "manage_models": "管理模型",
       "manage_users": "管理使用者",
-      "all_datasets": "看全部資料集"
+      "all_datasets": "看全部資料集",
+      "train": "訓練模型",
+      "terminal": "網頁終端機"
     },
     "permHelp": {
       "activity": "可以開「活動紀錄」頁（含垃圾桶）",
@@ -1396,7 +1402,9 @@
       "tasks": "可以開「任務」頁（自己的工作進度本來就看得到）",
       "manage_models": "上傳、開關、改名、下載、刪除模型",
       "manage_users": "可以進管理面板：新增、編輯、刪除非管理員帳號（不能設定管理員）",
-      "all_datasets": "像管理員一樣看得到所有資料集（要編輯仍須是成員）"
+      "all_datasets": "像管理員一樣看得到所有資料集（要編輯仍須是成員）",
+      "train": "可以開「訓練」頁，用 YOLO 匯出在伺服器的顯示卡上訓練模型（一次跑一個，其他排隊）",
+      "terminal": "可以開「終端機」頁，用伺服器的帳號密碼登入 A server 的命令列（等於能操作整台伺服器，只給信任的人）"
     },
     "custom": "自訂身分",
     "showUsers": "列出這些使用者",
@@ -1639,5 +1647,89 @@
     "started": "開始匯出：{names}",
     "finished": "匯出完成：{names}。按上方「匯出完成，前往下載」到匯出紀錄下載。",
     "startedElsewhere": "匯出已開始；匯出紀錄放在第一個勾選的資料集。"
+  },
+  "train": {
+    "title": "訓練",
+    "subtitle": "用 YOLO 匯出在伺服器的顯示卡上訓練模型；一次跑一個，其他的排隊。訓練完的模型自動放進「模型」頁，可以直接拿來預標註。",
+    "alive": "訓練服務執行中 · {device}",
+    "down": "訓練服務沒有在執行",
+    "downHint": "在伺服器上用 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build 啟動（會多一個 annotator_trainer 容器）。訓練會先排隊，服務啟動後就開始。",
+    "new": "新訓練",
+    "noExports": "還沒有可以訓練的匯出：先到資料集匯出 YOLO，並勾選「zip 裡附上圖片」。",
+    "export": "用哪一份匯出",
+    "task": "任務",
+    "classes": "類別：{names}",
+    "splitCounts": "訓練 {train}／驗證 {val}／測試 {test} 張",
+    "noSplit": "這份匯出沒有切分：驗證用的是同一批訓練圖，分數會偏高。建議匯出時切分出驗證集。",
+    "start": "從哪個模型開始",
+    "fromBase": "官方預訓練模型",
+    "fromModel": "現有模型繼續訓練",
+    "fromModelHint": "用「模型」頁裡的模型（例如上次訓練的）當起點，適合加了新資料後再訓練。",
+    "size": {
+      "n": "最小最快，適合先試",
+      "s": "小",
+      "m": "中，速度與準度平衡",
+      "l": "大",
+      "x": "最大最準，最慢、最吃顯示卡記憶體"
+    },
+    "epochs": "訓練輪數 epochs",
+    "imgsz": "圖片大小 imgsz",
+    "batch": "批次大小 batch",
+    "batchAuto": "自動（依顯示卡記憶體）",
+    "patience": "提早停止 patience",
+    "name": "名稱（選填）",
+    "paramsHint": "patience：連續幾輪沒有進步就提早結束。顯示卡記憶體不夠時把 batch 調小或 imgsz 調小。",
+    "go": "開始訓練",
+    "queueNow": "目前 {running} 個訓練中、{queued} 個排隊",
+    "runs": "訓練紀錄",
+    "noRuns": "還沒有訓練。",
+    "status": {
+      "queued": "排隊中",
+      "running": "訓練中",
+      "done": "完成",
+      "failed": "失敗",
+      "stopped": "已停止"
+    },
+    "queuePos": "第 {n} 位",
+    "fromExport": "匯出 #{id}（{names}）",
+    "stop": "停止",
+    "stopping": "停止中…",
+    "cancel": "取消",
+    "remove": "刪除紀錄",
+    "saved": "模型已存到「模型」頁：",
+    "toModels": "前往模型頁",
+    "chartMetrics": "指標",
+    "chartLoss": "損失（越低越好）",
+    "log": "訓練輸出",
+    "queued": "已加入排隊：#{id}",
+    "stopConfirm": "停止這個訓練？到目前為止最好的權重仍會存到「模型」頁。",
+    "removeConfirm": "刪除訓練紀錄 #{id}？（已存到「模型」頁的模型不會刪除）",
+    "augmented": "含增強",
+    "trainThis": "用這份訓練"
+  },
+  "terminal": {
+    "title": "終端機",
+    "target": "登入 {host}（port {port}）",
+    "warning": "這是伺服器的命令列：登入後可以操作整台伺服器，請小心使用；所有登入都會記在活動紀錄。",
+    "username": "伺服器帳號",
+    "password": "密碼",
+    "connect": "登入",
+    "connecting": "連線中…",
+    "notStored": "帳號密碼只用來登入這一次，不會被儲存。",
+    "idle": "超過 {n} 分鐘沒有操作會自動斷線。",
+    "disconnect": "登出",
+    "copyHint": "選取文字即可複製；Ctrl+Shift+V 貼上",
+    "error": {
+      "auth": "帳號或密碼錯誤",
+      "connect": "連不上伺服器",
+      "permission": "你沒有使用終端機的權限",
+      "username": "請輸入帳號"
+    },
+    "closed": {
+      "exit": "連線已結束",
+      "idle": "閒置太久，已自動斷線",
+      "closed": "已登出",
+      "lost": "與網站的連線中斷，終端機已關閉"
+    }
   }
 }

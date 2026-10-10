@@ -425,7 +425,9 @@
     "tasks": "Tasks",
     "undo": "Undo",
     "activity": "Activity",
-    "models": "Models"
+    "models": "Models",
+    "train": "Training",
+    "terminal": "Terminal"
   },
   "pageNotFound": {
     "couldNotFindThePage": "Could not find the page you are looking for.",
@@ -1175,7 +1177,9 @@
       "taskDelete": "Deleted task {name}",
       "taskClear": "Cleared {n} finished tasks",
       "helpRequest": "Asked for help on {file}: {msg}",
-      "helpReply": "Answered a question on {file}: {msg}"
+      "helpReply": "Answered a question on {file}: {msg}",
+      "train": "Started training {name} ({task}, {epochs} epochs)",
+      "terminal": "Web terminal login {user}@{host}"
     }
   },
   "parents": {
@@ -1256,7 +1260,9 @@
       "tasks": "Tasks",
       "manage_models": "Manage models",
       "manage_users": "Manage users",
-      "all_datasets": "See all datasets"
+      "all_datasets": "See all datasets",
+      "train": "Train models",
+      "terminal": "Web terminal"
     },
     "permHelp": {
       "activity": "Open the Activity log page (with the trash)",
@@ -1264,7 +1270,9 @@
       "tasks": "Open the Tasks page (everyone still sees their own task progress)",
       "manage_models": "Upload, turn on/off, rename, download and delete models",
       "manage_users": "Open the admin panel: create, edit and delete non-admin accounts (cannot make admins)",
-      "all_datasets": "See every dataset, like an admin (editing still needs to be a member)"
+      "all_datasets": "See every dataset, like an admin (editing still needs to be a member)",
+      "train": "Can open Training: train YOLO models on the server GPU from a YOLO export (one at a time, others wait)",
+      "terminal": "Can open Terminal: log in to the server command line with a server account (full control of the machine: trusted people only)"
     },
     "custom": "Custom role",
     "showUsers": "Show these users",
@@ -1507,5 +1515,89 @@
     "started": "Exporting: {names}",
     "finished": "Export done: {names}. Use \"Export done: download\" above to get it.",
     "startedElsewhere": "The export started; it is kept with the first ticked dataset."
+  },
+  "train": {
+    "title": "Training",
+    "subtitle": "Train YOLO models on the server GPU from a YOLO export; one at a time, the others wait. Trained models go to the Models page for pre-annotation.",
+    "alive": "Trainer running · {device}",
+    "down": "The trainer is not running",
+    "downHint": "Start it on the server with docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build (an annotator_trainer container). Trainings wait in the queue until it runs.",
+    "new": "New training",
+    "noExports": "No export to train on yet: export YOLO from a dataset with \"images in the zip\".",
+    "export": "Export",
+    "task": "Task",
+    "classes": "Classes: {names}",
+    "splitCounts": "train {train} / val {val} / test {test} images",
+    "noSplit": "This export is not split: validation uses the training images, so scores look too good. Split when exporting.",
+    "start": "Start from",
+    "fromBase": "Pretrained model",
+    "fromModel": "Continue an existing model",
+    "fromModelHint": "A model from the Models page (e.g. the last training) as the start, after adding data.",
+    "size": {
+      "n": "smallest and fastest, good to try first",
+      "s": "small",
+      "m": "medium, balanced",
+      "l": "large",
+      "x": "largest and most accurate, slowest, most GPU memory"
+    },
+    "epochs": "Epochs",
+    "imgsz": "Image size",
+    "batch": "Batch",
+    "batchAuto": "auto (by GPU memory)",
+    "patience": "Patience",
+    "name": "Name (optional)",
+    "paramsHint": "Patience: stop early after this many epochs without improvement. Out of GPU memory: lower batch or image size.",
+    "go": "Start training",
+    "queueNow": "{running} training, {queued} waiting",
+    "runs": "Trainings",
+    "noRuns": "No training yet.",
+    "status": {
+      "queued": "queued",
+      "running": "training",
+      "done": "done",
+      "failed": "failed",
+      "stopped": "stopped"
+    },
+    "queuePos": "#{n} in queue",
+    "fromExport": "Export #{id} ({names})",
+    "stop": "Stop",
+    "stopping": "Stopping…",
+    "cancel": "Cancel",
+    "remove": "Remove",
+    "saved": "Saved to the Models page:",
+    "toModels": "Models page",
+    "chartMetrics": "Metrics",
+    "chartLoss": "Loss (lower is better)",
+    "log": "Output",
+    "queued": "Queued: #{id}",
+    "stopConfirm": "Stop this training? The best weights so far still go to the Models page.",
+    "removeConfirm": "Remove training #{id}? (A model saved to the Models page stays)",
+    "augmented": "augmented",
+    "trainThis": "Train on this"
+  },
+  "terminal": {
+    "title": "Terminal",
+    "target": "Log in to {host} (port {port})",
+    "warning": "This is the server's command line: once logged in you can do anything on the server, so take care. Every login is in the activity log.",
+    "username": "Server account",
+    "password": "Password",
+    "connect": "Log in",
+    "connecting": "Connecting…",
+    "notStored": "The account and password are only used to log in this once, never stored.",
+    "idle": "Disconnects after {n} minutes without input.",
+    "disconnect": "Log out",
+    "copyHint": "Select text to copy; Ctrl+Shift+V pastes",
+    "error": {
+      "auth": "Wrong account or password",
+      "connect": "Cannot reach the server",
+      "permission": "You may not use the terminal",
+      "username": "Enter an account"
+    },
+    "closed": {
+      "exit": "The session ended",
+      "idle": "Disconnected after being idle",
+      "closed": "Logged out",
+      "lost": "Lost the connection to the site; the terminal closed"
+    }
   }
 }

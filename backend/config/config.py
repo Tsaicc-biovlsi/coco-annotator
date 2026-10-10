@@ -126,5 +126,12 @@ class Config:
     MODELS_DIRECTORY = os.getenv("MODELS_DIRECTORY", "/models")
     YOLO_DEVICE = os.getenv("YOLO_DEVICE", "auto")
 
+    ### Web terminal (needs the "terminal" permission): an SSH login to this
+    #   host only (from the container, the server itself is host.docker.internal)
+    TERMINAL_SSH_HOST = os.getenv("TERMINAL_SSH_HOST", "host.docker.internal")
+    TERMINAL_SSH_PORT = int(os.getenv("TERMINAL_SSH_PORT", 22))
+    # a session with no input for this long is closed (minutes, 0 = never)
+    TERMINAL_IDLE_MINUTES = int(os.getenv("TERMINAL_IDLE_MINUTES", 60))
+
 
 __all__ = ["Config"]

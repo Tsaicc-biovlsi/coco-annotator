@@ -1,3 +1,4 @@
+import os
 import workers
 
 from config import Config
@@ -17,6 +18,7 @@ from .api import blueprint as api
 from .util import query_util, thumbnails
 from .authentication import login_manager
 from .sockets import socketio
+from . import terminal  # noqa: F401  (web terminal socket events)
 
 import requests
 import logging
@@ -30,6 +32,11 @@ def create_app():
 
     if Config.FILE_WATCHER:
         run_watcher()
+
+    # trainings run in this process instead of a trainer container
+    if os.getenv('TRAINER_EMBEDDED', '').lower() in ('1', 'true', 'yes'):
+        from trainer.runner import start_embedded
+        start_embedded()
 
     flask = Flask(__name__,
                   static_url_path='',

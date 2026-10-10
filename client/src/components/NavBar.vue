@@ -49,6 +49,12 @@
         <li v-if="canPage('tasks')" class="nav-item" :class="{ active: $route.name === 'tasks' }">
           <RouterLink class="nav-link" to="/tasks">{{ $t('navBar.tasks') }}</RouterLink>
         </li>
+        <li v-if="canPage('train')" class="nav-item" :class="{ active: $route.name === 'train' }">
+          <RouterLink class="nav-link" to="/train">{{ $t('navBar.train') }}</RouterLink>
+        </li>
+        <li v-if="canPage('terminal')" class="nav-item" :class="{ active: $route.name === 'terminal' }">
+          <RouterLink class="nav-link" to="/terminal">{{ $t('navBar.terminal') }}</RouterLink>
+        </li>
         <li
           v-show="$store.getters['user/can']('manage_users')"
           class="nav-item"

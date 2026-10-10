@@ -7,7 +7,8 @@ from mongoengine import DynamicDocument, StringField, ListField, BooleanField, I
 
 # pages first, then management rights
 PAGES = ('activity', 'models', 'tasks')
-MANAGE = ('manage_models', 'manage_users', 'all_datasets')
+# train: start YOLO trainings on the server; terminal: the web SSH terminal
+MANAGE = ('manage_models', 'manage_users', 'all_datasets', 'train', 'terminal')
 PERMISSIONS = PAGES + MANAGE
 
 ADMIN = 'admin'

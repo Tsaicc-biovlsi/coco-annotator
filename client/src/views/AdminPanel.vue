@@ -359,7 +359,9 @@ const PERM_ICONS = {
   tasks: "fa-tasks",
   manage_models: "fa-upload",
   manage_users: "fa-user-plus",
-  all_datasets: "fa-database"
+  all_datasets: "fa-database",
+  train: "fa-graduation-cap",
+  terminal: "fa-terminal"
 };
 // custom roles take these in order
 const ROLE_COLORS = ["#2a78d6", "#1a9e6e", "#8a5cd1", "#d9822b", "#0f8fa8", "#c2417a", "#6b7f2a"];

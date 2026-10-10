@@ -1,4 +1,5 @@
-# NVIDIA GPU for Segment Anything. Requires the NVIDIA Container Toolkit.
+# NVIDIA GPU for Segment Anything, YOLO pre-annotation and training.
+# Requires the NVIDIA Container Toolkit.
 #   ./models/download_sam.sh
 #   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
 services:
@@ -8,6 +9,14 @@ services:
         SAM: cuda
     environment:
       SAM_DEVICE: cuda
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+  trainer:
     deploy:
       resources:
         reservations:

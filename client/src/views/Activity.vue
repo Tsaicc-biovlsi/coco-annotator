@@ -413,6 +413,10 @@ export default {
         case "export":
           return t("export", { format: d.format || "COCO", images: c.images || 0, n: c.annotations || 0 }) +
             (d.split ? t("withSplit") : "") + (d.only_approved ? t("onlyApproved") : "");
+        case "train":
+          return t("train", { name: d.run ? `#${d.run}` : "", task: d.task || "", epochs: d.epochs || "" });
+        case "terminal":
+          return t("terminal", { user: d.ssh_user || "", host: d.host || "" });
         case "delete":
           if (e.type === "annotation") return t("deleteAnnotations", { n: c.annotations || e.ids.length, file });
           if (e.type === "image") return d.file_name ? t("deleteImage", { file: d.file_name }) : t("deleteImages", { n: c.images || 0 });

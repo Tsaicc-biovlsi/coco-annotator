@@ -36,6 +36,12 @@ services:
       # SAM 2.1 base by default; falls back to any SAM checkpoint in ./models
       SAM_CHECKPOINT: ${SAM_CHECKPOINT:-/models/sam2.1_b.pt}
       SAM_DEVICE: auto
+      # web terminal (permission "terminal"): SSH to the server itself
+      TERMINAL_SSH_HOST: ${TERMINAL_SSH_HOST:-host.docker.internal}
+      TERMINAL_SSH_PORT: ${TERMINAL_SSH_PORT:-22}
+    # the server itself, as seen from the container
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - "${DATASETS_DIR:-./datasets}:/datasets"
       - "${MODELS_DIR:-./models}:/models"
@@ -59,6 +65,30 @@ services:
     depends_on:
       - messageq
       - database
+    networks:
+      - cocoannotator
+
+  # Trains YOLO models from the web page (訓練), one at a time. Same image as
+  # the webserver (needs SAM=cuda or SAM=cpu for Ultralytics; with
+  # docker-compose.gpu.yml it gets the GPU).
+  trainer:
+    image: coco-annotator-webserver
+    # built by the webserver service (never pulled)
+    pull_policy: never
+    container_name: annotator_trainer
+    restart: unless-stopped
+    command: ["python", "-m", "trainer"]
+    environment:
+      <<: *backend-env
+      MODELS_DIRECTORY: /models
+    # the training data loaders share memory between processes
+    shm_size: ${TRAIN_SHM:-8gb}
+    volumes:
+      - "${DATASETS_DIR:-./datasets}:/datasets"
+      - "${MODELS_DIR:-./models}:/models"
+    depends_on:
+      - database
+      - webserver
     networks:
       - cocoannotator
 
