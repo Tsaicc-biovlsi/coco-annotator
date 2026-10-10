@@ -175,9 +175,10 @@ export default {
       if (!paperObject) return false;
       let annotationId = paperObject.data.annotationId;
       let categoryId = paperObject.data.categoryId;
+      if (annotationId == null || categoryId == null) return false;
       let category = this.$parent.getCategory(categoryId);
-      let annotation = category.getAnnotation(annotationId);
-      return annotation.annotation.isbbox;
+      let annotation = category && category.getAnnotation(annotationId);
+      return !!(annotation && annotation.annotation.isbbox);
     },
     /** Annotation component of a rotated box under `item`, if any */
     rotatedBoxAnnotation(item) {
@@ -274,19 +275,24 @@ export default {
         this.segment = hitResult.segment;
         paperObject = path.parent;
       } else if (hitResult.type === "stroke") {
-        let location = hitResult.location;
-        this.segment = path.insert(location.index + 1, event.point);
+        if (this.checkBbox(path.parent)) {
+          // a box keeps its 4 corners: pressing on its edge moves it
+          this.initPoint = event.point;
+          this.moveObject = path.parent;
+          paperObject = path.parent;
+        } else {
+          let location = hitResult.location;
+          this.segment = path.insert(location.index + 1, event.point);
+        }
       } else if (event.item.className == "CompoundPath") {
         this.initPoint = event.point;
         this.moveObject = event.item;
         paperObject = event.item;
       }
       this.isBbox = this.checkBbox(paperObject);
-      if (this.point != null) {
-        this.edit.canMove = this.point.contains(event.point);
-      } else {
-        this.edit.canMove = false;
-      }
+      // a press that hit a corner or an edge drags it (the round marker is
+      // only a hint and can be smaller than the grab distance)
+      this.edit.canMove = !!this.segment;
     },
     clear() {
       this.hover.category = null;
@@ -497,6 +503,9 @@ export default {
         this.edit.distance = newScale * 40;
         this.edit.indicatorSize = newScale * 10;
         this.edit.indicatorWidth = newScale * 2;
+        // grab corners / edges within 10 screen pixels at any zoom (a fixed
+        // 10 image pixels was 2 px on screen zoomed out, 40 px zoomed in)
+        this.hitOptions.tolerance = newScale * 10;
 
         if (this.edit.center && this.point != null) {
           this.createPoint(this.edit.center);
