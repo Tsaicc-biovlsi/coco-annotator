@@ -18,7 +18,10 @@ const getters = {
   can: state => perm => {
     const user = state.user;
     if (!user) return false;
-    return !!user.is_admin || (user.perms || []).includes(perm);
+    // the server lists an admin's permissions too (all of those in use: the
+    // web terminal only when it is turned on)
+    if (Array.isArray(user.perms)) return user.perms.includes(perm);
+    return !!user.is_admin;
   },
   canPage: (state, getters) => page => getters.can(page),
   loginEnabled(state) {

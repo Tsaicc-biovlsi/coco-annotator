@@ -6,7 +6,7 @@ import re
 import secrets
 
 from database import UserModel, DatasetModel, RoleModel
-from database.roles import ADMIN, DEFAULT, PERMISSIONS
+from database.roles import ADMIN, DEFAULT, PERMISSIONS, available
 from ..util.query_util import fix_ids
 from ..util import activity
 
@@ -350,7 +350,7 @@ def _roles_out():
     for u in UserModel.objects.only('is_admin', 'role'):
         counts[u.role_key] = counts.get(u.role_key, 0) + 1
     return {"roles": [r.to_dict(users=counts.get(r.key, 0)) for r in RoleModel.all_ordered()],
-            "permissions": list(PERMISSIONS)}
+            "permissions": list(available())}
 
 
 @api.route('/roles')

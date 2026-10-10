@@ -105,6 +105,7 @@ def test_web_terminal(ssh_server, monkeypatch):
     from webserver import app
     from webserver.sockets import socketio
     import socketio as python_socketio
+    monkeypatch.setattr(Config, "TERMINAL_ENABLED", True)
     monkeypatch.setattr(Config, "TERMINAL_SSH_HOST", "127.0.0.1")
     monkeypatch.setattr(Config, "TERMINAL_SSH_PORT", ssh_server)
     RoleModel.objects(key="ops").delete()
@@ -157,3 +158,30 @@ def test_web_terminal(ssh_server, monkeypatch):
 
     from database import ActivityModel
     assert ActivityModel.objects(action="terminal", user="term_ops").count() >= 1
+
+
+def test_terminal_off_by_default():
+    """TERMINAL_ENABLED unset: no permission to give, no page, no session."""
+    from config import Config
+    from database import RoleModel
+    from database.roles import available
+    from webserver import app
+    from webserver.sockets import socketio
+    import socketio as python_socketio
+    assert Config.TERMINAL_ENABLED is False
+    assert "terminal" not in available() and "train" in available()
+    RoleModel.objects(key="ops2").delete()
+    RoleModel(key="ops2", name="ops2", permissions=["terminal", "train"]).save()
+    ops = _login("term_ops2", role="ops2")
+    assert ops.get("/api/terminal/").status_code == 403
+    me = ops.get("/api/user/").get_json()
+    perms = (me.get("user") or me)["perms"]
+    assert "train" in perms and "terminal" not in perms
+    queue_manager = socketio.server.manager
+    socketio.server.manager = python_socketio.Manager()
+    socketio.server.manager.set_server(socketio.server)
+    try:
+        s = socketio.test_client(app, flask_test_client=ops)
+        assert s.emit("term_open", {"username": "x", "password": "y"}, callback=True) == {"ok": False, "code": "disabled"}
+    finally:
+        socketio.server.manager = queue_manager

@@ -127,7 +127,9 @@ class Config:
     YOLO_DEVICE = os.getenv("YOLO_DEVICE", "auto")
 
     ### Web terminal (needs the "terminal" permission): an SSH login to this
-    #   host only (from the container, the server itself is host.docker.internal)
+    #   host only (from the container, the server itself is host.docker.internal).
+    #   Off unless TERMINAL_ENABLED=true: no page, no permission, no SSH.
+    TERMINAL_ENABLED = _get_bool("TERMINAL_ENABLED", False)
     TERMINAL_SSH_HOST = os.getenv("TERMINAL_SSH_HOST", "host.docker.internal")
     TERMINAL_SSH_PORT = int(os.getenv("TERMINAL_SSH_PORT", 22))
     # a session with no input for this long is closed (minutes, 0 = never)

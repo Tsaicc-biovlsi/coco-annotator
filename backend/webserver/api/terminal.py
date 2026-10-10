@@ -13,7 +13,7 @@ class TerminalInfo(Resource):
     @login_required
     def get(self):
         """ Where the web terminal logs in to """
-        if not current_user.has_perm('terminal'):
+        if not Config.TERMINAL_ENABLED or not current_user.has_perm('terminal'):
             return {'message': 'No permission for the web terminal'}, 403
         return {'host': Config.TERMINAL_SSH_HOST, 'port': Config.TERMINAL_SSH_PORT,
                 'idle_minutes': Config.TERMINAL_IDLE_MINUTES}

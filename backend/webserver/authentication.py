@@ -60,8 +60,8 @@ class AnonymousUser(AnonymousUserMixin):
     role_key = 'admin'
 
     def perms(self):
-        from database.roles import PERMISSIONS
-        return set(PERMISSIONS)
+        from database.roles import available
+        return set(available())
 
     def has_perm(self, perm):
         return True

@@ -36,7 +36,9 @@ services:
       # SAM 2.1 base by default; falls back to any SAM checkpoint in ./models
       SAM_CHECKPOINT: ${SAM_CHECKPOINT:-/models/sam2.1_b.pt}
       SAM_DEVICE: auto
-      # web terminal (permission "terminal"): SSH to the server itself
+      # web terminal (permission "terminal"): SSH to the server itself.
+      # Off unless TERMINAL_ENABLED=true in .env
+      TERMINAL_ENABLED: ${TERMINAL_ENABLED:-false}
       TERMINAL_SSH_HOST: ${TERMINAL_SSH_HOST:-host.docker.internal}
       TERMINAL_SSH_PORT: ${TERMINAL_SSH_PORT:-22}
     # the server itself, as seen from the container

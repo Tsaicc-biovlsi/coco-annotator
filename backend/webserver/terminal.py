@@ -127,6 +127,8 @@ def close_for(sid):
 @socketio.on('term_open')
 @authenticated_only
 def term_open(data):
+    if not Config.TERMINAL_ENABLED:
+        return {'ok': False, 'code': 'disabled'}
     if not current_user.has_perm('terminal'):
         return {'ok': False, 'code': 'permission'}
     data = data if isinstance(data, dict) else {}

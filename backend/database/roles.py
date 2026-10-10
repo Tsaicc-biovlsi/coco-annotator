@@ -15,6 +15,12 @@ ADMIN = 'admin'
 DEFAULT = 'user'
 
 
+def available():
+    """The permissions in use: the web terminal only when TERMINAL_ENABLED."""
+    from config import Config
+    return tuple(p for p in PERMISSIONS if p != 'terminal' or Config.TERMINAL_ENABLED)
+
+
 class RoleModel(DynamicDocument):
     key = StringField(primary_key=True)
     name = StringField(default='')
@@ -26,7 +32,7 @@ class RoleModel(DynamicDocument):
 
     @staticmethod
     def clean_permissions(perms):
-        return [p for p in PERMISSIONS if p in (perms or [])]
+        return [p for p in available() if p in (perms or [])]
 
     @classmethod
     def ensure_builtin(cls):
@@ -43,13 +49,13 @@ class RoleModel(DynamicDocument):
     @classmethod
     def permissions_of(cls, key):
         if key == ADMIN:
-            return set(PERMISSIONS)
+            return set(available())
         role = cls.objects(key=key or DEFAULT).first() or cls.objects(key=DEFAULT).first()
-        return set(role.permissions or []) if role else set()
+        return set(role.permissions or []) & set(available()) if role else set()
 
     def to_dict(self, users=None):
         out = {'key': self.key, 'name': self.name or '', 'builtin': bool(self.builtin),
-               'permissions': self.clean_permissions(self.permissions) if self.key != ADMIN else list(PERMISSIONS)}
+               'permissions': self.clean_permissions(self.permissions) if self.key != ADMIN else list(available())}
         if users is not None:
             out['users'] = users
         return out
