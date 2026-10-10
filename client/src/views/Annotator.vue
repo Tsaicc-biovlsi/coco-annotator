@@ -560,6 +560,43 @@ export default {
         this.save(null, { auto: true });
       }
     },
+    /**
+     * The time spent on an image counts only while someone is working: no
+     * input for a few minutes, or the tab hidden, pauses it (and the
+     * "annotating" mark others see) until the next mouse / key input.
+     */
+    startIdleWatch() {
+      const IDLE_MS = 3 * 60 * 1000;
+      const idle = (this.idleWatch = { last: Date.now(), paused: false });
+      const pause = () => {
+        if (idle.paused || this.image.id == null) return;
+        idle.paused = true;
+        this.$socket.emit("annotating", { image_id: this.image.id, active: false, idle: true });
+      };
+      idle.activity = () => {
+        idle.last = Date.now();
+        if (idle.paused && !document.hidden) {
+          idle.paused = false;
+          this.$socket.emit("annotating", { image_id: this.image.id, active: true });
+        }
+      };
+      idle.visibility = () => (document.hidden ? pause() : idle.activity());
+      idle.timer = setInterval(() => {
+        if (document.hidden || Date.now() - idle.last > IDLE_MS) pause();
+      }, 15000);
+      ["mousemove", "mousedown", "keydown", "wheel", "touchstart"].forEach(name =>
+        window.addEventListener(name, idle.activity, { passive: true, capture: true }));
+      document.addEventListener("visibilitychange", idle.visibility);
+    },
+    stopIdleWatch() {
+      const idle = this.idleWatch;
+      if (!idle) return;
+      clearInterval(idle.timer);
+      ["mousemove", "mousedown", "keydown", "wheel", "touchstart"].forEach(name =>
+        window.removeEventListener(name, idle.activity, { capture: true }));
+      document.removeEventListener("visibilitychange", idle.visibility);
+      this.idleWatch = null;
+    },
     onPageHide(event) {
       // leaving or hiding the tab: save what has not been saved yet
       if (this.autosave.saving || !this.isDirty()) return;
@@ -1844,6 +1881,7 @@ export default {
     this.getData();
 
     this.$socket.emit("annotating", { image_id: this.image.id, active: true });
+    this.startIdleWatch();
 
     this.autosave.timer = setInterval(this.autosaveTick, 1000);
     window.addEventListener("beforeunload", this.onPageHide);
@@ -1855,6 +1893,7 @@ export default {
     document.addEventListener("visibilitychange", this.onPageHide);
   },
   beforeUnmount() {
+    this.stopIdleWatch();
     if (this.hammer) this.hammer.destroy();
     clearInterval(this.autosave.timer);
     window.removeEventListener("beforeunload", this.onPageHide);

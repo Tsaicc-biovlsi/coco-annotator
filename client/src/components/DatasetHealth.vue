@@ -99,6 +99,47 @@
           </div>
         </div>
 
+        <!-- how long each person worked on the dataset's images -->
+        <div class="col-12">
+          <div class="card p-3 shadow-sm">
+            <h6><b>{{ $t('health.memberTime') }}</b></h6>
+            <div class="small text-secondary mb-2">{{ $t('health.memberTimeHint') }}</div>
+            <div v-if="!timeRows.length" class="text-muted small">{{ $t('health.noData') }}</div>
+            <div v-else class="table-responsive">
+              <table class="table table-sm align-middle mb-0 time-table">
+                <thead>
+                  <tr>
+                    <th>{{ $t('review.member') }}</th>
+                    <th class="text-end">{{ $t('health.timeTotal') }}</th>
+                    <th style="width: 30%" />
+                    <th class="text-end">{{ $t('health.timeRecent') }}</th>
+                    <th class="text-end">{{ $t('health.timeImages') }}</th>
+                    <th class="text-end">{{ $t('health.timePerImage') }}</th>
+                    <th class="text-end">{{ $t('health.timeLast') }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in timeRows" :key="row.name" :class="{ 'text-muted': !row.seconds }">
+                    <td class="text-truncate" style="max-width: 220px">{{ row.name }}</td>
+                    <td class="text-end num">{{ row.seconds ? duration(row.seconds) : '—' }}</td>
+                    <td>
+                      <span class="hbar-track d-block">
+                        <span v-if="row.seconds" class="hbar" :style="{ width: (100 * row.seconds / maxTime) + '%' }" />
+                      </span>
+                    </td>
+                    <td class="text-end num">{{ row.recent_seconds ? duration(row.recent_seconds) : '—' }}</td>
+                    <td class="text-end num">{{ row.images || '—' }}</td>
+                    <td class="text-end num">{{ row.images ? duration(row.seconds / row.images) : '—' }}</td>
+                    <td class="text-end small" :title="row.last ? new Date(row.last).toLocaleString() : ''">
+                      {{ row.last ? agoText(row.last) : '—' }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <!-- objects per image -->
         <div class="col-lg-6">
           <div class="card p-3 h-100 shadow-sm">
@@ -277,6 +318,18 @@ export default {
       }));
       return [...users, ...sources];
     },
+    /** time per member (members without any time too), most first */
+    timeRows() {
+      if (!this.stats) return [];
+      const time = this.stats.time || {};
+      const names = new Set([...Object.keys(this.stats.users || {}), ...Object.keys(time)]);
+      return [...names]
+        .map(name => ({ name, seconds: 0, recent_seconds: 0, images: 0, last: null, ...(time[name] || {}) }))
+        .sort((a, b) => b.seconds - a.seconds || a.name.localeCompare(b.name));
+    },
+    maxTime() {
+      return Math.max(1, ...this.timeRows.map(r => r.seconds));
+    },
     maxPerson() {
       return Math.max(1, ...this.people.map(p => p.annotations));
     },
@@ -325,6 +378,14 @@ export default {
       if (h) return this.$t("health.hm", { h, m });
       if (m) return this.$t("health.ms", { m, s: sec });
       return this.$t("health.sec", { s: sec });
+    },
+    /** "5 分鐘前" */
+    agoText(iso) {
+      const secs = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+      const units = [["year", 31536000], ["month", 2592000], ["day", 86400], ["hour", 3600], ["minute", 60], ["second", 1]];
+      const [unit, size] = units.find(([, size]) => secs >= size) || ["second", 1];
+      const n = Math.floor(secs / size);
+      return this.$t("health.ago", { ago: this.$t(`time.${unit}`, { n }, n) });
     },
     pctOf(n, total) {
       return total ? Math.round((100 * (n || 0)) / total) : 0;
@@ -486,6 +547,13 @@ export default {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+.time-table .num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.time-table .hbar-track {
+  height: 10px;
 }
 .histogram {
   display: flex;

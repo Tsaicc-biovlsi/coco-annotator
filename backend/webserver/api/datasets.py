@@ -414,10 +414,37 @@ class DatasetStats(Resource):
             'categories': category_count,
             'images_per_category': image_category_count,
             'users': user_stats,
+            'time': _time_per_member(images),
             # annotations not drawn by a member: model runs and imports
             'sources': sources
         }
         return stats
+
+
+def _time_per_member(images, recent_days=7):
+    """Time each person had the dataset's images open in the annotator:
+    {username: {seconds, recent_seconds, images, last}}"""
+    since = datetime.datetime.utcnow() - datetime.timedelta(days=recent_days)
+    out = {}
+    for row in images.only('id', 'events').as_pymongo():
+        for e in row.get('events') or []:
+            user = e.get('user')
+            if not user or 'milliseconds' not in e:
+                continue
+            t = out.setdefault(user, {'ms': 0, 'recent_ms': 0, 'images': set(), 'last': None})
+            ms = e.get('milliseconds') or 0
+            t['ms'] += ms
+            t['images'].add(row['_id'])
+            at = e.get('created_at')
+            if at is not None:
+                if at >= since:
+                    t['recent_ms'] += ms
+                if t['last'] is None or at > t['last']:
+                    t['last'] = at
+    return {user: {'seconds': t['ms'] / 1000, 'recent_seconds': t['recent_ms'] / 1000,
+                   'images': len(t['images']),
+                   'last': t['last'].isoformat() + 'Z' if t['last'] else None}
+            for user, t in out.items()}
 
 
 def _mark_sources(dataset_id):

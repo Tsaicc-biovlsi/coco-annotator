@@ -186,7 +186,10 @@ def annotating(data):
             image.update(add_to_set__annotating=current_user.username)
             _presence(image_id, image.dataset_id, True)
     else:
-        leave_room(image_id)
+        # idle (no input for a while, tab hidden): the time stops, but the
+        # page keeps getting the image's live updates
+        if not data.get('idle'):
+            leave_room(image_id)
         if session.get('annotating') == image_id:
             _stop_annotating(image_id)
             session['annotating'] = None

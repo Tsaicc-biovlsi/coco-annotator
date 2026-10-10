@@ -1039,7 +1039,15 @@
       "max": "最大"
     },
     "resolution": "解析度（寬 × 高）",
-    "imageCount": "張數"
+    "imageCount": "張數",
+    "memberTime": "各成員標註時間",
+    "memberTimeHint": "在標註畫面開著圖片的時間；超過 3 分鐘沒動滑鼠或鍵盤、或切到別的分頁時不計時。「近 7 天」和「最後標註」只算這次更新之後的紀錄。",
+    "timeTotal": "總時間",
+    "timeRecent": "近 7 天",
+    "timeImages": "處理過的圖",
+    "timePerImage": "平均每張",
+    "timeLast": "最後標註",
+    "ago": "{ago}前"
   },
   "video": {
     "title": "影片（選填）",
