@@ -69,10 +69,12 @@
               <th>{{ $t('review.assigned') }}</th>
               <th v-for="s in STATUSES" :key="s">{{ $t('review.status.' + s) }}</th>
               <th style="width: 30%">{{ $t('review.approvedPct') }}</th>
+              <th v-if="canAssign" />
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in memberRows" :key="row.username || '-'">
+            <template v-for="row in memberRows" :key="row.username || '-'">
+            <tr>
               <td class="text-start">
                 <template v-if="row.username">
                   {{ row.username }}
@@ -90,7 +92,40 @@
                   <div class="progress-bar bg-success" :style="{ width: rowPct(row) + '%' }" />
                 </div>
               </td>
+              <td v-if="canAssign" class="text-end">
+                <button
+                  v-if="row.username && row.assigned"
+                  type="button"
+                  class="btn btn-sm py-0"
+                  :class="clearing === row.username ? 'btn-secondary' : 'btn-outline-secondary'"
+                  :title="$t('review.clearFor', { name: row.username })"
+                  @click="clearing = clearing === row.username ? null : row.username"
+                >
+                  <i class="fa fa-eraser" /> {{ $t('review.clearAssign') }}
+                </button>
+              </td>
             </tr>
+            <!-- clearing one person's assignment -->
+            <tr v-if="canAssign && clearing && clearing === row.username" class="clear-row">
+              <td :colspan="STATUSES.length + 4" class="text-start">
+                <div class="d-flex flex-wrap align-items-center gap-2 py-1">
+                  <span class="small me-auto">{{ $t('review.clearHint', { name: row.username }) }}</span>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-warning"
+                    :disabled="busy || !notDone(row)"
+                    @click="clearAssign(row, 'unlabeled')"
+                  >
+                    {{ $t('review.clearNotDone', { n: notDone(row) }) }}
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-danger" :disabled="busy" @click="clearAssign(row, 'all')">
+                    {{ $t('review.clearAll', { n: row.assigned }) }}
+                  </button>
+                  <button type="button" class="btn btn-sm btn-link" @click="clearing = null">{{ $t('review.cancel') }}</button>
+                </div>
+              </td>
+            </tr>
+            </template>
           </tbody>
         </table>
       </div>
@@ -269,7 +304,7 @@ export default {
   mixins: [autoRefresh("load", 15000)],
   data() {
     return {
-      STATUSES, BAR_ORDER, progress: null, assignTo: [], scope: "unassigned", reviewers: [], busy: false,
+      STATUSES, BAR_ORDER, progress: null, clearing: null, assignTo: [], scope: "unassigned", reviewers: [], busy: false,
       assignMode: "even",
       folders: null,
       // folder -> username ("" unassigns, missing: leave as it is)
@@ -279,6 +314,9 @@ export default {
   computed: {
     updatedText() {
       return this.refreshedAt ? this.$t("review.updatedAt", { time: this.refreshedAt.toLocaleTimeString() }) : "";
+    },
+    canAssign() {
+      return !!(this.progress && (this.progress.can_assign ?? this.progress.can_review));
     },
     memberRows() {
       if (!this.progress) return [];
@@ -418,6 +456,18 @@ export default {
         this.$toastr.success(this.$t("review.assigned_done", { list: parts.join("、") }));
       });
       this.folderPlan = {};
+    },
+    /** images this person still has to do */
+    notDone(row) {
+      return (row.unlabeled || 0) + (row.rejected || 0);
+    },
+    async clearAssign(row, scope) {
+      const n = scope === "all" ? row.assigned : this.notDone(row);
+      if (!n) return;
+      await this.post("assign", { usernames: [], from_user: row.username, scope }, r => {
+        this.clearing = null;
+        this.$toastr.success(this.$t("review.clearDone", { name: row.username, n: r.data.unassigned }));
+      });
     },
     async unassignAll() {
       if (!confirm(this.$t("review.unassignConfirm"))) return;

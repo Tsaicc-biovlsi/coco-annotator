@@ -819,7 +819,13 @@
     "filterAi": "AI annotated (has model annotations)",
     "nothingToApprove": "Nothing to approve or submit on this image",
     "nothingToReject": "This image cannot be rejected now",
-    "updatedAt": "Updated {time} (refreshes by itself)"
+    "updatedAt": "Updated {time} (refreshes by itself)",
+    "clearAssign": "Clear",
+    "clearFor": "Clear {name}'s assignment",
+    "clearHint": "Images cleared from {name} become unassigned and can be given to someone else.",
+    "clearNotDone": "Only not done yet ({n})",
+    "clearAll": "All ({n})",
+    "clearDone": "Cleared {n} images from {name}"
   },
   "imageClass": {
     "title": "Image class",

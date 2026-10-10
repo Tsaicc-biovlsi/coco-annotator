@@ -39,6 +39,8 @@ assign_args.add_argument('image_ids', location='json', type=list, default=None,
 assign_args.add_argument('scope', location='json', default='unassigned',
                          choices=('unassigned', 'all', 'unlabeled'),
                          help='Which images when image_ids is not given')
+assign_args.add_argument('from_user', location='json', default=None,
+                         help='Only images now assigned to this person ("scope" all or unlabeled)')
 assign_args.add_argument('folders', location='json', type=dict, default=None,
                          help='{"folder": "username", ...}: each folder (e.g. the frames of one video) '
                               'goes whole to one person ("" unassigns it); "scope" still applies')
@@ -265,6 +267,11 @@ class DatasetAssign(Resource):
             if ids is None:
                 return {'message': 'image_ids must be a list of numbers'}, 400
             query = query.filter(id__in=ids)
+        elif args.get('from_user'):
+            # one person's images (e.g. to clear what they still have to do)
+            query = query.filter(assignee=args['from_user'])
+            if args['scope'] == 'unlabeled':
+                query = query.filter(Q(status=None) | Q(status__in=['unlabeled', 'rejected']))
         elif args['scope'] == 'unassigned':
             query = query.filter(Q(assignee=None) | Q(assignee=''))
         elif args['scope'] == 'unlabeled':
@@ -276,7 +283,8 @@ class DatasetAssign(Resource):
             ImageModel.objects(id__in=[i.id for i in images]).update(unset__assignee=True)
             if images:
                 activity.record('assign', current_user, dataset_id=dataset.id,
-                                counts={'images': len(images)}, detail={'unassigned': True})
+                                counts={'images': len(images)},
+                                detail={'unassigned': True, 'from': args.get('from_user') or None})
             return {'success': True, 'assigned': {}, 'unassigned': len(images)}
 
         # contiguous blocks in file name order: each person gets a range

@@ -238,3 +238,41 @@ def test_dataset_list_has_status_counts(review_world):
     # the cards show the same numbers as the dataset's progress
     assert listed["statusCounts"] == progress["total"]
     assert sum(listed["statusCounts"].values()) == listed["numberImages"]
+
+
+def _n(row):
+    return sum(v for k, v in row.items() if k != "username")
+
+
+def test_clear_one_persons_assignment(review_world, dataset_directory):
+    from PIL import Image
+    w = review_world
+    owner, l1 = w["owner"], w["labeler1"]
+    ds = owner.post("/api/dataset/", json={"name": "clear_ds"}).get_json()["id"]
+    folder = os.path.join(dataset_directory, "clear_ds")
+    os.makedirs(folder, exist_ok=True)
+    for i in range(6):
+        Image.new("RGB", (16, 16)).save(os.path.join(folder, f"c{i}.jpg"))
+    owner.get(f"/api/dataset/{ds}/scan")
+    owner.post(f"/api/dataset/{ds}/share", json={"users": ["labeler1", "labeler2"]})
+    owner.post(f"/api/review/dataset/{ds}/assign", json={"usernames": ["labeler1", "labeler2"], "scope": "all"})
+    images = sorted(owner.get(f"/api/dataset/{ds}/data").get_json()["images"], key=lambda i: i["file_name"])
+    # labeler1 (c0-c2) finished one image
+    l1.post(f"/api/review/image/{images[0]['id']}", json={"action": "submit"})
+
+    # what labeler1 still has to do goes back; the finished one stays theirs
+    r = owner.post(f"/api/review/dataset/{ds}/assign",
+                   json={"usernames": [], "from_user": "labeler1", "scope": "unlabeled"})
+    assert r.get_json()["unassigned"] == 2
+    people = {p["username"]: p for p in owner.get(f"/api/review/dataset/{ds}/progress").get_json()["people"]}
+    assert _n(people["labeler1"]) == 1 and _n(people["labeler2"]) == 3
+
+    # everything of labeler2; labeler1 untouched
+    r = owner.post(f"/api/review/dataset/{ds}/assign",
+                   json={"usernames": [], "from_user": "labeler2", "scope": "all"})
+    assert r.get_json()["unassigned"] == 3
+    people = {p["username"]: p for p in owner.get(f"/api/review/dataset/{ds}/progress").get_json()["people"]}
+    assert "labeler2" not in people and _n(people["labeler1"]) == 1
+    # only assigners may do it
+    assert l1.post(f"/api/review/dataset/{ds}/assign",
+                   json={"usernames": [], "from_user": "labeler1", "scope": "all"}).status_code == 403
