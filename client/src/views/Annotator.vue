@@ -568,10 +568,12 @@ export default {
     startIdleWatch() {
       const IDLE_MS = 3 * 60 * 1000;
       const idle = (this.idleWatch = { last: Date.now(), paused: false });
-      const pause = () => {
+      // idleMs: the time since the last input, not counted (gone idle); a
+      // hidden tab stops the clock when it is hidden
+      const pause = (idleMs = 0) => {
         if (idle.paused || this.image.id == null) return;
         idle.paused = true;
-        this.$socket.emit("annotating", { image_id: this.image.id, active: false, idle: true });
+        this.$socket.emit("annotating", { image_id: this.image.id, active: false, idle: true, idle_ms: Math.round(idleMs) });
       };
       idle.activity = () => {
         idle.last = Date.now();
@@ -582,7 +584,8 @@ export default {
       };
       idle.visibility = () => (document.hidden ? pause() : idle.activity());
       idle.timer = setInterval(() => {
-        if (document.hidden || Date.now() - idle.last > IDLE_MS) pause();
+        if (document.hidden) pause();
+        else if (Date.now() - idle.last > IDLE_MS) pause(Date.now() - idle.last);
       }, 15000);
       ["mousemove", "mousedown", "keydown", "wheel", "touchstart"].forEach(name =>
         window.addEventListener(name, idle.activity, { passive: true, capture: true }));

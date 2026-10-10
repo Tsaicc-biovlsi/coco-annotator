@@ -101,13 +101,16 @@ def _presence(image_id, dataset_id, active):
         emit('annotating', payload, room=dataset_room(dataset_id), include_self=False)
 
 
-def _stop_annotating(image_id):
-    """Close the annotating session on an image (time log, presence)."""
+def _stop_annotating(image_id, idle_seconds=0):
+    """Close the annotating session on an image (time log, presence).
+    ``idle_seconds``: how long before now the person last did something
+    (gone idle): that part is not counted."""
     image = ImageModel.objects(id=image_id).first()
     if image is None:
         return
     start = session.get('annotating_time', time.time())
-    image.add_event(SessionEvent.create(start, current_user))
+    end = max(start, time.time() - max(0, idle_seconds))
+    image.add_event(SessionEvent.create(start, current_user, end=end))
     image.update(pull__annotating=current_user.username)
     _presence(image_id, image.dataset_id, False)
 
@@ -191,7 +194,8 @@ def annotating(data):
         if not data.get('idle'):
             leave_room(image_id)
         if session.get('annotating') == image_id:
-            _stop_annotating(image_id)
+            idle_ms = _int(data.get('idle_ms')) if data.get('idle') else None
+            _stop_annotating(image_id, (idle_ms or 0) / 1000)
             session['annotating'] = None
             session['time'] = None
 

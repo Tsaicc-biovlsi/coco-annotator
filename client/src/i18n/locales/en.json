@@ -909,7 +909,7 @@
     "resolution": "Resolution (w × h)",
     "imageCount": "Images",
     "memberTime": "Time per member",
-    "memberTimeHint": "Time with an image open in the annotator; 3 minutes without mouse or keyboard input, or another tab, pauses it. 'Last 7 days' and 'Last worked' only count sessions logged since this update.",
+    "memberTimeHint": "Time with an image open in the annotator. After 3 minutes without mouse or keyboard input, nothing from the last input on counts (the idle 3 minutes are left out too); another tab pauses it as well. 'Last 7 days' and 'Last worked' only count sessions logged since this update.",
     "timeTotal": "Total",
     "timeRecent": "Last 7 days",
     "timeImages": "Images worked on",

@@ -52,6 +52,11 @@ def test_time_per_member(dataset_directory):
         # going idle stops the time
         s.emit("annotating", {"image_id": images[0]["id"], "active": False, "idle": True})
         time.sleep(0.3)
+        # idle noticed 0.3 s after the last input: those 0.3 s are not counted
+        s.emit("annotating", {"image_id": images[0]["id"], "active": True})
+        time.sleep(0.5)
+        s.emit("annotating", {"image_id": images[0]["id"], "active": False, "idle": True, "idle_ms": 300})
+        time.sleep(0.2)
         s.emit("annotating", {"image_id": images[0]["id"], "active": True})
         time.sleep(0.2)
         s.emit("annotating", {"image_id": images[0]["id"], "active": False})
@@ -61,8 +66,8 @@ def test_time_per_member(dataset_directory):
     t = owner.get(f"/api/dataset/{ds}/stats").get_json()["time"]
     me = t["tm_mem"]
     assert me["images"] == 2
-    # two short sessions (the idle part is not counted) + 60 s + 30 s
-    assert 90.3 < me["seconds"] < 90.6, me
-    assert 0.3 < me["recent_seconds"] < 0.6, me
+    # three short sessions (0.2 + (0.5 - 0.3) + 0.2 s; idle parts not counted) + 60 s + 30 s
+    assert 90.5 < me["seconds"] < 90.8, me
+    assert 0.5 < me["recent_seconds"] < 0.8, me
     assert me["last"] and me["last"].endswith("Z")
     assert "tm_own" not in t
