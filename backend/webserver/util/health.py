@@ -45,7 +45,7 @@ def _iou(a, b):
 
 def dataset_health(dataset):
     images = {row['_id']: row for row in ImageModel.objects(dataset_id=dataset.id, deleted=False)
-              .only('id', 'file_name', 'width', 'height', 'status', 'image_class').as_pymongo()}
+              .only('id', 'file_name', 'width', 'height', 'status', 'image_class', 'confirmed_empty').as_pymongo()}
     categories = {c.id: c for c in CategoryModel.objects(id__in=dataset.categories or [], deleted=False)}
 
     per_category = {cid: {'annotations': 0, 'images': set(), 'classified': 0} for cid in categories}
@@ -128,7 +128,10 @@ def dataset_health(dataset):
                     duplicates.append({'image_id': image_id, 'annotation_ids': [boxes[i][2], boxes[j][2]]})
 
     objects = Counter(_count_bucket(per_image.get(i, 0)) for i in images)
-    unannotated = [i for i in images if per_image.get(i, 0) == 0 and images[i].get('image_class') is None]
+    no_annotations = [i for i in images if per_image.get(i, 0) == 0 and images[i].get('image_class') is None]
+    # background images the annotator confirmed have nothing to annotate
+    confirmed_empty = [i for i in no_annotations if images[i].get('confirmed_empty')]
+    unannotated = [i for i in no_annotations if not images[i].get('confirmed_empty')]
 
     class_rows = []
     for cid, c in categories.items():
@@ -156,6 +159,9 @@ def dataset_health(dataset):
     if unannotated:
         issues.append({'level': 'warning', 'code': 'unannotated', 'n': len(unannotated),
                        'examples': example(unannotated, None)})
+    if confirmed_empty:
+        issues.append({'level': 'info', 'code': 'confirmedEmpty', 'n': len(confirmed_empty),
+                       'examples': example(confirmed_empty, None)})
     empty = [r['name'] for r in class_rows if r['annotations'] == 0 and r['classified'] == 0]
     if empty:
         issues.append({'level': 'warning', 'code': 'emptyClasses', 'n': len(empty), 'names': empty[:10]})
@@ -204,7 +210,7 @@ def dataset_health(dataset):
         'task': task,
         'totals': {
             'images': len(images),
-            'annotated_images': len(images) - len(unannotated),
+            'annotated_images': len(images) - len(no_annotations),
             'annotations': total,
             'categories': len(categories),
             'per_image_avg': round(total / len(images), 2) if images else 0,

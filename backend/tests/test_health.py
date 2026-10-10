@@ -45,6 +45,25 @@ def test_dataset_health(world, dataset_directory):
     assert health["box_sizes"]["small"] == 14
     assert health["resolutions"][0] == {"width": 200, "height": 100, "n": 3}
 
+    # the empty image is confirmed as a background image on submit
+    h2 = images[2]["id"]
+    r = c.post(f"/api/review/image/{h2}", json={"action": "submit", "skip_empty": True})
+    assert r.get_json()["skipped"] is True
+    r = c.post(f"/api/review/image/{h2}", json={"action": "submit", "confirm_empty": True})
+    assert r.status_code == 200 and not r.get_json().get("skipped")
+    codes = {i["code"]: i for i in c.get(f"/api/dataset/{ds}/health").get_json()["issues"]}
+    assert "unannotated" not in codes
+    assert codes["confirmedEmpty"]["n"] == 1 and codes["confirmedEmpty"]["level"] == "info"
+    assert c.get(f"/api/dataset/{ds}/health").get_json()["totals"]["annotated_images"] == 2
+    # rejected: listed as not annotated again
+    c.post(f"/api/review/image/{h2}", json={"action": "reject", "note": "there is a car"})
+    codes = {i["code"]: i for i in c.get(f"/api/dataset/{ds}/health").get_json()["issues"]}
+    assert codes["unannotated"]["n"] == 1 and "confirmedEmpty" not in codes
+    # confirm_empty does not mark an image that has annotations
+    c.post(f"/api/review/image/{h0}", json={"action": "submit", "confirm_empty": True})
+    from database import ImageModel
+    assert not ImageModel.objects(id=h0).first().confirmed_empty
+
 
 def test_dataset_task(world):
     c = world["client"]

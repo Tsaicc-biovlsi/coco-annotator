@@ -811,7 +811,7 @@
     "assignedToMe": "Assigned to me",
     "onlyApproved": "Only images that were approved",
     "submitOnNext": "Auto-submit",
-    "submitOnNextHint": "When going to the next image (N or →), submit it (reviewers: approve it), also an image with nothing to annotate; an empty image left within 2 seconds is not submitted",
+    "submitOnNextHint": "When going to the next image (N or →), submit it (reviewers: approve it); an image without annotations asks first whether it is empty",
     "submittedOnNext": "Submitted {name}",
     "submitApprove": "Done (approve directly)",
     "approvedOnNext": "Approved {name}",
@@ -825,7 +825,12 @@
     "clearHint": "Images cleared from {name} become unassigned and can be given to someone else.",
     "clearNotDone": "Only not done yet ({n})",
     "clearAll": "All ({n})",
-    "clearDone": "Cleared {n} images from {name}"
+    "clearDone": "Cleared {n} images from {name}",
+    "emptyTitle": "Is this image empty?",
+    "emptyText": "\"{name}\" has no annotations. Is there really nothing to annotate (a background image)? Confirming submits it, and the statistics stop listing it as not annotated.",
+    "emptyYes": "Yes, submit as empty",
+    "emptyStay": "No, keep annotating",
+    "emptySkip": "Skip for now"
   },
   "imageClass": {
     "title": "Image class",
@@ -871,7 +876,8 @@
       "taskNotRotated": "{n} annotations are not rotated boxes; OBB export uses their minimum-area rectangle",
       "taskNoKeypoints": "{n} annotations have no keypoints and are left out of pose exports",
       "taskBoxOnly": "{n} annotations are boxes only; segmentation exports turn them into 4-point polygons (draw polygons or use SAM instead)",
-      "taskNoImageClass": "{n} images have no image class yet"
+      "taskNoImageClass": "{n} images have no image class yet",
+      "confirmedEmpty": "{n} images were confirmed as empty (nothing to annotate) and are not counted as missing annotations."
     },
     "classBalance": "Class balance",
     "classBalanceHint": "Annotations per category (bar) and in how many images it appears.",

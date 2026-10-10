@@ -100,6 +100,27 @@
         {{ $t('review.submitOnNext') }}
       </label>
     </div>
+
+    <!-- submitting an image without annotations: is it really empty? -->
+    <Teleport to="body">
+      <div v-if="emptyAsk" class="empty-ask-backdrop" @mousedown.self="answerEmpty('stay')">
+        <div class="empty-ask shadow-lg" role="dialog" aria-modal="true" :aria-label="$t('review.emptyTitle')">
+          <h6 class="mb-2"><i class="fa fa-question-circle text-warning me-1" /> {{ $t('review.emptyTitle') }}</h6>
+          <p class="small mb-3">{{ $t('review.emptyText', { name: filename }) }}</p>
+          <div class="d-flex flex-wrap gap-2">
+            <button ref="emptyYes" type="button" class="btn btn-sm btn-primary" @click="answerEmpty('yes')">
+              {{ $t('review.emptyYes') }} <kbd>Enter</kbd>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" @click="answerEmpty('stay')">
+              {{ $t('review.emptyStay') }} <kbd>Esc</kbd>
+            </button>
+            <button v-if="emptyAsk.canSkip" type="button" class="btn btn-sm btn-link ms-auto" @click="answerEmpty('skip')">
+              {{ $t('review.emptySkip') }} <kbd>N</kbd>
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -109,8 +130,6 @@ import RejectReasons from "@/components/RejectReasons.vue";
 import { withReason } from "@/libs/rejectReasons";
 
 const SUBMIT_ON_NEXT_KEY = "review/submitOnNext";
-// an empty image is submitted on N only after it was open this long
-const EMPTY_MIN_MS = 2000;
 
 export function statusClass(status) {
   return {
@@ -142,7 +161,8 @@ export default {
     } catch {
       // storage unavailable: off
     }
-    return { busy: false, rejecting: false, note: "", submitOnNext, attachView: true };
+    // emptyAsk: {canSkip, resolve} while asking whether an image is really empty
+    return { busy: false, rejecting: false, note: "", submitOnNext, attachView: true, emptyAsk: null };
   },
   computed: {
     regions() {
@@ -151,10 +171,6 @@ export default {
     status() {
       return this.review.status || "unlabeled";
     }
-  },
-  created() {
-    // when this image was opened (an empty image left at once is not submitted)
-    this.openedAt = Date.now();
   },
   watch: {
     submitOnNext(value) {
@@ -167,7 +183,7 @@ export default {
     imageId() {
       this.rejecting = false;
       this.note = "";
-      this.openedAt = Date.now();
+      if (this.emptyAsk) this.answerEmpty("stay");
     }
   },
   methods: {
@@ -192,7 +208,13 @@ export default {
           const v = this.getRegion();
           if (v) body.regions = [[v.x, v.y, v.w, v.h]];
         }
-        const r = await axios.post(`/api/review/image/${this.imageId}`, body);
+        if (action === "submit") body.skip_empty = true;
+        let r = await axios.post(`/api/review/image/${this.imageId}`, body);
+        if (r.data.skipped) {
+          // nothing annotated: only submitted once confirmed as empty
+          if ((await this.askEmpty(false)) !== "yes") return;
+          r = await axios.post(`/api/review/image/${this.imageId}`, { action, confirm_empty: true });
+        }
         this.$emit("updated", r.data);
         this.rejecting = false;
         this.note = "";
@@ -234,15 +256,20 @@ export default {
     },
     /**
      * Called when moving to the next image (N or the arrow), after saving:
-     * with the switch on, an image not submitted yet is submitted, also
-     * one with nothing to annotate. An empty image passed by within 2
-     * seconds (holding N to skip ahead) is not. Never stops the move.
+     * with the switch on, an image not submitted yet is submitted. One
+     * without annotations asks first whether it is really empty: yes
+     * submits it, "skip" moves on without submitting, "stay" stays.
+     * Returns "stay" to stop the move.
      */
     async submitBeforeNext() {
-      if (!this.submitOnNext || !this.canEdit || !(this.status === "unlabeled" || this.status === "rejected")) return;
-      const glanced = Date.now() - (this.openedAt || 0) < EMPTY_MIN_MS;
+      if (!this.submitOnNext || !this.canEdit || !(this.status === "unlabeled" || this.status === "rejected")) return "next";
       try {
-        const r = await axios.post(`/api/review/image/${this.imageId}`, { action: "submit", skip_empty: glanced });
+        let r = await axios.post(`/api/review/image/${this.imageId}`, { action: "submit", skip_empty: true });
+        if (r.data.skipped) {
+          const answer = await this.askEmpty(true);
+          if (answer !== "yes") return answer === "stay" ? "stay" : "next";
+          r = await axios.post(`/api/review/image/${this.imageId}`, { action: "submit", confirm_empty: true });
+        }
         if (!r.data.skipped) {
           this.$emit("updated", r.data);
           this.$toastr.success(this.$t(r.data.status === "approved" ? "review.approvedOnNext" : "review.submittedOnNext",
@@ -252,7 +279,37 @@ export default {
         const data = (error.response && error.response.data) || {};
         this.$toastr.error(data.message || String(error));
       }
+      return "next";
+    },
+    /** "Is this image really empty?" resolves "yes" | "stay" | "skip" */
+    askEmpty(canSkip) {
+      return new Promise(resolve => {
+        this.emptyAsk = { canSkip, resolve };
+        window.addEventListener("keydown", this.onEmptyKey, true);
+        this.$nextTick(() => this.$refs.emptyYes && this.$refs.emptyYes.focus());
+      });
+    },
+    answerEmpty(answer) {
+      const ask = this.emptyAsk;
+      if (!ask) return;
+      this.emptyAsk = null;
+      window.removeEventListener("keydown", this.onEmptyKey, true);
+      ask.resolve(answer === "skip" && !ask.canSkip ? "stay" : answer);
+    },
+    /** keys go to the question only (not to the annotator's shortcuts) */
+    onEmptyKey(e) {
+      const key = e.key.toLowerCase();
+      if (key === "tab") return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (e.repeat) return;
+      if (key === "enter" || key === "y") this.answerEmpty("yes");
+      else if (key === "escape") this.answerEmpty("stay");
+      else if (key === "n" && this.emptyAsk.canSkip) this.answerEmpty("skip");
     }
+  },
+  beforeUnmount() {
+    if (this.emptyAsk) this.answerEmpty("stay");
   }
 };
 </script>
@@ -265,6 +322,30 @@ export default {
 }
 .review-sub {
   color: #ced4da;
+}
+.empty-ask-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1060;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+}
+.empty-ask {
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  padding: 16px 18px;
+  border-radius: 10px;
+  background: #fff;
+  color: #212529;
+  text-align: left;
+}
+.empty-ask kbd {
+  font-size: 0.7rem;
+  padding: 1px 4px;
+  margin-left: 4px;
+  opacity: 0.8;
 }
 .review-note {
   background: rgba(220, 53, 69, 0.15);

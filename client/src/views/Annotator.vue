@@ -1677,11 +1677,13 @@ export default {
       this.current.annotation = -1;
       this.$nextTick(() => {
         this.save(async () => {
+          let answer = "next";
           try {
-            await bar.submitBeforeNext();
+            // an empty image asks first; "stay" keeps this image open
+            answer = await bar.submitBeforeNext();
           } finally {
             this.goingNext = false;
-            this.$refs.filetitle.route(next);
+            if (answer !== "stay") this.$refs.filetitle.route(next);
           }
         }, { onError: () => (this.goingNext = false) });
       });

@@ -943,7 +943,7 @@
     "assignedToMe": "指派給我",
     "onlyApproved": "只匯出已審核的圖片",
     "submitOnNext": "自動送審",
-    "submitOnNextHint": "按 N 或 → 換下一張時，自動送審這張圖（審核者為直接核准）；沒有物件的空白圖也會送審，但開不到 2 秒就跳過的空白圖不送",
+    "submitOnNextHint": "按 N 或 → 換下一張時，自動送審這張圖（審核者為直接核准）；沒有標註的圖會先問是不是空白圖",
     "submittedOnNext": "已送審 {name}",
     "submitApprove": "標註完成（直接核准）",
     "approvedOnNext": "已核准 {name}",
@@ -957,7 +957,12 @@
     "clearHint": "清除 {name} 的指派後，那些圖會回到「未指派」，可以再指派給別人。",
     "clearNotDone": "只清除還沒完成的（{n} 張）",
     "clearAll": "全部清除（{n} 張）",
-    "clearDone": "已清除 {name} 的 {n} 張指派"
+    "clearDone": "已清除 {name} 的 {n} 張指派",
+    "emptyTitle": "這張圖是空白的嗎？",
+    "emptyText": "「{name}」沒有任何標註。確定圖上沒有要標的物件（背景圖）嗎？確認後會送審，統計的「可能的問題」也不會再把它列為沒標註的圖。",
+    "emptyYes": "是，空白送審",
+    "emptyStay": "不是，回去標",
+    "emptySkip": "先跳過"
   },
   "imageClass": {
     "title": "整張圖類別",
@@ -1003,7 +1008,8 @@
       "taskNotRotated": "{n} 個標註不是旋轉框；匯出 OBB 時會改用最小外接旋轉矩形",
       "taskNoKeypoints": "{n} 個標註沒有關鍵點，匯出 pose 時不會輸出",
       "taskBoxOnly": "{n} 個標註只有框；匯出分割時會變成四邊形，建議改畫多邊形或用 SAM",
-      "taskNoImageClass": "{n} 張圖還沒設「整張圖類別」"
+      "taskNoImageClass": "{n} 張圖還沒設「整張圖類別」",
+      "confirmedEmpty": "{n} 張圖已確認是空白圖（沒有要標的物件），不算漏標。"
     },
     "classBalance": "類別分布",
     "classBalanceHint": "每個類別的標註數（長條）和出現在幾張圖。",

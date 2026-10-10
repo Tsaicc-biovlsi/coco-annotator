@@ -28,6 +28,8 @@ status_args.add_argument('regions', location='json', type=list, default=None,
                          help='reject: problem areas [[x, y, w, h], ...] in image pixels')
 status_args.add_argument('skip_empty', location='json', type=bool, default=False,
                          help='submit: do nothing for an image without annotations or image class')
+status_args.add_argument('confirm_empty', location='json', type=bool, default=False,
+                         help='submit: the image has nothing to annotate (a background image)')
 status_args.add_argument('image_ids', location='json', type=list, default=None,
                          help='Apply to several images of the same dataset')
 
@@ -51,6 +53,16 @@ reviewers_args.add_argument('reviewers', location='json', type=list, default=[])
 
 def _dataset(dataset_id):
     return current_user.datasets.filter(id=dataset_id, deleted=False).first()
+
+
+def _has_nothing(image):
+    """No shapes or keypoints drawn and no whole-image class."""
+    if getattr(image, 'image_class', None) is not None:
+        return False
+    for a in AnnotationModel.objects(image_id=image.id, deleted=False).only('segmentation', 'keypoints').as_pymongo():
+        if a.get('segmentation') or any(v > 0 for v in (a.get('keypoints') or [])[2::3]):
+            return False
+    return True
 
 
 def image_review_info(image):
@@ -175,6 +187,13 @@ class ImageStatus(Resource):
                                      args.get('regions'))
         if error:
             return {'message': error}, 403
+        if args['action'] == 'submit' and args.get('confirm_empty') and not args.get('image_ids') \
+                and count and _has_nothing(image):
+            # the statistics no longer list it as "not annotated"
+            image.update(set__confirmed_empty=True)
+        elif args['action'] == 'reject':
+            # a rejected image is not "confirmed empty" any more
+            ImageModel.objects(id__in=[i.id for i in images]).update(set__confirmed_empty=False)
         if count:
             from ..util import activity
             single = len(images) == 1
