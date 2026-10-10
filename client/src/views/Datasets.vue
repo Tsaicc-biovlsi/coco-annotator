@@ -37,8 +37,14 @@
             <button type="button" class="btn btn-primary" @click="$refs.importModal.open()">
               {{ $t('datasets.import') }}
             </button>
-            <button type="button" class="btn btn-info text-white" @click="openExportPick">
-              {{ $t('datasets.export') }}
+            <button type="button" class="btn btn-info text-white export-btn" @click="onExportClick">
+              <template v-if="exportTask.id != null && !exportTask.done">
+                <i class="fa fa-spinner fa-spin" /> {{ $t('exportPick.running', { p: Math.round(exportTask.progress) }) }}
+              </template>
+              <template v-else-if="exportTask.done">
+                <i class="fa fa-check" /> {{ $t('exportPick.doneGo') }}
+              </template>
+              <template v-else>{{ $t('datasets.export') }}</template>
             </button>
             <button
               type=" button"
@@ -294,50 +300,7 @@
     </div>
     <ImportDatasetModal ref="importModal" @done="onImported" />
 
-    <!-- which datasets go into one export (then the dataset's export wizard) -->
-    <div class="modal fade" tabindex="-1" role="dialog" id="exportPick">
-      <div class="modal-dialog" role="document">
-        <div class="modal-content text-start">
-          <div class="modal-header">
-            <h5 class="modal-title">{{ $t('exportPick.title') }}</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" :aria-label="$t('datasets.close')" />
-          </div>
-          <div class="modal-body">
-            <div class="small text-muted mb-2">{{ $t('exportPick.hint') }}</div>
-            <input
-              v-if="exportPick.list.length > 6"
-              v-model="exportPick.filter"
-              class="form-control form-control-sm mb-2"
-              :placeholder="$t('exportMerge.search')"
-            />
-            <div v-if="exportPick.loading" class="text-muted small"><i class="fa fa-spinner fa-spin" /></div>
-            <div v-else-if="!exportPick.list.length" class="text-muted small">{{ $t('exportPick.none') }}</div>
-            <div v-else class="pick-list">
-              <label v-for="d in shownExportPick" :key="d.id" class="pick-item">
-                <input v-model="exportPick.chosen" type="checkbox" class="form-check-input m-0" :value="d.id" />
-                <span class="text-truncate flex-grow-1">
-                  <span v-if="exportPick.chosen[0] === d.id" class="badge text-bg-secondary me-1" :title="$t('exportPick.mainHint')">{{ $t('exportPick.main') }}</span>
-                  {{ d.name }}
-                </span>
-                <span class="small text-muted text-nowrap">{{ $t('exportMerge.images', { n: d.images }) }}</span>
-                <span v-if="pickMismatch(d)" class="small text-warning-emphasis text-nowrap" :title="pickMismatch(d)">
-                  <i class="fa fa-exclamation-triangle" /> {{ $t('exportMerge.differs') }}
-                </span>
-              </label>
-            </div>
-            <div v-if="exportPick.chosen.length > 1" class="small mt-2">
-              {{ $t('exportPick.summary', { n: exportPick.chosen.length, images: exportPickImages }) }}
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ $t('datasets.close') }}</button>
-            <button type="button" class="btn btn-primary" :disabled="!exportPick.chosen.length" @click="goExport">
-              {{ $t('exportPick.next') }} <i class="fa fa-chevron-right" />
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <ExportWizard ref="exportWizard" @started="onExportStarted" />
   </div>
 </template>
 
@@ -353,6 +316,7 @@ import TaskPicker from "@/components/TaskPicker.vue";
 import CategoryPicker from "@/components/CategoryPicker.vue";
 import { ancestors, byName, pathName } from "@/libs/parents";
 import WizardSteps from "@/components/WizardSteps.vue";
+import ExportWizard from "@/components/ExportWizard.vue";
 import { showModal, hideModal } from "@/libs/modal";
 
 import { mapMutations } from "vuex";
@@ -367,11 +331,13 @@ function readTab() {
 
 export default {
   name: "Datasets",
-  components: { DatasetCard, Pagination, ImportDatasetModal, TaskPicker, CategoryPicker, WizardSteps },
+  components: {
+    ExportWizard, DatasetCard, Pagination, ImportDatasetModal, TaskPicker, CategoryPicker, WizardSteps },
   mixins: [toastrs],
   data() {
     return {
-      exportPick: { list: [], chosen: [], filter: "", loading: false },
+      // an export started here: progress on the button, then a link to it
+      exportTask: { id: null, progress: 0, datasetId: null, done: false },
       pages: 1,
       limit: 12,
       page: 1,
@@ -398,6 +364,11 @@ export default {
       categories: [],
       users: []
     };
+  },
+  sockets: {
+    taskProgress(data) {
+      this.onExportProgress(data);
+    }
   },
   methods: {
     pathName,
@@ -448,45 +419,42 @@ export default {
       })
       .finally(() => this.removeProcess(process));
     },
-    openExportPick() {
-      this.exportPick.loading = true;
-      this.exportPick.filter = "";
-      showModal("#exportPick");
-      axios
-        .get("/api/dataset/exportable")
-        .then(r => {
-          this.exportPick.list = r.data.datasets || [];
-          const ids = this.exportPick.list.map(d => d.id);
-          this.exportPick.chosen = this.exportPick.chosen.filter(id => ids.includes(id));
-        })
-        .catch(() => (this.exportPick.list = []))
-        .finally(() => (this.exportPick.loading = false));
-    },
-    /** categories that differ from the first ticked dataset */
-    pickMismatch(d) {
-      const first = this.exportPick.list.find(x => x.id === this.exportPick.chosen[0]);
-      if (!first || first.id === d.id || !this.exportPick.chosen.includes(d.id)) return "";
-      const key = c => c.name.trim().toLowerCase();
-      const mine = new Set(first.categories.map(key));
-      const theirs = new Set(d.categories.map(key));
-      const extra = d.categories.filter(c => !mine.has(key(c))).map(c => c.name);
-      const missing = first.categories.filter(c => !theirs.has(key(c))).map(c => c.name);
-      const parts = [];
-      if (extra.length) parts.push(this.$t("exportMerge.extra", { names: extra.join("、") }));
-      if (missing.length) parts.push(this.$t("exportMerge.missing", { names: missing.join("、") }));
-      return parts.join("；");
-    },
-    /** on to the first ticked dataset's export wizard, the others ticked there */
-    goExport() {
-      const [first, ...others] = this.exportPick.chosen;
-      if (first == null) return;
-      hideModal("#exportPick");
-      try {
-        sessionStorage.setItem("dataset/pendingExport", JSON.stringify({ dataset: first, merge: others }));
-      } catch {
-        // the wizard then just does not open by itself
+    onExportProgress(data) {
+      const t = this.exportTask;
+      if (!data || t.id == null || data.id !== t.id || t.done) return;
+      if (data.failed) {
+        this.$toastr.error(data.message || "", this.$t("dataset.exportFailed"), { timeOut: 0, closeButton: true });
+        this.exportTask = { id: null, progress: 0, datasetId: null, done: false };
+        return;
       }
-      this.$router.push({ name: "dataset", params: { identifier: first } });
+      t.progress = data.progress;
+      if (data.progress >= 100) {
+        t.done = true;
+        this.$toastr.success(this.$t("exportPick.finished", { names: (t.names || []).join(" + ") }));
+      }
+    },
+    onExportClick() {
+      const t = this.exportTask;
+      if (t.done) {
+        // to the export list of the dataset that keeps it
+        try {
+          sessionStorage.setItem(`dataset/${t.datasetId}/tab`, "exports");
+        } catch {
+          // opens on its usual tab
+        }
+        this.exportTask = { id: null, progress: 0, datasetId: null, done: false };
+        this.$router.push({ name: "dataset", params: { identifier: t.datasetId } });
+        return;
+      }
+      if (t.id != null) {
+        this.$toastr.info(this.$t("dataset.taskStillRunning"));
+        return;
+      }
+      this.$refs.exportWizard.open();
+    },
+    onExportStarted({ datasetId, taskId, names }) {
+      this.exportTask = { id: taskId, progress: 0, datasetId, names, done: false };
+      this.$toastr.info(this.$t("exportPick.started", { names: names.join(" + ") }));
     },
     onImported({ datasetId, importTask }) {
       const query = importTask ? { importTask } : {};
@@ -559,14 +527,6 @@ export default {
     }
   },
   computed: {
-    shownExportPick() {
-      const q = this.exportPick.filter.trim().toLowerCase();
-      if (!q) return this.exportPick.list;
-      return this.exportPick.list.filter(d => d.name.toLowerCase().includes(q) || this.exportPick.chosen.includes(d.id));
-    },
-    exportPickImages() {
-      return this.exportPick.list.filter(d => this.exportPick.chosen.includes(d.id)).reduce((n, d) => n + d.images, 0);
-    },
     trashedSameName() {
       const name = this.create.name.trim();
       return name ? this.trashed.find(t => t.name === name) || null : null;
@@ -621,21 +581,6 @@ export default {
 </script>
 
 <style scoped>
-.pick-list {
-  max-height: 360px;
-  overflow-y: auto;
-  border: 1px solid #dee2e6;
-  border-radius: 6px;
-  padding: 4px 8px;
-}
-.pick-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 2px;
-  margin: 0;
-  cursor: pointer;
-}
 .search-box {
   max-width: 320px;
 }

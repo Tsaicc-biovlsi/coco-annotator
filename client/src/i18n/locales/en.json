@@ -739,7 +739,8 @@
     "notReady": "A step is not finished yet; click it above to fix it.",
     "classifyCount": "about {images} images (single-category images only)",
     "trainWith": "After unzipping, train with e.g.:",
-    "augment": "Augment"
+    "augment": "Augment",
+    "datasets": "Datasets"
   },
   "review": {
     "byFolder": "Progress per folder",
@@ -1482,11 +1483,15 @@
   },
   "exportPick": {
     "title": "Export datasets",
-    "hint": "Tick the datasets to export. One is a normal export; several go into one file (categories with the same name become one). Next, the first ticked dataset's export wizard sets format, categories, split... Only datasets you can export are listed.",
+    "hint": "Tick the datasets to export. One is a normal export; several go into one file (categories with the same name become one, file names start with their dataset name), kept with the first ticked, main dataset. Only datasets you can export are listed.",
     "none": "No dataset you can export (only their creators can).",
     "main": "main",
     "mainHint": "The export is kept with this dataset (and listed in the others merged)",
     "summary": "{n} datasets merged, {images} images",
-    "next": "Next: export settings"
+    "running": "Exporting {p}%",
+    "doneGo": "Export done: download",
+    "started": "Exporting: {names}",
+    "finished": "Export done: {names}. Use \"Export done: download\" above to get it.",
+    "startedElsewhere": "The export started; it is kept with the first ticked dataset."
   }
 }

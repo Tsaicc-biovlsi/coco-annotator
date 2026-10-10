@@ -300,11 +300,15 @@ def _exportable(exclude=None):
     for other in query.order_by('name'):
         if not current_user.can_download(other):
             continue
-        cats = CategoryModel.objects(id__in=other.categories or [], deleted=False).only('id', 'name', 'color')
+        # in the dataset's order (the export's default class order)
+        cats = {c['id']: c for c in query_util.fix_ids(CategoryModel.objects(id__in=other.categories or [], deleted=False))}
+        images = ImageModel.objects(dataset_id=other.id, deleted=False)
+        first = images.order_by('file_name').only('file_name').first()
         out.append({
-            'id': other.id, 'name': other.name,
-            'images': ImageModel.objects(dataset_id=other.id, deleted=False).count(),
-            'categories': [{'id': c.id, 'name': c.name, 'color': c.color} for c in cats],
+            'id': other.id, 'name': other.name, 'task': other.task or '',
+            'images': images.count(),
+            'sample': first.file_name if first else None,
+            'categories': [cats[i] for i in (other.categories or []) if i in cats],
         })
     return out
 
