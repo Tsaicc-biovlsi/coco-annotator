@@ -56,6 +56,7 @@
         <label :for="'exportCat' + category.id" class="flex-grow-1 mb-0 text-truncate" :title="category.name">
           {{ category.name }}
           <span v-if="parentsOf(category).length" class="parent-hint">{{ parentsOf(category).map(p => pathLabel(p)).join('、') }}</span>
+          <span v-if="category.hint" class="merge-hint">{{ category.hint }}</span>
         </label>
         <span class="small text-nowrap" :class="usable(category.id) ? 'text-muted' : 'text-warning-emphasis'">
           <template v-if="!counts"><i class="fa fa-spinner fa-spin" /></template>
@@ -207,6 +208,11 @@ export default {
 </script>
 
 <style scoped>
+.merge-hint {
+  margin-left: 6px;
+  font-size: 0.75rem;
+  color: #b35c00;
+}
 .parent-hint {
   font-size: 0.75rem;
   color: #6c757d;

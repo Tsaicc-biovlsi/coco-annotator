@@ -62,6 +62,8 @@ export.add_argument('split', default='', help='train,val,test percentages, e.g. 
 export.add_argument('seed', type=int, default=42, help='Random seed for the split')
 export.add_argument('only_approved', type=inputs.boolean, default=False, help='Only images a reviewer approved')
 export.add_argument('folder', default='', help='YOLO: folder in the zip that holds train / val / test (default: dataset name)')
+export.add_argument('with_datasets', default='', help='Other dataset ids exported with this one into one file '
+                                                     '(categories of the same name become one)')
 export.add_argument('augment', default='', help='JSON: {"copies": 2, "ops": {"hflip": true, "rotate": 15, '
                                                 '"scale": 0.7, "color": true, ...}} (training images only)')
 
@@ -287,6 +289,29 @@ class DatasetCleanMeta(Resource):
             .update(metadata={})
 
         return {'success': True}
+
+
+@api.route('/<int:dataset_id>/merge_candidates')
+class DatasetMergeCandidates(Resource):
+
+    @login_required
+    def get(self, dataset_id):
+        """ Other datasets that can be exported together with this one, with
+        their categories (the export dialog merges them by name) """
+        dataset = current_user.datasets.filter(id=dataset_id, deleted=False).first()
+        if dataset is None:
+            return {"message": "Invalid dataset id"}, 400
+        out = []
+        for other in current_user.datasets.filter(deleted=False, id__ne=dataset.id).order_by('name'):
+            if not current_user.can_download(other):
+                continue
+            cats = CategoryModel.objects(id__in=other.categories or [], deleted=False).only('id', 'name', 'color')
+            out.append({
+                'id': other.id, 'name': other.name,
+                'images': ImageModel.objects(dataset_id=other.id, deleted=False).count(),
+                'categories': [{'id': c.id, 'name': c.name, 'color': c.color} for c in cats],
+            })
+        return {'datasets': out}
 
 
 @api.route('/<int:dataset_id>/category_counts')
@@ -853,10 +878,16 @@ class DatasetExports(Resource):
         if not current_user.can_download(dataset):
             return {"message": "You do not have permission to download the dataset's annotations"}, 403
         
-        exports = ExportModel.objects(dataset_id=dataset.id).order_by('-created_at').limit(50)
+        # merged exports show up in each of their datasets (for those who may
+        # export all of them)
+        exports = ExportModel.objects(Q(dataset_id=dataset.id) | Q(dataset_ids=dataset.id)) \
+            .order_by('-created_at').limit(50)
 
+        from .exports import export_dataset
         dict_export = []
         for export in exports:
+            if getattr(export, 'dataset_ids', None) and export_dataset(export) is None:
+                continue
 
             time_delta = datetime.datetime.utcnow() - export.created_at
             tags = list(export.tags or [])
@@ -882,6 +913,7 @@ class DatasetExports(Resource):
                 'folder': getattr(export, 'folder', None),
                 'only_approved': bool(getattr(export, 'only_approved', False)),
                 'augment': getattr(export, 'augment', None),
+                'merged': list(getattr(export, 'dataset_names', None) or []) or None,
                 'exists': exists,
             })
 
@@ -919,6 +951,30 @@ class DatasetExport(Resource):
         except ValueError as e:
             return {'message': str(e)}, 400
 
+        # other datasets merged into this export: each must be one the user may export
+        merge = []
+        for part in str(args.get('with_datasets') or '').split(','):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                other_id = int(part)
+            except ValueError:
+                return {'message': 'with_datasets must be dataset ids'}, 400
+            if other_id == dataset.id or other_id in merge:
+                continue
+            other = current_user.datasets.filter(id=other_id, deleted=False).first()
+            if other is None or not current_user.can_download(other):
+                return {'message': f'You can not export dataset {other_id}'}, 403
+            merge.append(other_id)
+        if merge and categories:
+            allowed = set(dataset.categories or [])
+            for other in DatasetModel.objects(id__in=merge).only('categories'):
+                allowed |= set(other.categories or [])
+            categories = [c for c in categories if c in allowed]
+            if not categories:
+                return {'message': 'None of these categories belong to the datasets'}, 400
+
         augment = None
         if args.get('augment'):
             from geometry.augment import parse_options
@@ -935,7 +991,8 @@ class DatasetExport(Resource):
                                    folder=args.get('folder') or None,
                                    only_approved=bool(args.get('only_approved')),
                                    augment=augment,
-                                   user=current_user)
+                                   user=current_user,
+                                   merge=merge)
     
     @api.expect(coco_upload)
     @login_required

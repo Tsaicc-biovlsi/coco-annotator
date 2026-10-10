@@ -1465,5 +1465,18 @@
     "today": "Today",
     "yesterday": "Yesterday",
     "keysHint": "Enter sends, Shift+Enter adds a line"
+  },
+  "exportMerge": {
+    "title": "Export other datasets too (into one file)",
+    "hint": "Ticked datasets go into the same file as this one; categories with the same name become one, and file names start with their dataset's name. Only datasets you can export are listed.",
+    "search": "Search datasets",
+    "images": "{n} images",
+    "differs": "categories differ",
+    "extra": "has: {names}",
+    "missing": "lacks: {names}",
+    "onlyIn": "only in {names}",
+    "datasets": "Datasets",
+    "namesNote": "File names start with their dataset's name",
+    "listed": "{n} datasets merged"
   }
 }

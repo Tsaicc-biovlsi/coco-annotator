@@ -102,6 +102,9 @@
                         {{ exp.format }}
                       </span>
                       <div v-if="exp.yolo_task" class="small text-muted">{{ $t('yolo.' + exp.yolo_task) }}</div>
+                      <div v-if="exp.merged" class="small text-info-emphasis lh-sm" :title="exp.merged.join(' + ')">
+                        <i class="fa fa-object-group" /> {{ $t('exportMerge.listed', { n: exp.merged.length }) }}
+                      </div>
                       <div v-if="exp.folder" class="small text-muted">
                         <i class="fa fa-folder-o" /> {{ exp.folder }}/
                       </div>
@@ -389,7 +392,7 @@
       <div class="modal-dialog" role="document">
         <div class="modal-content text-start">
           <div class="modal-header">
-            <h5 class="modal-title">{{ $t('dataset.exportTitle', { name: dataset.name }) }}</h5>
+            <h5 class="modal-title text-truncate">{{ $t('dataset.exportTitle', { name: exportDatasetNames.join(' + ') }) }}</h5>
             <button
               type="button"
               class="btn-close"
@@ -463,6 +466,33 @@
                   </div>
 
                 </template>
+
+                <!-- other datasets into the same file -->
+                <div v-if="mergeCandidates.length" class="merge-box mt-3">
+                  <div class="fw-semibold">
+                    <i class="fa fa-object-group" /> {{ $t('exportMerge.title') }}
+                    <span v-if="exporting.merge.length" class="badge text-bg-info ms-1">{{ exporting.merge.length }}</span>
+                  </div>
+                  <div class="form-text mt-0 mb-1">{{ $t('exportMerge.hint') }}</div>
+                  <input
+                    v-if="mergeCandidates.length > 6"
+                    v-model="mergeFilter"
+                    class="form-control form-control-sm mb-1"
+                    :placeholder="$t('exportMerge.search')"
+                  />
+                  <div class="merge-list">
+                    <label v-for="d in shownMergeCandidates" :key="d.id" class="merge-item">
+                      <input v-model="exporting.merge" type="checkbox" class="form-check-input m-0" :value="d.id" />
+                      <span class="text-truncate flex-grow-1">{{ d.name }}</span>
+                      <span class="small text-muted text-nowrap">{{ $t('exportMerge.images', { n: d.images }) }}</span>
+                      <span
+                        v-if="mergeMismatch(d)"
+                        class="small text-warning-emphasis text-nowrap"
+                        :title="mergeMismatch(d)"
+                      ><i class="fa fa-exclamation-triangle" /> {{ $t('exportMerge.differs') }}</span>
+                    </label>
+                  </div>
+                </div>
               </div>
 
               <!-- step 2: folder (YOLO) -->
@@ -492,7 +522,7 @@
                 <ExportCategories
                   v-model:order="exporting.order"
                   v-model:selected="exporting.categories"
-                  :categories="categories"
+                  :categories="exportCategoryList"
                   :counts="exporting.counts && exporting.counts.categories"
                   :yolo-task="exporting.format === 'yolo' ? exporting.yolo_task : null"
                 />
@@ -531,6 +561,14 @@
               <div v-show="exporting.step === 6">
                 <div class="export-summary">
                   <dl class="row small mb-0">
+                    <template v-if="exporting.merge.length">
+                      <dt class="col-4">{{ $t('exportMerge.datasets') }}</dt>
+                      <dd class="col-8">
+                        {{ exportDatasetNames.join(' + ') }}
+                        <a href="#" class="ms-1 small" @click.prevent="goToStep(1)">{{ $t('exportSteps.edit') }}</a>
+                        <div class="text-muted">{{ $t('exportMerge.namesNote') }}</div>
+                      </dd>
+                    </template>
                     <dt class="col-4">{{ $t('yolo.format') }}</dt>
                     <dd class="col-8">
                       {{ exporting.format.toUpperCase() }}
@@ -780,8 +818,12 @@ export default {
         yolo_task: "detect",
         with_images: false,
         augment: defaultAugment(),
+        // other datasets exported into the same file
+        merge: [],
         id: null
       },
+      mergeCandidates: [],
+      mergeFilter: "",
       yoloTasks: ["detect", "segment", "obb", "pose"],
       exportYoloTasks: ["detect", "segment", "obb", "pose", "classify", "semantic"],
       exportStepNames: ["format", "folder", "categories", "split", "augment", "review"],
@@ -977,6 +1019,7 @@ export default {
         this.openTask(this.exporting.id);
         return;
       }
+      this.loadMergeCandidates();
       this.prepareExportCategories();
       this.exporting.step = 1;
       // the first time: start from the dataset's planned task
@@ -1019,9 +1062,32 @@ export default {
     goToStep(step) {
       if (this.canGoToStep(step)) this.exporting.step = step;
     },
+    /** Datasets that can go into the same export (the user's own) */
+    loadMergeCandidates() {
+      axios
+        .get(`/api/dataset/${this.dataset.id}/merge_candidates`)
+        .then(r => {
+          this.mergeCandidates = r.data.datasets || [];
+          const ids = this.mergeCandidates.map(d => d.id);
+          this.exporting.merge = this.exporting.merge.filter(id => ids.includes(id));
+        })
+        .catch(() => (this.mergeCandidates = []));
+    },
+    /** "categories differ" hint for a dataset that could be merged */
+    mergeMismatch(d) {
+      const mine = new Set(this.categories.map(c => c.name.trim().toLowerCase()));
+      const theirs = new Set(d.categories.map(c => c.name.trim().toLowerCase()));
+      const extra = d.categories.filter(c => !mine.has(c.name.trim().toLowerCase())).map(c => c.name);
+      const missing = this.categories.filter(c => !theirs.has(c.name.trim().toLowerCase())).map(c => c.name);
+      if (!extra.length && !missing.length) return "";
+      const parts = [];
+      if (extra.length) parts.push(this.$t("exportMerge.extra", { names: extra.join("、") }));
+      if (missing.length) parts.push(this.$t("exportMerge.missing", { names: missing.join("、") }));
+      return parts.join("；");
+    },
     /** Keep the order / ticks from last time; new categories go last, ticked */
     prepareExportCategories() {
-      const ids = this.categories.map(c => c.id);
+      const ids = this.exportCategoryList.map(c => c.id);
       const known = new Set(this.exporting.order);
       const order = this.exporting.order.filter(id => ids.includes(id));
       const added = ids.filter(id => !known.has(id));
@@ -1031,10 +1097,34 @@ export default {
         ...added
       ];
       this.exporting.counts = null;
-      axios
-        .get(`/api/dataset/${this.dataset.id}/category_counts`)
-        .then(r => (this.exporting.counts = r.data))
+      const datasetIds = [this.dataset.id, ...this.exporting.merge];
+      const seq = (this.countsSeq = (this.countsSeq || 0) + 1);
+      Promise.all(datasetIds.map(id => axios.get(`/api/dataset/${id}/category_counts`).then(r => r.data)))
+        .then(all => {
+          if (seq === this.countsSeq) this.exporting.counts = this.mergeCounts(all);
+        })
         .catch(() => (this.exporting.counts = { categories: {}, image_categories: [], total_images: null }));
+    },
+    /** category counts of several datasets, with same-name categories as one */
+    mergeCounts(all) {
+      if (all.length === 1) return all[0];
+      const canon = this.exportCanon;
+      const to = id => canon[id] ?? id;
+      const mapList = list => [...new Set((list || []).map(to))];
+      const categories = {};
+      all.forEach(c => Object.entries(c.categories || {}).forEach(([id, v]) => {
+        const key = String(to(Number(id)));
+        const sum = categories[key] || {};
+        Object.entries(v).forEach(([k, n]) => (sum[k] = (sum[k] || 0) + n));
+        categories[key] = sum;
+      }));
+      return {
+        categories,
+        image_categories: all.flatMap(c => (c.image_categories || []).map(mapList)),
+        image_classes: all.flatMap(c => (c.image_classes || []).map(to)),
+        unclassified_image_categories: all.flatMap(c => (c.unclassified_image_categories || c.image_categories || []).map(mapList)),
+        total_images: all.every(c => c.total_images != null) ? all.reduce((n, c) => n + c.total_images, 0) : null
+      };
     },
     augmentTitle(aug) {
       return AUGMENT_OPS.filter(o => aug.ops && aug.ops[o.key]).map(o => this.$t("exportAugment.op." + o.key)).join("、");
@@ -1056,7 +1146,13 @@ export default {
       }
       // ticked categories in the chosen order (= YOLO class index)
       const chosen = new Set(this.exporting.categories);
-      const categories = this.exporting.order.filter(id => chosen.has(id));
+      let categories = this.exporting.order.filter(id => chosen.has(id));
+      if (this.exporting.merge.length) {
+        // every dataset's category of that name (the server keeps one per name)
+        const byId = new Map(this.exportCategoryList.map(c => [c.id, c.ids || [c.id]]));
+        categories = categories.flatMap(id => byId.get(id) || [id]);
+        options.with_datasets = this.exporting.merge.join(",");
+      }
       Dataset.exportingCOCO(this.dataset.id, categories, this.exporting.with_empty_images, options)
         .then(response => {
           let id = response.data.id;
@@ -1291,8 +1387,54 @@ export default {
       if (this.exporting.augment.enabled && !this.exportAugmentPayload) return false;
       return this.exporting.categories.length > 0 && (!this.exporting.split_on || this.exportSplitValid);
     },
+    /** the current dataset plus the ones merged in */
+    exportDatasetNames() {
+      const others = this.mergeCandidates.filter(d => this.exporting.merge.includes(d.id)).map(d => d.name);
+      return [this.dataset.name, ...others];
+    },
+    shownMergeCandidates() {
+      const q = this.mergeFilter.trim().toLowerCase();
+      return q ? this.mergeCandidates.filter(d => d.name.toLowerCase().includes(q) || this.exporting.merge.includes(d.id))
+        : this.mergeCandidates;
+    },
+    /**
+     * Categories offered for export: this dataset's, plus (merging) those of
+     * the other datasets; the same name is one entry (ids: all of them),
+     * marked when not every dataset has it.
+     */
+    exportCategoryList() {
+      if (!this.exporting.merge.length) return this.categories;
+      const byName = new Map();
+      const list = [];
+      const add = (c, dsName) => {
+        const key = String(c.name || "").trim().toLowerCase();
+        let e = byName.get(key);
+        if (!e) {
+          e = { ...c, ids: [c.id], datasets: [] };
+          byName.set(key, e);
+          list.push(e);
+        } else if (!e.ids.includes(c.id)) {
+          e.ids.push(c.id);
+        }
+        if (!e.datasets.includes(dsName)) e.datasets.push(dsName);
+      };
+      this.categories.forEach(c => add(c, this.dataset.name));
+      this.mergeCandidates
+        .filter(d => this.exporting.merge.includes(d.id))
+        .forEach(d => d.categories.forEach(c => add(c, d.name)));
+      const total = this.exporting.merge.length + 1;
+      return list.map(e => (e.datasets.length < total
+        ? { ...e, hint: this.$t("exportMerge.onlyIn", { names: e.datasets.join("、") }) }
+        : e));
+    },
+    /** any category id -> the entry id standing for its name */
+    exportCanon() {
+      const map = {};
+      this.exportCategoryList.forEach(c => (c.ids || [c.id]).forEach(id => (map[id] = c.id)));
+      return map;
+    },
     exportSelectedNames() {
-      const byId = new Map(this.categories.map(c => [c.id, c.name]));
+      const byId = new Map(this.exportCategoryList.map(c => [c.id, c.name]));
       const chosen = new Set(this.exporting.categories);
       return this.exporting.order.filter(id => chosen.has(id) && byId.has(id)).map(id => byId.get(id));
     },
@@ -1392,6 +1534,9 @@ export default {
     }
   },
   watch: {
+    "exporting.merge"() {
+      this.prepareExportCategories();
+    },
     tab(tab) {
       rememberTab(this.dataset.id, tab);
       if (tab == "members") this.getUsers();
@@ -1580,6 +1725,24 @@ export default {
   padding: 0.6rem 0.75rem;
 }
 
+.merge-box {
+  border: 1px solid #b6e3ef;
+  background: #f3fbfd;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.merge-list {
+  max-height: 180px;
+  overflow-y: auto;
+}
+.merge-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 2px;
+  margin: 0;
+  cursor: pointer;
+}
 .export-steps {
   display: flex;
   list-style: none;

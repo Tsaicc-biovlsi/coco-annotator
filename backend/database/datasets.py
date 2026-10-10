@@ -84,17 +84,26 @@ class DatasetModel(DynamicDocument):
 
     def export_coco(self, categories=None, style="COCO", with_empty_images=False,
                     fmt="coco", yolo_task="detect", with_images=False, split=None, seed=42,
-                    folder=None, only_approved=False, augment=None, user=None):
+                    folder=None, only_approved=False, augment=None, user=None, merge=None):
+        """``merge``: other datasets (ids) exported together with this one into
+        one file; categories with the same name become one."""
 
         from workers.tasks import export_annotations
 
+        merge = [i for i in (merge or []) if i != self.id]
         if categories is None or len(categories) == 0:
-            categories = self.categories
+            categories = list(self.categories or [])
+            for other in DatasetModel.objects(id__in=merge).only('categories'):
+                categories += [c for c in (other.categories or []) if c not in categories]
 
         if fmt == "yolo":
             style = f"YOLO {yolo_task}"
+        names = self.name
+        if merge:
+            others = [d.name for d in DatasetModel.objects(id__in=merge).only('name')]
+            names = " + ".join([self.name] + others)
         task = TaskModel(
-            name=f"Exporting {self.name} into {style} format",
+            name=f"Exporting {names} into {style} format",
             dataset_id=self.id,
             group="Annotation Export"
         )
@@ -102,11 +111,11 @@ class DatasetModel(DynamicDocument):
             task.creator = user.username
         task.save()
         self._log('export', user, task, format=style, split=bool(split), only_approved=only_approved or None,
-                  augment=augment or None)
+                  augment=augment or None, merged=merge or None)
 
         cel_task = export_annotations.delay(task.id, self.id, categories, with_empty_images,
                                             fmt, yolo_task, with_images, split, seed, folder,
-                                            only_approved, augment)
+                                            only_approved, augment, merge or None)
 
         return {
             "celery_id": cel_task.id,

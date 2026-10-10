@@ -31,13 +31,13 @@ READ_SHARE, AUGMENT_END, WRITE_START = 40, 85, 85
 @shared_task
 def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
                        fmt="coco", yolo_task="detect", with_images=False, split=None, seed=42,
-                       folder=None, only_approved=False, augment=None):
+                       folder=None, only_approved=False, augment=None, merge=None):
     task = TaskModel.objects.get(id=task_id)
     task.update(status="PROGRESS")
     socket = create_socket()
     try:
         _export_annotations(task, socket, dataset_id, categories, with_empty_images, fmt, yolo_task,
-                            with_images, split, seed, folder, only_approved, augment)
+                            with_images, split, seed, folder, only_approved, augment, merge)
     except Exception as e:
         # say so (the page shows it) instead of leaving a finished-looking bar
         import traceback
@@ -52,22 +52,46 @@ def export_annotations(task_id, dataset_id, categories, with_empty_images=False,
         raise
 
 
+def _merged_categories(categories):
+    """Categories asked for (ids, in order; several datasets may have their
+    own category of the same name): one per name, the first id of each name
+    standing for all of them. Returns (ids kept, {any id: kept id})."""
+    names = {c.id: c.name for c in CategoryModel.objects(id__in=categories, deleted=False).only('id', 'name')}
+    first, remap = {}, {}
+    for cid in categories:
+        if cid not in names:
+            continue
+        key = names[cid].strip().lower()
+        first.setdefault(key, cid)
+        remap[cid] = first[key]
+    return list(first.values()), remap
+
+
 def _export_annotations(task, socket, dataset_id, categories, with_empty_images, fmt, yolo_task,
-                        with_images, split, seed, folder, only_approved, augment):
+                        with_images, split, seed, folder, only_approved, augment, merge=None):
     dataset = DatasetModel.objects.get(id=dataset_id)
+    # several datasets into one export (merge): images of all of them,
+    # categories with the same name as one
+    merged = [d for d in DatasetModel.objects(id__in=[i for i in (merge or []) if i != dataset.id])]
+    dataset_ids = [dataset.id] + [d.id for d in merged]
+    all_categories = list(categories)
+    remap = {}
+    if merged:
+        categories, remap = _merged_categories(all_categories)
+        task.info("Merging datasets: " + ", ".join([dataset.name] + [d.name for d in merged]))
 
     task.info(f"Beginning Export ({'YOLO ' + yolo_task if fmt == 'yolo' else 'COCO'} Format)")
 
     db_categories = CategoryModel.objects(id__in=categories, deleted=False) \
         .only(*CategoryModel.COCO_PROPERTIES)
     db_images = ImageModel.objects(
-        deleted=False, dataset_id=dataset.id).only(
+        deleted=False, dataset_id__in=dataset_ids).only(
         *ImageModel.COCO_PROPERTIES)
     if only_approved:
         db_images = db_images.filter(status='approved')
         task.info(f"Only approved images: {db_images.count()}")
     db_annotations = AnnotationModel.objects(
-        deleted=False, category_id__in=categories)
+        deleted=False, category_id__in=all_categories)
 
     total_items = db_categories.count()
 
@@ -105,14 +129,20 @@ def _export_annotations(task, socket, dataset_id, categories, with_empty_images,
     # classify: images with a whole-image class are exported even without annotations
     explicit = {}
     if fmt == "yolo" and yolo_task == "classify":
-        explicit = {row['_id']: row['image_class'] for row in ImageModel.objects(
-            dataset_id=dataset.id, deleted=False, image_class__ne=None, image_class__in=categories)
+        explicit = {row['_id']: remap.get(row['image_class'], row['image_class']) for row in ImageModel.objects(
+            dataset_id__in=dataset_ids, deleted=False, image_class__ne=None, image_class__in=all_categories)
             .only('id', 'image_class').as_pymongo()}
+
+    # merged: every file name starts with its dataset's name (no clashes)
+    from geometry.yolo_format import safe_prefix
+    name_prefix = {d.id: safe_prefix(d.name) for d in [dataset] + merged} if merged else {}
 
     total_annotations = db_annotations.count()
     total_images = db_images.count()
     for image in db_images:
         image = fix_ids(image)
+        if merged:
+            image['file_name'] = name_prefix.get(image.get('dataset_id'), '') + str(image.get('file_name') or '')
 
         progress += 1
         task.set_progress((progress / total_items) * READ_SHARE, socket=socket)
@@ -145,6 +175,8 @@ def _export_annotations(task, socket, dataset_id, categories, with_empty_images,
                 if not annotation.get('isrbbox'):
                     annotation.pop('isrbbox', None)
                     annotation.pop('rbbox', None)
+                if remap:
+                    annotation['category_id'] = remap.get(annotation.get('category_id'), annotation.get('category_id'))
 
                 num_annotations += 1
                 coco.get('annotations').append(annotation)
@@ -154,7 +186,8 @@ def _export_annotations(task, socket, dataset_id, categories, with_empty_images,
         coco.get('images').append(image)
 
     task.info(
-        f"Done export {total_annotations} annotations and {total_images} images from {dataset.name}")
+        f"Done export {total_annotations} annotations and {total_images} images from "
+        + ", ".join([dataset.name] + [d.name for d in merged]))
 
     timestamp = time.time()
     directory = f"{dataset.directory}.exports/"
@@ -223,7 +256,8 @@ def _export_annotations(task, socket, dataset_id, categories, with_empty_images,
     task.set_progress(WRITE_START, socket=socket)
     try:
         file_path, tags = _write_export(coco, fmt, yolo_task, with_images, subsets, split, classes,
-                                        dataset, folder, directory, timestamp, task, category_names, aug)
+                                        dataset, folder, directory, timestamp, task, category_names, aug,
+                                        merged=bool(merged))
     finally:
         if aug_dir:
             import shutil
@@ -231,6 +265,9 @@ def _export_annotations(task, socket, dataset_id, categories, with_empty_images,
 
     task.info("Creating export object")
     export = ExportModel(dataset_id=dataset.id, path=file_path, tags=tags)
+    if merged:
+        export.dataset_ids = dataset_ids
+        export.dataset_names = [dataset.name] + [d.name for d in merged]
     if fmt == "yolo":
         export.prefix_dataset = True
         export.folder = safe_folder_name(folder, dataset)
@@ -259,14 +296,15 @@ def safe_folder_name(folder, dataset):
 
 
 def _write_export(coco, fmt, yolo_task, with_images, subsets, split, classes, dataset, folder,
-                  directory, timestamp, task, category_names, aug):
+                  directory, timestamp, task, category_names, aug, merged=False):
     """Write the file; returns (path, tags)."""
     if fmt == "yolo":
         file_path = f"{directory}yolo-{yolo_task}-{timestamp}.zip"
         task.info(f"Writing YOLO {yolo_task} labels to {file_path}")
         from geometry.yolo_format import safe_folder, safe_prefix
-        # YOLO files are always named <dataset>_<image> (unique across datasets)
-        prefix = safe_prefix(dataset.name)
+        # YOLO files are always named <dataset>_<image> (unique across datasets;
+        # merged exports already carry each image's own dataset name)
+        prefix = "" if merged else safe_prefix(dataset.name)
         folder = safe_folder(folder, safe_folder(dataset.name))
         task.info(f"Folder in the zip: {folder}/ (train, val, test)")
         if prefix:

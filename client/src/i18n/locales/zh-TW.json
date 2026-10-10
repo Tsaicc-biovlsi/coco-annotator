@@ -1597,5 +1597,18 @@
     "today": "今天",
     "yesterday": "昨天",
     "keysHint": "Enter 送出，Shift+Enter 換行"
+  },
+  "exportMerge": {
+    "title": "一起匯出其他資料集（合併成一份）",
+    "hint": "勾選的資料集會跟這個資料集放進同一個檔案；名稱相同的類別合併成同一類，檔名前面會加上各自的資料集名稱。只列出你可以匯出的資料集。",
+    "search": "搜尋資料集",
+    "images": "{n} 張",
+    "differs": "類別不同",
+    "extra": "多了：{names}",
+    "missing": "少了：{names}",
+    "onlyIn": "只有 {names} 有",
+    "datasets": "資料集",
+    "namesNote": "檔名前面加上各自的資料集名稱",
+    "listed": "合併 {n} 個資料集"
   }
 }
