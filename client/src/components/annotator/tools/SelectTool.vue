@@ -1,6 +1,7 @@
 <script>
 import paper from "paper";
 import tool from "@/mixins/toolBar/tool";
+import { TASK_TOOLS } from "@/components/TaskPicker.vue";
 
 export default {
   name: "SelectTool",
@@ -251,6 +252,7 @@ export default {
       // point would make the first drag jump
       this.onMouseMove(event);
       this.rbboxDrag = null;
+      this.noteTaskToolClick(event);
 
       let hitResult = this.$parent.paper.project.hitTest(
         event.point,
@@ -353,7 +355,46 @@ export default {
       
     },
 
+    /**
+     * A plain click (no drag) on a shape of the dataset's planned kind (a
+     * rotated box in an OBB dataset, a box in a detection one, ...) goes on
+     * with the dataset's tool for it. Not while Select is only held for a
+     * moment (left + right buttons), and not with Shift.
+     */
+    noteTaskToolClick(event) {
+      this.taskToolClick = null;
+      const parent = this.$parent;
+      const task = parent.dataset && parent.dataset.task;
+      const tool = task && TASK_TOOLS[task];
+      if (!tool || (parent.chord && parent.chord.active) || this.mod(event, "shift")) return;
+      if (parent.toolForShapeAt && parent.toolForShapeAt(event.point) === tool) {
+        const e = event.event || {};
+        this.taskToolClick = { tool, x: e.clientX, y: e.clientY };
+      }
+    },
+    switchAfterClick(event) {
+      const click = this.taskToolClick;
+      this.taskToolClick = null;
+      if (!click || (this.$parent.chord && this.$parent.chord.active)) return;
+      const e = event.event || {};
+      if (Math.hypot((e.clientX ?? click.x) - click.x, (e.clientY ?? click.y) - click.y) > 4) return; // dragged
+      // after the click has selected the shape (the tool needs an annotation)
+      setTimeout(() => {
+        const ref = this.$parent.toolRef(click.tool);
+        if (this.$parent.activeTool === "Select" && ref && !ref.isDisabled) {
+          ref.tool.activate();
+          this.$parent.activeTool = click.tool;
+        }
+      }, 0);
+    },
+    mod(event, key) {
+      const e = event.event;
+      if (e && typeof e.shiftKey === "boolean") return key === "shift" ? e.shiftKey : e.ctrlKey || e.metaKey;
+      const m = event.modifiers || {};
+      return key === "shift" ? !!m.shift : !!(m.control || m.command);
+    },
     onMouseUp(event) {
+      this.switchAfterClick(event);
       if (this.rbboxDrag && this.rbboxDrag.undoSaved) {
         this.rbboxDrag.owner.emitModify();
       }
