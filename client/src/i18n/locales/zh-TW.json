@@ -471,7 +471,10 @@
     "step1": "1/3 · 點第一個角（點既有的框可選取它；按住 Ctrl 點可在框內畫新框）",
     "step2": "2/3 · 點第二個角",
     "newIn": "新框加到「{name}」",
-    "step3": "3/3 · 拉出寬度後點擊 · Esc 取消"
+    "step3": "3/3 · 拉出寬度後點擊 · Esc 取消",
+    "nothingToConvert": "沒有可以轉成旋轉框的形狀（多邊形、矩形框）",
+    "converted": "已轉成旋轉框：{n} 個",
+    "convertAllConfirm": "把這張圖的 {n} 個多邊形／矩形框都轉成旋轉框？（可以 Ctrl+Z 復原）"
   },
   "rotatedBBoxPanel": {
     "arrowKeysMove1Px": "方向鍵：移動 1 px（Shift：10 px）",
@@ -479,13 +482,17 @@
     "rotate5": "旋轉 −5°",
     "rotate52": "旋轉 +5°",
     "shiftSnap": "Shift 吸附（°）",
-    "swapHeading90": "切換朝向（90°）"
+    "swapHeading90": "切換朝向（90°）",
+    "fromShape": "選取的形狀轉成旋轉框",
+    "fromAllShapes": "這張圖的形狀全部轉成旋轉框"
   },
   "sAMPanel": {
     "applyEnter": "套用（Enter）",
     "clearPrompts": "清除提示",
     "replaceAnnotation": "取代原標註",
-    "undoLastPrompt": "復原上一個提示"
+    "undoLastPrompt": "復原上一個提示",
+    "asRotatedBox": "輸出旋轉框",
+    "boxPad": "旋轉框外擴（px）"
   },
   "sam": {
     "checking": "正在檢查 SAM…",

@@ -614,6 +614,32 @@ export default {
       let b = this.box;
       this.commit({ ...b, w: b.h, h: b.w, angle: normaliseAngle(b.angle + 90) }, false);
     },
+    /** the selected annotation's outline (polygon, box) -> rotated box */
+    convertCurrent() {
+      const annotation = this.annotationComponent;
+      if (!annotation || annotation.annotation.isrbbox || !annotation.toRotatedBox()) {
+        this.$toastr.info(this.$t("rbbox.nothingToConvert"));
+        return;
+      }
+      this.syncFromAnnotation();
+      this.$toastr.success(this.$t("rbbox.converted", { n: 1 }));
+    },
+    /** every outline on this image that is not a rotated box yet */
+    convertAll() {
+      const targets = [];
+      this.$parent.categoryRefs().forEach(category =>
+        category.annotationRefs().forEach(a => {
+          if (!a.annotation.isrbbox && a.compoundPath && !a.compoundPath.isEmpty()) targets.push(a);
+        }));
+      if (!targets.length) {
+        this.$toastr.info(this.$t("rbbox.nothingToConvert"));
+        return;
+      }
+      if (!confirm(this.$t("rbbox.convertAllConfirm", { n: targets.length }))) return;
+      const n = targets.filter(a => a.toRotatedBox()).length;
+      this.syncFromAnnotation();
+      this.$toastr.success(this.$t("rbbox.converted", { n }));
+    },
     deleteBox() {
       this.box = null;
       this.clearOverlay();

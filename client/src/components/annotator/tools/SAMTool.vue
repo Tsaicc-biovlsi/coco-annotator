@@ -2,6 +2,7 @@
 import paper from "paper";
 import axios from "axios";
 import tool from "@/mixins/toolBar/tool";
+import { minAreaRect } from "@/libs/minAreaRect";
 
 /**
  * Segment Anything (SAM) assisted segmentation.
@@ -10,6 +11,10 @@ import tool from "@/mixins/toolBar/tool";
  *  - Shift + click    add a point on the background (exclude it)
  *  - drag             draw a box around the object
  *  - Enter / Apply    add the preview to the current annotation
+ *
+ * "Rotated box" output (on by default in an OBB dataset): the smallest
+ * rotated box around the mask is added instead of the outline, as a new
+ * annotation when the selected one already has a shape.
  *
  * The server caches the image embedding, so every click after the first
  * only runs SAM's light-weight mask decoder.
@@ -45,8 +50,15 @@ export default {
       dragStart: null,
       boxPath: null,
       requestId: 0,
+      // the rotated box around the preview (paper points), in box mode
+      previewCorners: null,
+      previewBox: null,
+      lastSegmentation: null,
       settings: {
-        replace: false
+        replace: false,
+        // null: rotated boxes in an OBB dataset, outlines otherwise
+        obb: null,
+        obbPad: 0
       }
     };
   },
@@ -74,14 +86,27 @@ export default {
     },
     imageId() {
       return this.$parent.image.id;
+    },
+    /** apply the smallest rotated box around the mask instead of the mask */
+    boxMode: {
+      get() {
+        if (this.settings.obb != null) return this.settings.obb;
+        const dataset = this.$parent.dataset;
+        return !!(dataset && dataset.task === "obb");
+      },
+      set(value) {
+        this.settings.obb = value;
+      }
     }
   },
   methods: {
     export() {
-      return { replace: this.settings.replace };
+      return { replace: this.settings.replace, obb: this.settings.obb, obbPad: this.settings.obbPad };
     },
     setPreferences(pref) {
       if (pref.replace != null) this.settings.replace = pref.replace;
+      if (pref.obb != null) this.settings.obb = pref.obb;
+      if (pref.obbPad != null) this.settings.obbPad = pref.obbPad;
     },
     checkStatus() {
       axios
@@ -148,11 +173,50 @@ export default {
     },
     clearPreview() {
       if (this.preview) this.preview.remove();
+      if (this.previewBox) this.previewBox.remove();
       this.preview = null;
+      this.previewBox = null;
+      this.previewCorners = null;
       this.score = null;
+    },
+    /** the rotated box around the preview (box mode) */
+    drawPreviewBox() {
+      if (this.previewBox) this.previewBox.remove();
+      this.previewBox = null;
+      this.previewCorners = null;
+      if (!this.preview || !this.boxMode) {
+        if (this.preview) this.preview.opacity = 0.45;
+        return;
+      }
+      const points = [];
+      this.preview.children.forEach(path => path.segments.forEach(seg => points.push({ x: seg.point.x, y: seg.point.y })));
+      const pad = Math.max(0, Number(this.settings.obbPad) || 0);
+      const rect = minAreaRect(points, pad);
+      if (!rect) return;
+      this.previewCorners = rect.corners.map(c => new paper.Point(c.x, c.y));
+      // the mask fades, the box it gives is what will be added
+      this.preview.opacity = 0.25;
+      this.previewBox = new paper.Path({
+        segments: this.previewCorners,
+        closed: true,
+        strokeColor: "#00e5ff",
+        strokeWidth: 2 * this.scale,
+        locked: true
+      });
+      // the first (heading) edge a bit thicker, as with the rotated box tool
+      const heading = new paper.Path.Line({
+        from: this.previewCorners[0],
+        to: this.previewCorners[1],
+        strokeColor: "#00e5ff",
+        strokeWidth: 4 * this.scale
+      });
+      this.previewBox = new paper.Group([this.previewBox, heading]);
+      this.previewBox.locked = true;
+      if (this.markers) this.markers.bringToFront();
     },
     showPreview(segmentation) {
       this.clearPreview();
+      this.lastSegmentation = segmentation;
       if (!segmentation || segmentation.length === 0) return;
 
       let raster = this.$parent.image.raster;
@@ -175,6 +239,7 @@ export default {
       compound.dashArray = [4 * this.scale, 3 * this.scale];
       compound.locked = true;
       this.preview = compound;
+      this.drawPreviewBox();
       if (this.markers) this.markers.bringToFront();
     },
 
@@ -218,9 +283,13 @@ export default {
           if (id === this.requestId) this.status.predicting = false;
         });
     },
-    apply() {
+    async apply() {
       let annotation = this.$parent.currentAnnotation;
       if (!this.preview || !annotation) return;
+      if (this.boxMode && this.previewCorners) {
+        await this.applyBox(annotation, this.previewCorners);
+        return;
+      }
 
       let shape = this.preview.clone();
       shape.locked = false;
@@ -232,6 +301,21 @@ export default {
       }
       shape.remove();
       this.reset();
+    },
+    /** box mode: one rotated box per annotation (a new one when needed) */
+    async applyBox(annotation, corners) {
+      const parent = this.$parent;
+      this.reset();
+      const hasShape = annotation.compoundPath && !annotation.compoundPath.isEmpty();
+      if (hasShape && !this.settings.replace) {
+        const category = annotation.$parent && annotation.$parent.createAnnotation ? annotation.$parent : parent.currentCategory;
+        if (!category) return;
+        await category.createAnnotation();
+        for (let i = 0; i < 5 && parent.currentAnnotation === annotation; i++) await this.$nextTick();
+        annotation = parent.currentAnnotation;
+        if (!annotation) return;
+      }
+      annotation.setRotatedBox(corners);
     },
     undoPoint() {
       if (this.points.length > 0) this.points.pop();
@@ -306,6 +390,13 @@ export default {
     },
     scale() {
       this.drawMarkers();
+      this.drawPreviewBox();
+    },
+    boxMode() {
+      this.drawPreviewBox();
+    },
+    "settings.obbPad"() {
+      this.drawPreviewBox();
     }
   },
   mounted() {

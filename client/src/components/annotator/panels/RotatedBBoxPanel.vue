@@ -5,6 +5,8 @@
     <PanelButton :name="$t('rotatedBBoxPanel.rotate5')" @click="rbbox.rotateBy(-5)" />
     <PanelButton :name="$t('rotatedBBoxPanel.rotate52')" @click="rbbox.rotateBy(5)" />
     <PanelButton :name="$t('rotatedBBoxPanel.swapHeading90')" @click="rbbox.swapHeading()" />
+    <PanelButton :name="$t('rotatedBBoxPanel.fromShape')" @click="rbbox.convertCurrent()" />
+    <PanelButton :name="$t('rotatedBBoxPanel.fromAllShapes')" @click="rbbox.convertAll()" />
     <PanelInputNumber
       :name="$t('rotatedBBoxPanel.shiftSnap')"
       min="0"

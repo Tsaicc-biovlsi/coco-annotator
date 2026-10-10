@@ -222,6 +222,7 @@
 <script>
 import { hideModal, onModalHidden, showModal, closeModalsIn } from "@/libs/modal";
 import paper from "paper";
+import { minAreaRect } from "@/libs/minAreaRect";
 import axios from "axios";
 import simplifyjs from "simplify-js";
 
@@ -746,6 +747,24 @@ export default {
       this.isEmpty = this.compoundPath.isEmpty() && this.keypoints.isEmpty();
       this.keypoints.bringToFront();
       this.emitModify();
+    },
+    /**
+     * Turn this shape (polygon, box, SAM outline) into the smallest rotated
+     * box around it. Returns false when there is nothing to turn.
+     * @param {number} pad grow every side by this many image pixels
+     */
+    toRotatedBox(pad = 0) {
+      if (this.compoundPath == null || this.compoundPath.isEmpty()) return false;
+      const flat = this.compoundPath.clone({ insert: false });
+      flat.flatten(1);
+      const points = [];
+      (flat.children && flat.children.length ? flat.children : [flat]).forEach(path =>
+        (path.segments || []).forEach(seg => points.push({ x: seg.point.x, y: seg.point.y })));
+      flat.remove();
+      const rect = minAreaRect(points, pad);
+      if (!rect || rect.w < 1 || rect.h < 1) return false;
+      this.setRotatedBox(rect.corners.map(c => new paper.Point(c.x, c.y)));
+      return true;
     },
     /**
      * Corners of the rotated box, or null if this is not a rotated box.
