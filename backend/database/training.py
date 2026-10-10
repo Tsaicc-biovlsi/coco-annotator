@@ -59,5 +59,25 @@ class TrainerStatusModel(DynamicDocument):
     seen_at = DateTimeField()
     device = StringField(default='')
     version = StringField(default='')
+    #: what the trainer's Ultralytics can train (trainer/catalog.py)
+    catalog = DictField(default=dict)
 
     meta = {'collection': 'trainer_status'}
+
+
+class TrainUploadModel(DynamicDocument):
+    """A model file (.pt weights or .yaml architecture) uploaded for training."""
+    id = SequenceField(primary_key=True)
+    filename = StringField(required=True)      # stored as, in .training/uploads/
+    original = StringField(default='')
+    kind = StringField(default='pt')           # pt | yaml
+    size = IntField(default=0)
+    uploader = StringField()
+    created_at = DateTimeField(default=datetime.datetime.utcnow)
+
+    meta = {'collection': 'train_upload'}
+
+    def to_dict(self):
+        return {'id': self.id, 'name': self.original or self.filename, 'kind': self.kind, 'size': self.size,
+                'uploader': self.uploader,
+                'created_at': self.created_at.isoformat() + 'Z' if self.created_at else None}

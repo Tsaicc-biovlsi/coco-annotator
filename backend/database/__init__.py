@@ -15,7 +15,7 @@ from .model_info import *
 from .roles import RoleModel
 from .help import HelpModel
 from .chat import ChatMessageModel, ChatReadModel
-from .training import TrainRunModel, TrainerStatusModel
+from .training import TrainRunModel, TrainerStatusModel, TrainUploadModel
 
 import json
 

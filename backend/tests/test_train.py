@@ -24,6 +24,16 @@ open(os.path.join(out, "weights", "best.pt"), "wb").write(b"weights")
 '''
 
 
+CATALOG = {
+    "version": "8.4.0",
+    "families": [{"key": "yolo26", "label": "YOLO26", "items": [
+        {"name": n, "kind": n.rsplit(".", 1)[1], "task": "segment" if "-seg" in n else "detect", "scale": n[6]}
+        for n in ("yolo26n.pt", "yolo26s.pt", "yolo26s.yaml", "yolo26s-seg.pt")]}],
+    "args": {"epochs": 100, "batch": 16, "lr0": 0.01, "mosaic": 1.0, "freeze": None, "pretrained": True,
+             "optimizer": "auto", "cos_lr": False, "device": None},
+}
+
+
 def _login(username, role=None):
     from database import UserModel
     from webserver import app
@@ -78,6 +88,8 @@ def test_training(dataset_directory, tmp_path, monkeypatch):
     assert len(mine) == 1 and mine[0]["task"] == "detect" and mine[0]["datasets"] == ["tr_ds"]
     eid = mine[0]["id"]
 
+    # what the trainer can train (it publishes this when it starts)
+    runner.heartbeat("CPU", CATALOG)
     assert t.post("/api/train/", json={"export_id": eid, "family": "nope"}).status_code == 400
     r = t.post("/api/train/", json={"export_id": eid, "family": "yolo26", "size": "s", "epochs": 3, "imgsz": 650})
     assert r.status_code == 200, r.data
@@ -117,3 +129,80 @@ def test_training(dataset_directory, tmp_path, monkeypatch):
 
     st = t.get("/api/train/status").get_json()
     assert "alive" in st and st["tasks"][0] == "detect"
+    assert st["version"] == "8.4.0"
+
+    # the catalog: official models (.pt / .yaml) and the arguments
+    cat = t.get("/api/train/catalog").get_json()
+    assert [i["name"] for i in cat["families"][0]["items"]][:2] == ["yolo26n.pt", "yolo26s.pt"]
+    assert cat["args"]["lr0"] == 0.01 and "data" in cat["blocked"]
+    assert plain.get("/api/train/catalog").status_code == 403
+
+    def queue(**body):
+        return t.post("/api/train/", json={"export_id": eid, **body})
+
+    # a .yaml from scratch, with own arguments (epochs among them)
+    r = queue(model="yolo26s.yaml", extra={"lr0": 0.002, "cos_lr": True, "freeze": [0, 1], "epochs": 7,
+                                           "optimizer": "AdamW", "pretrained": "yolo26n.pt", "batch": 0.7})
+    assert r.status_code == 200, r.data
+    p = r.get_json()["params"]
+    assert p["model"] == "yolo26s.yaml" and p["epochs"] == 7 and p["batch"] == 0.7
+    assert p["extra"] == {"lr0": 0.002, "cos_lr": True, "freeze": [0, 1], "optimizer": "AdamW",
+                          "pretrained": "yolo26n.pt"}
+    cmd = runner.build_command(TrainRunModel.objects(id=r.get_json()["id"]).first(), "/d/data.yaml", "/out")
+    assert "model=yolo26s.yaml" in cmd and "lr0=0.002" in cmd and "cos_lr=True" in cmd and "freeze=[0, 1]" in cmd
+    assert f"pretrained={models}/.training/base/yolo26n.pt" in cmd
+    assert cmd[-3:] == ["project=/out", "name=train", "exist_ok=True"]  # nothing overrides where it goes
+    t.post(f"/api/train/{r.get_json()['id']}/stop")
+
+    for bad in ({"model": "yolo26s-seg.pt"},                 # another task
+                {"model": "yolo99.pt"},                      # not in the catalog
+                {"model": "yolo26n.pt", "extra": {"data": "x"}},        # set by the trainer
+                {"model": "yolo26n.pt", "extra": {"project": "x"}},
+                {"model": "yolo26n.pt", "extra": {"nonsense": 1}},      # unknown
+                {"model": "yolo26n.pt", "extra": {"optimizer": "../../etc"}},  # paths
+                {"model": "yolo26n.pt", "extra": {"optimizer": "a\nb"}},
+                {"model": "yolo26n.pt", "extra": {"pretrained": "yolo26s.pt"}},  # a .pt has its weights
+                {"model": "yolo26s.yaml", "extra": {"pretrained": "yolo26s.yaml"}},
+                {"source": "upload", "upload_id": 999}):
+        assert queue(**bad).status_code == 400, bad
+
+    # uploads: a model yaml, weights; anything else is refused
+    import io
+    arch = b"nc: 80\nscales:\n  s: [0.5, 0.5, 1024]\nbackbone: []\nhead: []\n"
+    up = t.post("/api/train/uploads", data={"file": (io.BytesIO(arch), "my-yolo26s.yaml")},
+                content_type="multipart/form-data")
+    assert up.status_code == 200, up.data
+    up = up.get_json()
+    assert up["kind"] == "yaml" and up["name"] == "my-yolo26s.yaml"
+    w = t.post("/api/train/uploads", data={"file": (io.BytesIO(b"PK\x03\x04weights"), "best.pt")},
+               content_type="multipart/form-data").get_json()
+    assert w["kind"] == "pt"
+    for name, body in (("x.txt", b"hi"), ("x.yaml", b"lr0: 1\n"), ("x.pt", b"not torch")):
+        assert t.post("/api/train/uploads", data={"file": (io.BytesIO(body), name)},
+                      content_type="multipart/form-data").status_code == 400, name
+    assert [u["id"] for u in t.get("/api/train/uploads").get_json()["uploads"]] == [w["id"], up["id"]]
+    assert len(os.listdir(models / ".training" / "uploads")) == 2
+
+    r = queue(source="upload", upload_id=up["id"], extra={"pretrained": f"upload:{w['id']}"})
+    assert r.status_code == 200, r.data
+    p = r.get_json()["params"]
+    assert p["model"].endswith(f"u{up['id']}-my-yolo26s.yaml") and p["label"] == "my-yolo26s.yaml"
+    assert p["extra"]["pretrained"].endswith(f"best-u{w['id']}.pt")
+    cmd = runner.build_command(TrainRunModel.objects(id=r.get_json()["id"]).first(), "/d", "/o")
+    assert f"pretrained={p['extra']['pretrained']}" in cmd
+    t.post(f"/api/train/{r.get_json()['id']}/stop")
+
+    other = _login("tr_other", role="trainer")
+    assert other.delete(f"/api/train/uploads/{w['id']}").status_code == 403
+    assert t.delete(f"/api/train/uploads/{w['id']}").get_json()["success"]
+    assert len(os.listdir(models / ".training" / "uploads")) == 1
+
+    # an args.yaml (e.g. of an earlier run): what can be used, what not
+    args_yaml = (b"task: detect\nmodel: /x/yolo26n.pt\ndata: d.yaml\nepochs: 30\nlr0: 0.005\n"
+                 b"mosaic: 1.0\nbogus: 3\noptimizer: SGD\n")
+    parsed = t.post("/api/train/parse-args", data={"file": (io.BytesIO(args_yaml), "args.yaml")},
+                    content_type="multipart/form-data").get_json()
+    assert parsed["args"] == {"epochs": 30, "lr0": 0.005, "optimizer": "SGD"}  # mosaic is the default
+    assert sorted(i["key"] for i in parsed["ignored"]) == ["bogus", "data", "model", "task"]
+    assert t.post("/api/train/parse-args", data={"file": (io.BytesIO(b"- a\n- b\n"), "a.yaml")},
+                  content_type="multipart/form-data").status_code == 400

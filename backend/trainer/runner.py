@@ -20,9 +20,7 @@ logger = logging.getLogger("trainer")
 POLL_SECONDS = 3
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 LOG_TAIL_CHARS = 6000
-# base weights offered for a new training (Ultralytics downloads them once)
-FAMILIES = ("yolo26", "yolo11")
-SIZES = ("n", "s", "m", "l", "x")
+# model name suffix of each task (yolo26s-seg.pt)
 TASK_SUFFIX = {"detect": "", "segment": "-seg", "obb": "-obb", "pose": "-pose", "classify": "-cls"}
 
 
@@ -33,10 +31,6 @@ def models_dir():
 def work_dir(run_id):
     # hidden: the models page lists every .pt it finds, not these
     return os.path.join(models_dir(), ".training", f"run-{run_id}")
-
-
-def base_weights(family, size, task):
-    return f"{family}{size}{TASK_SUFFIX.get(task, '')}.pt"
 
 
 def safe_name(text):
@@ -68,23 +62,44 @@ def _unpack(export, dest, task):
     return data
 
 
+def uploads_dir():
+    return os.path.join(models_dir(), ".training", "uploads")
+
+
+def _weights(name):
+    """Official .pt weights by name: downloaded once into a hidden folder and
+    kept for the next runs. Anything else (a path, a .yaml) as it is."""
+    if not name.endswith(".pt") or os.sep in name or "/" in name:
+        return name
+    base = os.path.join(models_dir(), ".training", "base")
+    os.makedirs(base, exist_ok=True)
+    return os.path.join(base, name)
+
+
+def _value(v):
+    if isinstance(v, bool):
+        return "True" if v else "False"
+    return str(v)
+
+
 def build_command(run, data, out_dir):
     """The Ultralytics command line (replaced in tests)."""
     p = run.params or {}
-    model = p.get('model') or ""
-    if os.sep not in model and "/" not in model:
-        # base weights: downloaded once into a hidden folder, kept for the next runs
-        base = os.path.join(models_dir(), ".training", "base")
-        os.makedirs(base, exist_ok=True)
-        model = os.path.join(base, model)
     args = [
-        f"model={model}", f"data={data}", f"epochs={int(p.get('epochs', 100))}",
+        f"model={_weights(p.get('model') or '')}", f"data={data}", f"epochs={int(p.get('epochs', 100))}",
         f"imgsz={int(p.get('imgsz', 640))}", f"batch={p.get('batch', -1)}",
-        f"patience={int(p.get('patience', 50))}", f"project={out_dir}", "name=train", "exist_ok=True",
-        "plots=True",
+        f"patience={int(p.get('patience', 50))}", "plots=True",
     ]
     if p.get("device"):
         args.append(f"device={p['device']}")
+    # the page's own arguments (checked by the API); "pretrained" may name
+    # official weights to start a .yaml architecture from
+    for key, value in (p.get("extra") or {}).items():
+        if key == "pretrained" and isinstance(value, str) and value.endswith(".pt"):
+            value = _weights(value)
+        args.append(f"{key}={_value(value)}")
+    # where the results go: last, so nothing overrides it
+    args += [f"project={out_dir}", "name=train", "exist_ok=True"]
     # the "yolo" command line (it reads sys.argv)
     return [sys.executable, "-c", "from ultralytics.cfg import entrypoint; entrypoint()",
             run.task or "detect", "train", *args]
@@ -125,9 +140,14 @@ def _tail(path):
     return "\n".join(lines)[-LOG_TAIL_CHARS:]
 
 
-def heartbeat(device=""):
-    TrainerStatusModel.objects(key="trainer").update_one(
-        set__seen_at=datetime.datetime.utcnow(), set__device=device, upsert=True)
+def heartbeat(device=None, catalog=None):
+    update = {"set__seen_at": datetime.datetime.utcnow()}
+    if device is not None:
+        update["set__device"] = device
+    if catalog is not None:
+        update["set__catalog"] = catalog
+        update["set__version"] = catalog.get("version") or ""
+    TrainerStatusModel.objects(key="trainer").update_one(upsert=True, **update)
 
 
 def execute(run, command=None):
@@ -223,6 +243,8 @@ def serve():
         set__status="failed", set__error="the trainer restarted during this training",
         set__ended_at=datetime.datetime.utcnow())
     device = _device_name()
+    from .catalog import build
+    heartbeat(device, build())
     logger.info("trainer ready (%s)", device)
     while True:
         heartbeat(device)
