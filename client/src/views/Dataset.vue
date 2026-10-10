@@ -138,18 +138,38 @@
                       <div class="small text-muted">{{ $t('dataset.exportedAgo', { time: $ago(exp.ago) }) }}</div>
                     </td>
                     <td class="text-center text-nowrap">
-                      <button
-                        class="btn btn-sm btn-success"
-                        :disabled="exp.exists === false || downloadingExport === exp.id"
-                        :title="exp.exists === false ? $t('exportList.missing') : ''"
-                        @click="downloadExport(exp)"
-                      >
-                        <i class="fa" :class="downloadingExport === exp.id ? 'fa-spinner fa-spin' : 'fa-download'" />
-                        {{ $t('exportList.download') }}
-                      </button>
-                      <div class="small text-muted">
-                        {{ exp.exists === false ? $t('exportList.missing') : fileSize(exp.size) }}
+                      <!-- downloading: progress, size, speed, cancel -->
+                      <div v-if="downloads[exp.id]" class="dl-progress">
+                        <div class="d-flex align-items-center gap-1">
+                          <div class="progress flex-grow-1" style="height: 14px">
+                            <div
+                              class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+                              :style="{ width: downloadPct(exp) + '%' }"
+                            >{{ downloadPct(exp) }}%</div>
+                          </div>
+                          <button
+                            type="button"
+                            class="btn btn-sm btn-link text-danger p-0 ms-1"
+                            :title="$t('exportList.cancelDownload')"
+                            @click="cancelDownload(exp)"
+                          ><i class="fa fa-times" /></button>
+                        </div>
+                        <div class="small text-muted">{{ downloadText(exp) }}</div>
                       </div>
+                      <template v-else>
+                        <button
+                          class="btn btn-sm btn-success"
+                          :disabled="exp.exists === false"
+                          :title="exp.exists === false ? $t('exportList.missing') : ''"
+                          @click="downloadExport(exp)"
+                        >
+                          <i class="fa fa-download" />
+                          {{ $t('exportList.download') }}
+                        </button>
+                        <div class="small text-muted">
+                          {{ exp.exists === false ? $t('exportList.missing') : fileSize(exp.size) }}
+                        </div>
+                      </template>
                     </td>
                     <td class="text-center">
                       <button
@@ -428,6 +448,9 @@ import { mapMutations } from "vuex";
 
 const TABS = ["images", "progress", "exports", "members", "health", "settings"];
 
+// bigger exports are downloaded by the browser itself (bytes)
+const DIRECT_DOWNLOAD_BYTES = 1.5 * 1024 * 1024 * 1024;
+
 function rememberedTab(datasetId) {
   try {
     let tab = sessionStorage.getItem(`dataset/${datasetId}/tab`);
@@ -522,7 +545,8 @@ export default {
       },
       datasetExports: [],
       expandedExports: [],
-      downloadingExport: null,
+      // export id -> { loaded, total, started, controller } while downloading
+      downloads: {},
       EXPORT_TAGS_SHOWN: 6,
       tab: "images",
       order: "file_name",
@@ -612,13 +636,56 @@ export default {
       });
     },
     downloadExport(exp) {
-      this.downloadingExport = exp.id;
-      Export.download(exp.id, this.dataset.name)
+      if (this.downloads[exp.id]) return;
+      // very large files: the browser downloads them itself (its own
+      // progress, straight to disk instead of through the page's memory)
+      if (exp.size && exp.size > DIRECT_DOWNLOAD_BYTES) {
+        const link = document.createElement("a");
+        link.href = Export.downloadUrl(exp.id);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        this.$toastr.info(this.$t("exportList.browserDownload"));
+        return;
+      }
+      const controller = new AbortController();
+      const state = { loaded: 0, total: exp.size || 0, started: Date.now(), controller };
+      this.downloads = { ...this.downloads, [exp.id]: state };
+      Export.download(exp.id, this.dataset.name, {
+        signal: controller.signal,
+        onProgress: ({ loaded, total }) => {
+          const d = this.downloads[exp.id];
+          if (!d) return;
+          d.loaded = loaded;
+          if (total) d.total = total;
+        }
+      })
         .catch(error => {
+          if (axios.isCancel(error) || (error && error.name === "CanceledError")) return;
           const data = (error.response && error.response.data) || {};
           this.$toastr.error(data.message || this.$t("exportList.downloadFailed"));
         })
-        .finally(() => (this.downloadingExport = null));
+        .finally(() => {
+          const rest = { ...this.downloads };
+          delete rest[exp.id];
+          this.downloads = rest;
+        });
+    },
+    cancelDownload(exp) {
+      const d = this.downloads[exp.id];
+      if (d) d.controller.abort();
+    },
+    downloadPct(exp) {
+      const d = this.downloads[exp.id];
+      return d && d.total ? Math.min(100, Math.floor((100 * d.loaded) / d.total)) : 0;
+    },
+    /** "120 / 260 MB · 8.5 MB/s" */
+    downloadText(exp) {
+      const d = this.downloads[exp.id];
+      if (!d) return "";
+      const secs = Math.max(0.5, (Date.now() - d.started) / 1000);
+      const speed = this.fileSize(d.loaded / secs) + "/s";
+      return d.total ? `${this.fileSize(d.loaded)} / ${this.fileSize(d.total)} · ${speed}` : `${this.fileSize(d.loaded)} · ${speed}`;
     },
     deleteExport(exp) {
       if (!confirm(this.$t("exportList.confirmDelete", { id: exp.id }))) return;
@@ -664,7 +731,7 @@ export default {
     },
     fileSize(bytes) {
       if (bytes == null) return "";
-      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024) return `${Math.round(bytes)} B`;
       if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
       if (bytes < 1024 ** 3) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
       return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
@@ -1098,6 +1165,9 @@ export default {
   max-width: 1600px;
   margin: 0 auto;
   padding: 0 24px;
+}
+.dl-progress {
+  min-width: 170px;
 }
 .export-table td,
 .export-table th {

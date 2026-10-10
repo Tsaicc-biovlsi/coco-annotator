@@ -689,7 +689,9 @@
     "splitPart": "{name} {pct}% ({n})",
     "seed": "Random seed {seed}",
     "augmented": "Augmented +{n} ({copies} per image)",
-    "splitPartAug": "{name} {pct}% ({n} + {extra} augmented)"
+    "splitPartAug": "{name} {pct}% ({n} + {extra} augmented)",
+    "cancelDownload": "Cancel download",
+    "browserDownload": "A large file: the browser downloads it (progress in its downloads bar)"
   },
   "exportSplit": {
     "title": "Split into train / val / test",
