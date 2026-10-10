@@ -291,6 +291,34 @@ class DatasetCleanMeta(Resource):
         return {'success': True}
 
 
+def _exportable(exclude=None):
+    """The user's datasets they may export, with image counts and categories."""
+    out = []
+    query = current_user.datasets.filter(deleted=False)
+    if exclude is not None:
+        query = query.filter(id__ne=exclude)
+    for other in query.order_by('name'):
+        if not current_user.can_download(other):
+            continue
+        cats = CategoryModel.objects(id__in=other.categories or [], deleted=False).only('id', 'name', 'color')
+        out.append({
+            'id': other.id, 'name': other.name,
+            'images': ImageModel.objects(dataset_id=other.id, deleted=False).count(),
+            'categories': [{'id': c.id, 'name': c.name, 'color': c.color} for c in cats],
+        })
+    return out
+
+
+@api.route('/exportable')
+class DatasetsExportable(Resource):
+
+    @login_required
+    def get(self):
+        """ Datasets the user may export (the datasets page picks several to
+        export into one file) """
+        return {'datasets': _exportable()}
+
+
 @api.route('/<int:dataset_id>/merge_candidates')
 class DatasetMergeCandidates(Resource):
 
@@ -301,17 +329,7 @@ class DatasetMergeCandidates(Resource):
         dataset = current_user.datasets.filter(id=dataset_id, deleted=False).first()
         if dataset is None:
             return {"message": "Invalid dataset id"}, 400
-        out = []
-        for other in current_user.datasets.filter(deleted=False, id__ne=dataset.id).order_by('name'):
-            if not current_user.can_download(other):
-                continue
-            cats = CategoryModel.objects(id__in=other.categories or [], deleted=False).only('id', 'name', 'color')
-            out.append({
-                'id': other.id, 'name': other.name,
-                'images': ImageModel.objects(dataset_id=other.id, deleted=False).count(),
-                'categories': [{'id': c.id, 'name': c.name, 'color': c.color} for c in cats],
-            })
-        return {'datasets': out}
+        return {'datasets': _exportable(exclude=dataset.id)}
 
 
 @api.route('/<int:dataset_id>/category_counts')

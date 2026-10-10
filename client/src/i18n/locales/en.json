@@ -301,7 +301,8 @@
     "replaceOldReview": "The deleted dataset's annotations will be deleted for good; its {n} images stay in the folder and join the new dataset.",
     "nameInOthersTrash": "This name belongs to another user's deleted dataset (in their trash). Pick another name or ask them to delete it for good.",
     "restored": "Restored dataset \"{name}\"",
-    "createdScanning": "Created dataset \"{name}\"; adding the images already in its folder"
+    "createdScanning": "Created dataset \"{name}\"; adding the images already in its folder",
+    "export": "Export"
   },
   "eraserPanel": {
     "radius": "Radius",
@@ -1478,5 +1479,14 @@
     "datasets": "Datasets",
     "namesNote": "File names start with their dataset's name",
     "listed": "{n} datasets merged"
+  },
+  "exportPick": {
+    "title": "Export datasets",
+    "hint": "Tick the datasets to export. One is a normal export; several go into one file (categories with the same name become one). Next, the first ticked dataset's export wizard sets format, categories, split... Only datasets you can export are listed.",
+    "none": "No dataset you can export (only their creators can).",
+    "main": "main",
+    "mainHint": "The export is kept with this dataset (and listed in the others merged)",
+    "summary": "{n} datasets merged, {images} images",
+    "next": "Next: export settings"
   }
 }

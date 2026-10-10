@@ -58,6 +58,8 @@ def test_merged_export(dataset_directory):
     offered = next(d for d in cands if d["id"] == b)
     assert {x["name"] for x in offered["categories"]} == {"Car", "truck"} and offered["images"] == 1
     assert c not in [d["id"] for d in cands]
+    mine = [d["id"] for d in alice.get("/api/dataset/exportable").get_json()["datasets"]]
+    assert a in mine and b in mine and c not in mine
     r = alice.get(f"/api/dataset/{a}/export", query_string={"format": "yolo", "with_datasets": str(c)})
     assert r.status_code == 403
 

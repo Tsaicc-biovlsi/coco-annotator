@@ -894,6 +894,11 @@ export default {
 
           this.subdirectories = data.subdirectories;
           this.taskDraft = data.dataset.task || "";
+          if (this.pendingExport) {
+            this.exporting.merge = this.pendingExport;
+            this.pendingExport = null;
+            this.$nextTick(() => this.exportModal());
+          }
           if (!this.memberNames.length) this.getUsers();
           // this.scan.id = data.scanId;
           // this.generate.id = data.generateId;
@@ -1642,6 +1647,17 @@ export default {
     if (this.$route.query.importTask) {
       this.importing.id = parseInt(this.$route.query.importTask);
       this.pollImportTask();
+    }
+    // coming from "匯出" on the datasets page: the export wizard, with the
+    // other datasets picked there already ticked (handed over in the session)
+    try {
+      const pending = JSON.parse(sessionStorage.getItem("dataset/pendingExport") || "null");
+      if (pending && pending.dataset === this.dataset.id) {
+        sessionStorage.removeItem("dataset/pendingExport");
+        this.pendingExport = (pending.merge || []).map(Number).filter(Boolean);
+      }
+    } catch {
+      // nothing pending
     }
     this.updatePage();
   },
