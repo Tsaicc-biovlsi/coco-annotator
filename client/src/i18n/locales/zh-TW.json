@@ -943,7 +943,7 @@
     "assignedToMe": "指派給我",
     "onlyApproved": "只匯出已審核的圖片",
     "submitOnNext": "自動送審",
-    "submitOnNextHint": "按 N 或 → 換下一張時，自動送審有標註的圖（審核者為直接核准）",
+    "submitOnNextHint": "按 N 或 → 換下一張時，自動送審這張圖（審核者為直接核准）；沒有物件的空白圖也會送審，但開不到 2 秒就跳過的空白圖不送",
     "submittedOnNext": "已送審 {name}",
     "submitApprove": "標註完成（直接核准）",
     "approvedOnNext": "已核准 {name}",

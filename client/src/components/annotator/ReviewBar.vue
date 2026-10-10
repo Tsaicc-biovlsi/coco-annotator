@@ -109,6 +109,8 @@ import RejectReasons from "@/components/RejectReasons.vue";
 import { withReason } from "@/libs/rejectReasons";
 
 const SUBMIT_ON_NEXT_KEY = "review/submitOnNext";
+// an empty image is submitted on N only after it was open this long
+const EMPTY_MIN_MS = 2000;
 
 export function statusClass(status) {
   return {
@@ -150,6 +152,10 @@ export default {
       return this.review.status || "unlabeled";
     }
   },
+  created() {
+    // when this image was opened (an empty image left at once is not submitted)
+    this.openedAt = Date.now();
+  },
   watch: {
     submitOnNext(value) {
       try {
@@ -161,6 +167,7 @@ export default {
     imageId() {
       this.rejecting = false;
       this.note = "";
+      this.openedAt = Date.now();
     }
   },
   methods: {
@@ -227,13 +234,15 @@ export default {
     },
     /**
      * Called when moving to the next image (N or the arrow), after saving:
-     * with the switch on, an image that has annotations and is not
-     * submitted yet is submitted. Never stops the move.
+     * with the switch on, an image not submitted yet is submitted, also
+     * one with nothing to annotate. An empty image passed by within 2
+     * seconds (holding N to skip ahead) is not. Never stops the move.
      */
     async submitBeforeNext() {
       if (!this.submitOnNext || !this.canEdit || !(this.status === "unlabeled" || this.status === "rejected")) return;
+      const glanced = Date.now() - (this.openedAt || 0) < EMPTY_MIN_MS;
       try {
-        const r = await axios.post(`/api/review/image/${this.imageId}`, { action: "submit", skip_empty: true });
+        const r = await axios.post(`/api/review/image/${this.imageId}`, { action: "submit", skip_empty: glanced });
         if (!r.data.skipped) {
           this.$emit("updated", r.data);
           this.$toastr.success(this.$t(r.data.status === "approved" ? "review.approvedOnNext" : "review.submittedOnNext",

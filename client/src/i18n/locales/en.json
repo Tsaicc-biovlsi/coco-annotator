@@ -811,7 +811,7 @@
     "assignedToMe": "Assigned to me",
     "onlyApproved": "Only images that were approved",
     "submitOnNext": "Auto-submit",
-    "submitOnNextHint": "When going to the next image (N or →), submit it (reviewers: approve it) if it has annotations",
+    "submitOnNextHint": "When going to the next image (N or →), submit it (reviewers: approve it), also an image with nothing to annotate; an empty image left within 2 seconds is not submitted",
     "submittedOnNext": "Submitted {name}",
     "submitApprove": "Done (approve directly)",
     "approvedOnNext": "Approved {name}",
