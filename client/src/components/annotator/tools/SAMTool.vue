@@ -56,8 +56,8 @@ export default {
       lastSegmentation: null,
       settings: {
         replace: false,
-        // null: rotated boxes in an OBB dataset, outlines otherwise
-        obb: null,
+        // null: from the dataset's task (see output)
+        output: null,
         obbPad: 0
       }
     };
@@ -71,7 +71,7 @@ export default {
         return this.$t("sam.unavailableTooltip");
       }
       if (this.isDisabled) return this.$t("toolbar.needsAnnotation", { tool: "SAM" });
-      return this.$t("sam.tooltip");
+      return `${this.$t("sam.tooltip")} · ${this.$t("sam.outputs", { what: this.outputText })}`;
     },
     hasPrompt() {
       return this.points.length > 0 || this.box != null;
@@ -87,26 +87,53 @@ export default {
     imageId() {
       return this.$parent.image.id;
     },
-    /** apply the smallest rotated box around the mask instead of the mask */
-    boxMode: {
+    /**
+     * What Enter adds: "outline" (the mask), "box" (the box around it) or
+     * "rbox" (the smallest rotated box around it). Chosen per dataset
+     * (remembered in this browser); by default from the dataset's task.
+     */
+    output: {
       get() {
-        if (this.settings.obb != null) return this.settings.obb;
-        const dataset = this.$parent.dataset;
-        return !!(dataset && dataset.task === "obb");
+        if (this.settings.output) return this.settings.output;
+        const task = this.$parent.dataset && this.$parent.dataset.task;
+        return task === "obb" ? "rbox" : task === "detect" ? "box" : "outline";
       },
       set(value) {
-        this.settings.obb = value;
+        this.settings.output = value;
+        const id = this.$parent.dataset && this.$parent.dataset.id;
+        if (id == null) return;
+        try {
+          localStorage.setItem(`sam/output/${id}`, value);
+        } catch {
+          // not remembered
+        }
       }
+    },
+    boxMode() {
+      return this.output !== "outline";
+    },
+    outputText() {
+      return this.$t("sam.output." + this.output);
     }
   },
   methods: {
     export() {
-      return { replace: this.settings.replace, obb: this.settings.obb, obbPad: this.settings.obbPad };
+      return { replace: this.settings.replace, obbPad: this.settings.obbPad };
     },
     setPreferences(pref) {
       if (pref.replace != null) this.settings.replace = pref.replace;
-      if (pref.obb != null) this.settings.obb = pref.obb;
       if (pref.obbPad != null) this.settings.obbPad = pref.obbPad;
+    },
+    /** this dataset's choice of output (null: from its task) */
+    loadOutput() {
+      const id = this.$parent.dataset && this.$parent.dataset.id;
+      let saved = null;
+      try {
+        saved = id == null ? null : localStorage.getItem(`sam/output/${id}`);
+      } catch {
+        saved = null;
+      }
+      this.settings.output = ["outline", "box", "rbox"].includes(saved) ? saved : null;
     },
     checkStatus() {
       axios
@@ -191,9 +218,17 @@ export default {
       const points = [];
       this.preview.children.forEach(path => path.segments.forEach(seg => points.push({ x: seg.point.x, y: seg.point.y })));
       const pad = Math.max(0, Number(this.settings.obbPad) || 0);
-      const rect = minAreaRect(points, pad);
-      if (!rect) return;
-      this.previewCorners = rect.corners.map(c => new paper.Point(c.x, c.y));
+      if (this.output === "box") {
+        const xs = points.map(p => p.x), ys = points.map(p => p.y);
+        if (!xs.length) return;
+        const x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad;
+        const y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
+        this.previewCorners = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([x, y]) => new paper.Point(x, y));
+      } else {
+        const rect = minAreaRect(points, pad);
+        if (!rect) return;
+        this.previewCorners = rect.corners.map(c => new paper.Point(c.x, c.y));
+      }
       // the mask fades, the box it gives is what will be added
       this.preview.opacity = 0.25;
       this.previewBox = new paper.Path({
@@ -204,6 +239,11 @@ export default {
         locked: true
       });
       // the first (heading) edge a bit thicker, as with the rotated box tool
+      if (this.output === "box") {
+        this.previewBox.locked = true;
+        if (this.markers) this.markers.bringToFront();
+        return;
+      }
       const heading = new paper.Path.Line({
         from: this.previewCorners[0],
         to: this.previewCorners[1],
@@ -302,7 +342,7 @@ export default {
       shape.remove();
       this.reset();
     },
-    /** box mode: one rotated box per annotation (a new one when needed) */
+    /** box modes: one box per annotation (a new one when needed) */
     async applyBox(annotation, corners) {
       const parent = this.$parent;
       this.reset();
@@ -314,6 +354,13 @@ export default {
         for (let i = 0; i < 5 && parent.currentAnnotation === annotation; i++) await this.$nextTick();
         annotation = parent.currentAnnotation;
         if (!annotation) return;
+      }
+      if (this.output === "box") {
+        const rect = new paper.Path({ segments: corners, closed: true, insert: false });
+        if (this.settings.replace && hasShape) annotation.subtract(annotation.compoundPath.clone(), false, true);
+        annotation.unite(rect, true, !(this.settings.replace && hasShape), true);
+        rect.remove();
+        return;
       }
       annotation.setRotatedBox(corners);
     },
@@ -392,11 +439,17 @@ export default {
       this.drawMarkers();
       this.drawPreviewBox();
     },
-    boxMode() {
+    output() {
       this.drawPreviewBox();
     },
     "settings.obbPad"() {
       this.drawPreviewBox();
+    },
+    "$parent.dataset.id": {
+      immediate: true,
+      handler() {
+        this.loadOutput();
+      }
     }
   },
   mounted() {

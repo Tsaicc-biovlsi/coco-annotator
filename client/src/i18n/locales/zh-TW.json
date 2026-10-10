@@ -491,8 +491,7 @@
     "clearPrompts": "清除提示",
     "replaceAnnotation": "取代原標註",
     "undoLastPrompt": "復原上一個提示",
-    "asRotatedBox": "輸出旋轉框",
-    "boxPad": "旋轉框外擴（px）"
+    "boxPad": "框外擴（px）"
   },
   "sam": {
     "checking": "正在檢查 SAM…",
@@ -503,7 +502,14 @@
     "segmenting": "分割中…",
     "tooltip": "SAM 工具（Segment Anything）",
     "unavailable": "SAM 未啟用",
-    "unavailableTooltip": "SAM（此伺服器未啟用）"
+    "unavailableTooltip": "SAM（此伺服器未啟用）",
+    "outputs": "SAM 輸出：{what}",
+    "outputLabel": "SAM 輸出",
+    "output": {
+      "outline": "輪廓（多邊形）",
+      "box": "矩形框",
+      "rbox": "旋轉框"
+    }
   },
   "selectPanel": {
     "showHoverText": "顯示懸停資訊"

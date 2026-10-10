@@ -475,8 +475,7 @@
     "clearPrompts": "Clear Prompts",
     "replaceAnnotation": "Replace Annotation",
     "undoLastPrompt": "Undo Last Prompt",
-    "asRotatedBox": "Output rotated box",
-    "boxPad": "Rotated box margin (px)"
+    "boxPad": "Box margin (px)"
   },
   "sam": {
     "checking": "Checking SAM…",
@@ -487,7 +486,14 @@
     "segmenting": "Segmenting…",
     "tooltip": "SAM Tool (Segment Anything)",
     "unavailable": "SAM is not available",
-    "unavailableTooltip": "SAM (not available on this server)"
+    "unavailableTooltip": "SAM (not available on this server)",
+    "outputs": "SAM gives: {what}",
+    "outputLabel": "SAM gives",
+    "output": {
+      "outline": "outline (polygon)",
+      "box": "box",
+      "rbox": "rotated box"
+    }
   },
   "selectPanel": {
     "showHoverText": "Show Hover Text"
