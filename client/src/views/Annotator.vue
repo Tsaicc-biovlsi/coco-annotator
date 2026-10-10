@@ -282,6 +282,14 @@
       :running="modelRunning"
       @run="runModelOnImage"
     />
+    <ChatWidget
+      v-if="dataset && dataset.id"
+      :dataset-id="dataset.id"
+      :dataset-name="dataset.name"
+      :image-id="image.id"
+      :image-name="image.filename"
+      side="left"
+    />
   </div>
 </template>
 
@@ -308,6 +316,7 @@ import shortcuts from "@/mixins/shortcuts";
 
 import FileTitle from "@/components/annotator/FileTitle.vue";
 import ReviewBar from "@/components/annotator/ReviewBar.vue";
+import ChatWidget from "@/components/ChatWidget.vue";
 import HelpPanel from "@/components/annotator/HelpPanel.vue";
 import ImageClassPicker from "@/components/annotator/ImageClassPicker.vue";
 import { TASK_TOOLS } from "@/components/TaskPicker.vue";
@@ -355,6 +364,7 @@ import { mapMutations } from "vuex";
 export default {
   name: "Annotator",
   components: {
+    ChatWidget,
     FileTitle,
     ReviewBar,
     HelpPanel,

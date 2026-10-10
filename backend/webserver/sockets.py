@@ -128,6 +128,32 @@ def watch_dataset(data):
     return True
 
 
+def chat_room(dataset_id):
+    return f"chat:{dataset_id}"
+
+
+@socketio.on('watch_chat')
+@authenticated_only
+def watch_chat(data):
+    """A page with a dataset's chat open (dataset page, annotator) gets its
+    new messages."""
+    dataset_id = _int(data.get('dataset_id')) if isinstance(data, dict) else None
+    previous = session.get('chatting')
+    # a page closing its chat leaves only its own room (the next page may
+    # already have joined another one)
+    leave = _int(data.get('leave')) if isinstance(data, dict) else None
+    if dataset_id is None and leave is not None and leave != previous:
+        return False
+    if previous is not None and previous != dataset_id:
+        leave_room(chat_room(previous))
+        session['chatting'] = None
+    if dataset_id is None or current_user.datasets.filter(id=dataset_id).only('id').first() is None:
+        return False
+    join_room(chat_room(dataset_id))
+    session['chatting'] = dataset_id
+    return True
+
+
 @socketio.on('annotating')
 @authenticated_only
 def annotating(data):

@@ -1412,5 +1412,25 @@
   "update": {
     "message": "The app was updated: reloading in {n} s (your annotations are saved first)",
     "now": "Reload now"
+  },
+  "chat": {
+    "title": "Chat",
+    "open": "Open chat",
+    "close": "Close",
+    "placeholder": "Message…",
+    "send": "Send",
+    "attach": "Attach this image",
+    "detach": "Don't attach",
+    "older": "Load earlier messages",
+    "empty": "No messages yet. Say hi!",
+    "you": "You",
+    "failed": "The message was not sent",
+    "newMessages": "New messages",
+    "newBelow": "{n} new",
+    "openImage": "Open this image",
+    "thisImage": "This is the image open now",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "keysHint": "Enter sends, Shift+Enter adds a line"
   }
 }

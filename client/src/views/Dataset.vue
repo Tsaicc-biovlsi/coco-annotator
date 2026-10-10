@@ -650,6 +650,7 @@
       :category-names="datasetCategoryNames"
       @run="runModel"
     />
+    <ChatWidget v-if="dataset.id" :dataset-id="dataset.id" :dataset-name="dataset.name" />
   </div>
 </template>
 
@@ -668,6 +669,7 @@ import ModelRunModal from "@/components/ModelRunModal.vue";
 import ExportCategories from "@/components/ExportCategories.vue";
 import ReviewPanel from "@/components/ReviewPanel.vue";
 import TaskPicker from "@/components/TaskPicker.vue";
+import ChatWidget from "@/components/ChatWidget.vue";
 import DatasetMembers from "@/components/DatasetMembers.vue";
 import DatasetHealth from "@/components/DatasetHealth.vue";
 import ExportSplit, { splitSizes, splitValid } from "@/components/ExportSplit.vue";
@@ -701,6 +703,7 @@ function rememberTab(datasetId, tab) {
 export default {
   name: "Dataset",
   components: {
+    ChatWidget,
     ImageCard,
     DatasetMembers,
     ReviewPanel,

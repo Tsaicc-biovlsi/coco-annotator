@@ -1544,5 +1544,25 @@
   "update": {
     "message": "系統已更新，{n} 秒後自動重新整理（標註會先存檔）",
     "now": "立即重新整理"
+  },
+  "chat": {
+    "title": "聊天",
+    "open": "開啟聊天",
+    "close": "關閉",
+    "placeholder": "輸入訊息…",
+    "send": "送出",
+    "attach": "附上目前這張圖",
+    "detach": "不附上圖",
+    "older": "載入更早的訊息",
+    "empty": "還沒有訊息，跟大家打聲招呼吧！",
+    "you": "你",
+    "failed": "訊息沒有送出",
+    "newMessages": "新訊息",
+    "newBelow": "{n} 則新訊息",
+    "openImage": "開啟這張圖",
+    "thisImage": "就是目前這張圖",
+    "today": "今天",
+    "yesterday": "昨天",
+    "keysHint": "Enter 送出，Shift+Enter 換行"
   }
 }

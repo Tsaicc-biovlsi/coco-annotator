@@ -14,6 +14,7 @@ from .activity import *
 from .model_info import *
 from .roles import RoleModel
 from .help import HelpModel
+from .chat import ChatMessageModel, ChatReadModel
 
 import json
 
