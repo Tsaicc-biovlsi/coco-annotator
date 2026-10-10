@@ -165,6 +165,7 @@
           <div v-show="exporting.step === 6">
             <ExportAugment
               v-model="exporting.augment"
+            :yolo="exporting.format === 'yolo'"
               :image-count="exportImageCount"
               :split-on="exporting.split_on"
               :split-sizes="exportSplitSizes"

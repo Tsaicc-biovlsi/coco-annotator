@@ -31,7 +31,8 @@ def test_every_operation_keeps_rotated_boxes_and_polygons_aligned():
     rbox = {"id": 1, "image_id": 1, "category_id": 1, "segmentation": [flat], "isrbbox": True,
             "rbbox": list(polygon_to_rbbox(flat))}
     poly = {"id": 2, "image_id": 1, "category_id": 1, "segmentation": [flat]}
-    for name in ("hflip", "vflip", "rot90", "rotate", "scale", "color", "blur", "noise"):
+    for name in ("hflip", "vflip", "rot90", "rotate", "scale", "color", "blur", "noise",
+                 "jpeg", "motion", "exposure", "gray"):
         value = {"rotate": 20, "scale": 0.9}.get(name, True)
         for seed in range(4):
             out, anns, used = A.augment_image(img, [rbox, poly], {name: value}, random.Random(seed), {})
@@ -68,3 +69,37 @@ def test_options():
     assert A.parse_options({"copies": 99, "ops": {"rotate": 200, "scale": 0.1, "blur": True}}) == \
         {"copies": 5, "ops": {"blur": True, "rotate": 45.0, "scale": 0.5}, "scope": "train"}
     assert A.parse_options({"copies": 1, "ops": {"hflip": True}, "scope": "all"})["scope"] == "all"
+
+
+def test_new_picture_operations_change_only_the_picture():
+    img, _ = _picture()
+    for name in ("jpeg", "motion", "exposure", "gray"):
+        out, _, used = A.augment_image(img, [], {name: True}, random.Random(3), {})
+        assert used == [name] and out.shape == img.shape and out.dtype == np.uint8
+        assert not np.array_equal(out, img) or name == "gray"  # the picture is grey already
+    colour = np.zeros((10, 10, 3), np.uint8)
+    colour[..., 2] = 200
+    out, _, _ = A.augment_image(colour, [], {"gray": True}, random.Random(0), {})
+    assert (out[..., 0] == out[..., 1]).all() and (out[..., 1] == out[..., 2]).all()
+
+
+def test_cutout_drops_mostly_hidden_shapes_only():
+    img = np.full((100, 100, 3), 30, np.uint8)
+    small = {"id": 1, "image_id": 1, "category_id": 1, "segmentation": [[40, 40, 44, 40, 44, 44, 40, 44]]}
+    big = {"id": 2, "image_id": 1, "category_id": 1, "segmentation": [[0, 0, 100, 0, 100, 100, 0, 100]]}
+    dropped = 0
+    for seed in range(40):
+        out, anns, used = A.augment_image(img, [small, big], {"cutout": True}, random.Random(seed), {})
+        assert used == ["cutout"] and (out == 114).any()
+        assert any(a["id"] == 2 for a in anns)  # patches never hide most of the picture
+        if not any(a["id"] == 1 for a in anns):
+            dropped += 1
+            # a patch is really over it
+            assert (out[40:44, 40:44] == 114).mean() > 0.6
+    assert dropped > 0
+
+
+def test_new_options_parse():
+    o = A.parse_options({"copies": 1, "ops": {"cutout": True, "jpeg": True, "motion": True,
+                                              "exposure": True, "gray": True}})
+    assert set(o["ops"]) == {"cutout", "jpeg", "motion", "exposure", "gray"}

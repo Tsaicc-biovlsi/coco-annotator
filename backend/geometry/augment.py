@@ -11,7 +11,9 @@ Options (``parse_options``)::
      "ops": {"hflip": true, "vflip": false, "rot90": false,
              "rotate": 15,          # degrees (0 / false: off)
              "scale": 0.7,          # smallest zoom crop (0 / false: off)
-             "color": true, "blur": false, "noise": false},
+             "color": true, "blur": false, "noise": false,
+             "cutout": false,       # grey patches; shapes mostly hidden are dropped
+             "jpeg": false, "motion": false, "exposure": false, "gray": false},
      "scope": "train"}              # with a split: "train" only, or "all" parts
 """
 import math
@@ -23,12 +25,17 @@ import numpy as np
 from . import polygon_to_rbbox, rbbox_to_polygon
 
 GEOMETRIC = ("scale", "rotate", "rot90", "hflip", "vflip")
-PHOTOMETRIC = ("color", "blur", "noise")
-OPS = GEOMETRIC + PHOTOMETRIC
+# patches over the final picture (after the geometry, before the colours)
+OCCLUSION = ("cutout",)
+# picture only; JPEG last (it compresses whatever came before)
+PHOTOMETRIC = ("exposure", "color", "gray", "motion", "blur", "noise", "jpeg")
+OPS = GEOMETRIC + OCCLUSION + PHOTOMETRIC
 MAX_COPIES = 5
 
 # a shape that keeps less than this share of its area inside the picture is dropped
 MIN_VISIBLE = 0.25
+# cutout: a shape with more than this share of its area covered is dropped
+MAX_COVERED = 0.6
 
 
 def parse_options(raw):
@@ -41,7 +48,7 @@ def parse_options(raw):
         return None
     ops_in = raw.get("ops") if isinstance(raw.get("ops"), dict) else {}
     ops = {}
-    for name in ("hflip", "vflip", "rot90", "color", "blur", "noise"):
+    for name in ("hflip", "vflip", "rot90", "color", "blur", "noise", "cutout", "jpeg", "motion", "exposure", "gray"):
         if ops_in.get(name) is True:
             ops[name] = True
     try:
@@ -92,6 +99,8 @@ class _Shape:
         self.kps = np.asarray(kps, dtype=np.float64).reshape(-1, 3) if len(kps) >= 3 else None
         self.isbbox = bool(ann.get("isbbox"))
         self.isrbbox = bool(ann.get("isrbbox")) and len(self.polys) == 1 and len(self.polys[0]) == 4
+        # hidden under cutout patches
+        self.hidden = False
 
     def apply(self, fn):
         """fn: (N, 2) points -> (N, 2) points"""
@@ -188,8 +197,78 @@ def _noise(img, shapes, rng, opt, flips):
     return np.clip(img.astype(np.float32) + noise, 0, 255).astype(np.uint8)
 
 
+def _cutout(img, shapes, rng, opt, flips):
+    """1-4 grey patches (each side 10-25 % of the picture's short side). An
+    object mostly covered is no longer annotated; keypoints under a patch
+    become invisible."""
+    from shapely.geometry import Polygon, box
+    from shapely.ops import unary_union
+    from shapely.validation import make_valid
+    h, w = img.shape[:2]
+    short = min(w, h)
+    out = img.copy()
+    patches = []
+    for _ in range(rng.randint(1, 4)):
+        pw = max(2, int(short * rng.uniform(0.1, 0.25)))
+        ph = max(2, int(short * rng.uniform(0.1, 0.25)))
+        x0, y0 = rng.randint(0, max(0, w - pw)), rng.randint(0, max(0, h - ph))
+        out[y0:y0 + ph, x0:x0 + pw] = 114
+        patches.append(box(x0, y0, x0 + pw, y0 + ph))
+    covered = unary_union(patches)
+    for shape in shapes:
+        if shape.polys:
+            area = hidden = 0.0
+            for pts in shape.polys:
+                poly = Polygon(pts)
+                if not poly.is_valid:
+                    poly = make_valid(poly)
+                area += poly.area
+                hidden += poly.intersection(covered).area
+            if area > 0 and hidden / area > MAX_COVERED:
+                shape.hidden = True
+        if shape.kps is not None:
+            for k in shape.kps:
+                if k[2] > 0 and any(p.bounds[0] <= k[0] <= p.bounds[2] and p.bounds[1] <= k[1] <= p.bounds[3]
+                                    for p in patches):
+                    k[2] = 0
+    return out
+
+
+def _jpeg(img, shapes, rng, opt, flips):
+    """Low-quality JPEG (blocks, smeared colours), as in compressed video frames."""
+    import cv2
+    ok, data = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, rng.randint(20, 60)])
+    return cv2.imdecode(data, cv2.IMREAD_COLOR) if ok else img
+
+
+def _motion(img, shapes, rng, opt, flips):
+    """Motion blur: a streak in a random direction (camera or object moving)."""
+    import cv2
+    k = rng.choice((7, 9, 11, 13, 15))
+    kernel = np.zeros((k, k), np.float32)
+    kernel[k // 2, :] = 1.0
+    m = cv2.getRotationMatrix2D((k / 2 - 0.5, k / 2 - 0.5), rng.uniform(0, 180), 1.0)
+    kernel = cv2.warpAffine(kernel, m, (k, k))
+    kernel /= max(kernel.sum(), 1e-6)
+    return cv2.filter2D(img, -1, kernel)
+
+
+def _exposure(img, shapes, rng, opt, flips):
+    """Much darker or brighter (gamma 0.5 - 2): night, shade, backlight."""
+    gamma = rng.uniform(1.3, 2.0) if rng.random() < 0.5 else rng.uniform(0.5, 0.77)
+    lut = (np.linspace(0, 1, 256) ** gamma * 255).clip(0, 255).astype(np.uint8)
+    return lut[img]
+
+
+def _gray(img, shapes, rng, opt, flips):
+    """Black and white (still 3 channels), e.g. for infrared / night cameras."""
+    import cv2
+    return cv2.cvtColor(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), cv2.COLOR_GRAY2BGR)
+
+
 _FUNCS = {"hflip": _hflip, "vflip": _vflip, "rot90": _rot90, "rotate": _rotate, "scale": _scale,
-          "color": _color, "blur": _blur, "noise": _noise}
+          "color": _color, "blur": _blur, "noise": _noise, "cutout": _cutout, "jpeg": _jpeg,
+          "motion": _motion, "exposure": _exposure, "gray": _gray}
 
 
 def pick_ops(ops, rng):
@@ -208,6 +287,8 @@ def _finish(shape, w, h):
     from shapely.geometry import Polygon, box
     from shapely.validation import make_valid
 
+    if shape.hidden:
+        return None
     ann = dict(shape.ann)
     frame = box(0, 0, w, h)
     rings, area, before = [], 0.0, 0.0

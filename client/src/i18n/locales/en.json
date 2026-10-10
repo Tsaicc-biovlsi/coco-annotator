@@ -1420,7 +1420,12 @@
       "scale": "Zoom crop",
       "color": "Brightness / contrast / hue",
       "blur": "Blur",
-      "noise": "Noise"
+      "noise": "Noise",
+      "exposure": "Exposure",
+      "gray": "Grayscale",
+      "cutout": "Cutout",
+      "motion": "Motion blur",
+      "jpeg": "JPEG compression"
     },
     "hint": {
       "hflip": "Mirror left-right; left / right keypoints swap",
@@ -1430,7 +1435,12 @@
       "scale": "Crop a random part and scale it back; mostly cut objects are removed",
       "color": "Random brightness, contrast, saturation and hue",
       "blur": "A light Gaussian blur",
-      "noise": "A little random noise"
+      "noise": "A little random noise",
+      "exposure": "Much darker or brighter (night, shade, backlight)",
+      "gray": "Black and white, for models used on grey or infrared cameras",
+      "cutout": "1–4 grey patches; objects more than 60 % covered are not annotated",
+      "motion": "A streak in a random direction (moving object or camera)",
+      "jpeg": "Low-quality compression (blocks, smeared colours), like video frames"
     },
     "pickOne": "Tick at least one augmentation",
     "withImages": "Each version applies a random mix of the ticked operations (at least one) and transforms the annotations with it; the export includes the images (COCO becomes a zip: images/ + json).",
@@ -1444,7 +1454,9 @@
     "augShort": "{n} augmented",
     "noSplitWarning": "No split: every image is augmented. If you split later yourself, keep each picture and its versions in the same part; better split in the previous step.",
     "summaryShortTrain": "+{copies} per training image ({ops})",
-    "copiesAll": "Extra versions of each image:"
+    "copiesAll": "Extra versions of each image:",
+    "yoloDefault": "YOLO already does this while training; not really needed here",
+    "yoloArg": "Or turn it on when training:"
   },
   "update": {
     "message": "The app was updated: reloading in {n} s (your annotations are saved first)",

@@ -50,6 +50,10 @@
             </template>
           </div>
           <div class="small text-muted hint">{{ $t('exportAugment.hint.' + op.key) }}</div>
+          <div v-if="yolo && op.yolo" class="small hint yolo-hint" :class="op.yolo === 'default' ? 'text-warning-emphasis' : 'text-info-emphasis'">
+            <template v-if="op.yolo === 'default'"><i class="fa fa-info-circle" /> {{ $t('exportAugment.yoloDefault') }}</template>
+            <template v-else><i class="fa fa-lightbulb-o" /> {{ $t('exportAugment.yoloArg') }} <code>{{ op.yolo }}</code></template>
+          </div>
         </div>
       </div>
 
@@ -92,15 +96,24 @@
 
 <script>
 /** Options for augmenting the training images of an export. */
+/**
+ * ``yolo``: "default" when Ultralytics already does it while training (an
+ * exported copy adds little), or the training argument that turns it on.
+ */
 export const OPS = [
-  { key: "hflip", icon: "fa-arrows-h" },
-  { key: "vflip", icon: "fa-arrows-v" },
+  { key: "hflip", icon: "fa-arrows-h", yolo: "default" },
+  { key: "vflip", icon: "fa-arrows-v", yolo: "flipud=0.5" },
   { key: "rot90", icon: "fa-repeat" },
-  { key: "rotate", icon: "fa-rotate-right", param: 15, choices: [5, 10, 15, 20, 30, 45], label: v => `±${v}°` },
-  { key: "scale", icon: "fa-search-plus", param: 0.8, choices: [0.9, 0.8, 0.7, 0.6, 0.5], label: v => `${Math.round(v * 100)}%–100%` },
-  { key: "color", icon: "fa-adjust" },
+  { key: "rotate", icon: "fa-rotate-right", param: 15, choices: [5, 10, 15, 20, 30, 45], label: v => `±${v}°`, yolo: "degrees=10" },
+  { key: "scale", icon: "fa-search-plus", param: 0.8, choices: [0.9, 0.8, 0.7, 0.6, 0.5], label: v => `${Math.round(v * 100)}%–100%`, yolo: "default" },
+  { key: "color", icon: "fa-adjust", yolo: "default" },
+  { key: "exposure", icon: "fa-sun-o" },
+  { key: "gray", icon: "fa-circle-o" },
+  { key: "cutout", icon: "fa-th-large" },
+  { key: "motion", icon: "fa-angle-double-right" },
   { key: "blur", icon: "fa-tint" },
-  { key: "noise", icon: "fa-braille" }
+  { key: "noise", icon: "fa-braille" },
+  { key: "jpeg", icon: "fa-file-image-o" }
 ];
 
 export function defaultAugment() {
@@ -134,6 +147,8 @@ export default {
   props: {
     modelValue: { type: Object, required: true },
     imageCount: { type: Number, default: null },
+    // a YOLO export: say which options Ultralytics already does while training
+    yolo: { type: Boolean, default: false },
     // the split (it comes first): originals per part
     splitOn: { type: Boolean, default: false },
     splitSizes: { type: Object, default: () => ({}) }
@@ -169,6 +184,9 @@ export default {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 8px 16px;
+}
+.yolo-hint code {
+  font-size: 0.75rem;
 }
 .op .hint {
   padding-left: 1.6rem;
