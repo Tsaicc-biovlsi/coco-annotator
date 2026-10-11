@@ -15,7 +15,7 @@ from werkzeug.datastructures import FileStorage
 
 from database import DatasetModel, ExportModel, TrainRunModel, TrainerStatusModel, TrainUploadModel
 from trainer import catalog as model_catalog
-from trainer.runner import TASK_SUFFIX, safe_name, uploads_dir, work_dir
+from trainer.runner import TASK_SUFFIX, archive_path, package, safe_name, uploads_dir, work_dir
 from ..util import activity
 
 api = Namespace('train', description='Train models on the server')
@@ -70,6 +70,18 @@ def _catalog():
     if _local_catalog is None:
         _local_catalog = model_catalog.build()
     return _local_catalog
+
+
+def _archive(run):
+    """The zip of the run's outputs: its size, or whether it can be made"""
+    if run.status in ('queued', 'running'):
+        return None
+    path = archive_path(run.id)
+    if os.path.isfile(path):
+        return {'size': os.path.getsize(path)}
+    if os.path.isdir(os.path.join(work_dir(run.id), 'runs', 'train')):
+        return {'size': None}  # packed when downloaded (runs from before)
+    return None
 
 
 def _fitness_weights():
@@ -394,6 +406,7 @@ class TrainRuns(Resource):
             d = r.to_dict()
             d['queue_position'] = queued.index(r.id) + 1 if r.id in queued else None
             d['best'] = _best(r, weights)
+            d['archive'] = _archive(r)
             out.append(d)
         return {'runs': out}
 
@@ -495,6 +508,7 @@ class TrainRun(Resource):
             return {'message': 'Invalid run'}, 400
         out = run.to_dict(full=True)
         out['best'] = _best(run, _fitness_weights())
+        out['archive'] = _archive(run)
         out['fitness_weights'] = _fitness_weights()
         params = out.setdefault('params', {}) or {}
         if 'export_augment' not in params:  # runs queued before this was kept
@@ -517,6 +531,28 @@ class TrainRun(Resource):
         shutil.rmtree(work_dir(run.id), ignore_errors=True)
         run.delete()
         return {'success': True}
+
+
+@api.route('/<int:run_id>/download')
+class TrainRunDownload(Resource):
+
+    @login_required
+    def get(self, run_id):
+        """ Everything the training wrote (runs/train: weights best.pt / last.pt,
+        results.csv, args.yaml, plots) and its output, as a zip """
+        if not _allowed():
+            return {'message': 'No permission to train models'}, 403
+        run = TrainRunModel.objects(id=run_id).first()
+        if run is None:
+            return {'message': 'Invalid run'}, 400
+        if run.status in ('queued', 'running'):
+            return {'message': 'The training has not finished'}, 400
+        path = archive_path(run.id)
+        if not os.path.isfile(path) and package(run) is None:
+            return {'message': 'This training wrote nothing'}, 404
+        from flask import send_file
+        name = f"{safe_name('+'.join(run.dataset_names or ['train']))}-{run.task}-run{run.id}.zip"
+        return send_file(path, download_name=name, as_attachment=True, max_age=0)
 
 
 MAX_STEPS = 4000

@@ -281,6 +281,16 @@
                     <i class="fa fa-stop" />
                     {{ r.status === 'queued' ? $t('train.cancel') : r.stop_requested ? $t('train.stopping') : $t('train.stop') }}
                   </button>
+                  <a
+                    v-if="detail.archive"
+                    class="btn btn-sm btn-success"
+                    :href="`/api/train/${r.id}/download`"
+                    download
+                    :title="$t('train.downloadHint')"
+                  >
+                    <i class="fa fa-download" /> {{ $t('train.download') }}
+                    <span v-if="detail.archive.size" class="opacity-75">（{{ fmtSize(detail.archive.size) }}）</span>
+                  </a>
                   <button v-else type="button" class="btn btn-sm btn-outline-secondary" @click="remove(r)">
                     <i class="fa fa-trash" /> {{ $t('train.remove') }}
                   </button>

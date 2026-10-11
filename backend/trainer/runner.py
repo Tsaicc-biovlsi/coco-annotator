@@ -349,8 +349,44 @@ def execute(run, command=None):
     if status == "failed":
         tail = log_tail.strip().splitlines()
         error = (tail[-1] if tail else f"exit code {code}")[:1000]
+    try:
+        package(run, log_path)
+    except Exception as e:  # the run is still done; the page can pack it later
+        logger.warning("could not pack run %s: %s", run.id, e)
     run.update(set__status=status, set__metrics=rows, set__epoch=len(rows), set__log_tail=log_tail,
                set__model_name=model_name, set__error=error, set__ended_at=now())
+
+
+# already compressed: stored as they are (faster, no bigger)
+_STORED = (".pt", ".jpg", ".jpeg", ".png", ".zip", ".onnx", ".engine")
+
+
+def archive_path(run_id):
+    return os.path.join(work_dir(run_id), "results.zip")
+
+
+def package(run, log_path=None):
+    """Everything Ultralytics wrote (runs/train: weights, results.csv,
+    args.yaml, plots) and the output, as one zip next to the run. Returns
+    its path, or None when there is nothing to pack."""
+    train = os.path.join(work_dir(run.id), "runs", "train")
+    if not os.path.isdir(train):
+        return None
+    log_path = log_path or os.path.join(work_dir(run.id), "train.log")
+    target = archive_path(run.id)
+    tmp = target + ".part"
+    top = f"{safe_name('+'.join(run.dataset_names or ['train']))}-{run.task}-run{run.id}"
+    with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zf:
+        for folder, _, files in os.walk(train):
+            for f in sorted(files):
+                path = os.path.join(folder, f)
+                arc = os.path.join(top, os.path.relpath(path, train))
+                kind = zipfile.ZIP_STORED if f.lower().endswith(_STORED) else zipfile.ZIP_DEFLATED
+                zf.write(path, arc, compress_type=kind)
+        if os.path.isfile(log_path):
+            zf.write(log_path, os.path.join(top, "train.log"))
+    os.replace(tmp, target)
+    return target
 
 
 def claim_next():

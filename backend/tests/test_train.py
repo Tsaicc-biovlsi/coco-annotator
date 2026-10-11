@@ -111,6 +111,20 @@ def test_training(dataset_directory, tmp_path, monkeypatch):
     assert [r["best"]["epoch"] for r in t.get("/api/train/").get_json()["runs"] if r["id"] == run["id"]] == [2]
     assert done["model_name"] == f"trained/tr_ds-detect-run{run['id']}.pt"
     assert (models / done["model_name"]).read_bytes() == b"weights"
+    # everything under runs/train, packed when it ended
+    import io
+    import zipfile
+    assert done["archive"]["size"] > 0
+    got = t.get(f"/api/train/{run['id']}/download")
+    assert got.status_code == 200 and "tr_ds-detect-run" in got.headers["Content-Disposition"]
+    names = zipfile.ZipFile(io.BytesIO(got.data)).namelist()
+    top = f"tr_ds-detect-run{run['id']}/"
+    assert {top + "weights/best.pt", top + "results.csv", top + "train.log"} <= set(names)
+    assert plain.get(f"/api/train/{run['id']}/download").status_code == 403
+    # runs from before: packed when downloaded
+    os.remove(runner.archive_path(run["id"]))
+    assert t.get(f"/api/train/{run['id']}").get_json()["archive"] == {"size": None}
+    assert t.get(f"/api/train/{run['id']}/download").status_code == 200
     assert "epoch 3/3" in done["log_tail"] and "\x1b" not in done["log_tail"]  # no terminal colour codes
 
     # stopping a running one
@@ -126,7 +140,9 @@ def test_training(dataset_directory, tmp_path, monkeypatch):
     assert stopped.status == "stopped" and 0 < stopped.epoch < 50
 
     # a queued one is simply cancelled; finished ones can be removed
+    assert t.get(f"/api/train/{r2['id']}").get_json()["archive"]["size"] > 0  # a stopped one too
     r3 = t.post("/api/train/", json={"export_id": eid}).get_json()
+    assert t.get(f"/api/train/{r3['id']}/download").status_code == 400  # not finished
     assert t.post(f"/api/train/{r3['id']}/stop").get_json()["status"] == "stopped"
     assert t.delete(f"/api/train/{run['id']}").get_json()["success"]
     assert (models / done["model_name"]).exists()  # the trained model stays

@@ -1779,7 +1779,9 @@
       "saved": "存到「模型」頁的就是這一輪（best.pt）",
       "how": "依 {rule} 判斷",
       "howHint": "Ultralytics 用這個分數（fitness）挑 best.pt；分割／姿態會把框和遮罩／關鍵點的分數相加"
-    }
+    },
+    "download": "下載訓練結果 .zip",
+    "downloadHint": "runs/train 底下的全部：weights/best.pt、last.pt、results.csv、args.yaml、各種圖（混淆矩陣、PR 曲線、訓練圖片範例）和訓練輸出"
   },
   "terminal": {
     "title": "終端機",

@@ -1647,7 +1647,9 @@
       "saved": "this epoch is the model saved to the Models page (best.pt)",
       "how": "by {rule}",
       "howHint": "Ultralytics picks best.pt by this score (fitness); segmentation / pose add up the box and mask / keypoint scores"
-    }
+    },
+    "download": "Download results .zip",
+    "downloadHint": "Everything in runs/train: weights/best.pt, last.pt, results.csv, args.yaml, plots (confusion matrix, PR curves, batch samples) and the output"
   },
   "terminal": {
     "title": "Terminal",
