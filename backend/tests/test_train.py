@@ -15,9 +15,9 @@ epochs = int(args["epochs"])
 assert os.path.exists(args["data"]), args["data"]
 with open(os.path.join(out, "results.csv"), "w", newline="") as fp:
     w = csv.writer(fp)
-    w.writerow(["                  epoch", "      train/box_loss", "   metrics/mAP50(B)"])
+    w.writerow(["                  epoch", "      train/box_loss", "   metrics/mAP50(B)", " metrics/mAP50-95(B)"])
     for e in range(1, epochs + 1):
-        w.writerow([e, 1.0 / e, 0.1 * e]); fp.flush()
+        w.writerow([e, 1.0 / e, 0.1 * e, 0.3 if e == 2 else 0.1]); fp.flush()
         print(f"\x1b[K\x1b[1mepoch {e}/{epochs}\x1b[0m", flush=True)
         time.sleep(float(os.environ.get("FAKE_EPOCH_SECONDS", "0")))
 open(os.path.join(out, "weights", "best.pt"), "wb").write(b"weights")
@@ -105,6 +105,10 @@ def test_training(dataset_directory, tmp_path, monkeypatch):
     done = t.get(f"/api/train/{run['id']}").get_json()
     assert done["status"] == "done", done
     assert done["epoch"] == 3 and done["metrics"][-1]["metrics/mAP50(B)"] == 0.3
+    # best.pt is from epoch 2 (Ultralytics' fitness: 0.1 mAP50 + 0.9 mAP50-95 here)
+    assert done["best"]["epoch"] == 2 and done["best"]["since"] == 1
+    assert done["best"]["metrics"]["metrics/mAP50-95(B)"] == 0.3
+    assert [r["best"]["epoch"] for r in t.get("/api/train/").get_json()["runs"] if r["id"] == run["id"]] == [2]
     assert done["model_name"] == f"trained/tr_ds-detect-run{run['id']}.pt"
     assert (models / done["model_name"]).read_bytes() == b"weights"
     assert "epoch 3/3" in done["log_tail"] and "\x1b" not in done["log_tail"]  # no terminal colour codes

@@ -1769,6 +1769,16 @@
         "gpu_mem": "顯示卡記憶體（GB）",
         "time": "每輪花費秒數"
       }
+    },
+    "best": {
+      "label": "最佳：第 {epoch} 輪",
+      "short": "最佳",
+      "title": "best.pt 是第 {epoch} 輪的權重",
+      "since": "之後 {n} 輪沒有進步（連續 {patience} 輪沒進步會提早停止）",
+      "latest": "就是最新這一輪",
+      "saved": "存到「模型」頁的就是這一輪（best.pt）",
+      "how": "依 {rule} 判斷",
+      "howHint": "Ultralytics 用這個分數（fitness）挑 best.pt；分割／姿態會把框和遮罩／關鍵點的分數相加"
     }
   },
   "terminal": {

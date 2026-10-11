@@ -72,6 +72,19 @@ def _catalog():
     return _local_catalog
 
 
+def _fitness_weights():
+    return _catalog().get('fitness') or [0.0, 0.0, 0.1, 0.9]
+
+
+def _best(run, weights):
+    """Which epoch best.pt is (as Ultralytics picks it)"""
+    best = model_catalog.best_epoch(run.metrics or [], weights)
+    if best is not None:
+        best = {k: v for k, v in best.items() if k != 'row'} | {
+            'metrics': {k: v for k, v in best['row'].items() if k.startswith('metrics/')}}
+    return best
+
+
 def _catalog_model(name, catalog):
     """(name, None) for an official model, else (None, error message)."""
     known = model_catalog.names(catalog)
@@ -201,6 +214,7 @@ class TrainCatalog(Resource):
         cat = _catalog()
         return {'families': cat.get('families', []), 'args': cat.get('args', {}),
                 'version': cat.get('version'), 'blocked': sorted(model_catalog.BLOCKED_ARGS),
+                'fitness': cat.get('fitness') or [0.0, 0.0, 0.1, 0.9],
                 'main': list(MAIN_ARGS)}
 
 
@@ -374,10 +388,12 @@ class TrainRuns(Resource):
             return {'message': 'No permission to train models'}, 403
         runs = TrainRunModel.objects.order_by('-id').limit(100)
         queued = [r.id for r in TrainRunModel.objects(status='queued').order_by('id').only('id')]
+        weights = _fitness_weights()
         out = []
         for r in runs:
             d = r.to_dict()
             d['queue_position'] = queued.index(r.id) + 1 if r.id in queued else None
+            d['best'] = _best(r, weights)
             out.append(d)
         return {'runs': out}
 
@@ -478,6 +494,8 @@ class TrainRun(Resource):
         if run is None:
             return {'message': 'Invalid run'}, 400
         out = run.to_dict(full=True)
+        out['best'] = _best(run, _fitness_weights())
+        out['fitness_weights'] = _fitness_weights()
         params = out.setdefault('params', {}) or {}
         if 'export_augment' not in params:  # runs queued before this was kept
             export = ExportModel.objects(id=run.export_id).only('augment').first()

@@ -22,6 +22,10 @@
           <text v-for="t in yAxis.ticks" :key="'ty' + t" :x="L - 5" :y="py(t) + 3" text-anchor="end">{{ tick(t, yAxis.step) }}</text>
           <text v-for="t in xAxis.ticks" :key="'tx' + t" :x="px(t)" :y="H - 5" text-anchor="middle">{{ tick(t, xAxis.step) }}</text>
         </g>
+        <g v-if="marker != null && marker <= xAxis.hi" class="marker">
+          <line :x1="px(marker)" :x2="px(marker)" :y1="T" :y2="H - B" />
+          <text :x="px(marker) + 3" :y="T + 9">★ {{ markerLabel }}</text>
+        </g>
         <g v-for="s in drawn" :key="s.name">
           <!-- raw values, faint (TensorBoard) -->
           <polyline v-if="s.smoothed !== s.points" :points="s.rawPath" class="raw" :stroke="s.color" />
@@ -70,7 +74,10 @@ export default {
     // 0..0.99
     smoothing: { type: Number, default: 0.6 },
     // the x range to show (all charts of a run share it)
-    xMax: { type: Number, default: null }
+    xMax: { type: Number, default: null },
+    // an epoch to mark (the best one)
+    marker: { type: Number, default: null },
+    markerLabel: { type: String, default: "" }
   },
   data() {
     return { W: 420, H: 210, L: 46, R: 10, T: 10, B: 20, hover: null };
@@ -221,6 +228,15 @@ export default {
   fill: none;
   stroke-width: 1;
   opacity: 0.25;
+}
+.marker line {
+  stroke: #e0a800;
+  stroke-width: 1.2;
+  stroke-dasharray: 4 3;
+}
+.marker text {
+  font-size: 10px;
+  fill: #b58900;
 }
 .cursor {
   stroke: #adb5bd;

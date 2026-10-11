@@ -255,7 +255,10 @@
                   <template v-else>{{ r.epoch }} / {{ r.epochs }}</template>
                 </span>
               </span>
-              <span class="small text-nowrap metric" :title="mainMetricKey(r.last) || ''">{{ mainMetric(r.last) }}</span>
+              <span v-if="r.best" class="small text-nowrap metric" :title="$t('train.best.title', { epoch: r.best.epoch })">
+                <i class="fa fa-star text-warning" /> {{ mainMetric(r.best.metrics) }} <span class="text-muted">@{{ r.best.epoch }}</span>
+              </span>
+              <span v-else class="small text-nowrap metric" :title="mainMetricKey(r.last) || ''">{{ mainMetric(r.last) }}</span>
               <span class="small text-muted text-nowrap d-none d-md-inline">{{ r.creator }}</span>
               <i class="fa" :class="openId === r.id ? 'fa-chevron-up' : 'fa-chevron-down'" />
             </div>
@@ -300,6 +303,18 @@
                 />
               </div>
 
+              <div v-if="detail.best" class="best-bar mb-2">
+                <span class="fw-semibold"><i class="fa fa-star text-warning" /> {{ $t('train.best.label', { epoch: detail.best.epoch }) }}</span>
+                <span v-for="m in bestMetrics" :key="m.key" class="best-metric">{{ m.name }} <b>{{ m.value }}</b></span>
+                <span class="text-muted">
+                  <template v-if="detail.status === 'running'">
+                    {{ detail.best.since ? $t('train.best.since', { n: detail.best.since, patience: detail.params.patience }) : $t('train.best.latest') }}
+                  </template>
+                  <template v-else-if="detail.model_name">{{ $t('train.best.saved') }}</template>
+                </span>
+                <span class="text-muted small ms-auto" :title="$t('train.best.howHint')">{{ $t('train.best.how', { rule: fitnessRule }) }}</span>
+              </div>
+
               <template v-if="chartGroups.length">
                 <div class="d-flex align-items-center gap-2 small mb-1 flex-wrap">
                   <span class="fw-semibold"><i class="fa fa-line-chart" /> {{ $t('train.curves') }}</span>
@@ -314,7 +329,14 @@
                   <div class="small text-muted mb-1">{{ g.title }}</div>
                   <div class="row g-2">
                     <div v-for="c in g.charts" :key="c.key" class="col-xl-4 col-md-6">
-                      <ScalarChart :title="c.title" :hint="c.hint" :series="c.series" :smoothing="smoothing" />
+                      <ScalarChart
+                        :title="c.title"
+                        :hint="c.hint"
+                        :series="c.series"
+                        :smoothing="smoothing"
+                        :marker="detail.best ? detail.best.epoch : null"
+                        :marker-label="$t('train.best.short')"
+                      />
                     </div>
                   </div>
                 </div>
@@ -531,6 +553,25 @@ export default {
       }
       if (other.length) groups.push({ key: "other", title: this.$t("train.curve.other"), charts: other });
       return groups;
+    },
+    bestMetrics() {
+      const m = (this.detail && this.detail.best && this.detail.best.metrics) || {};
+      const kinds = { B: this.$t("train.curve.box"), M: this.$t("train.curve.mask"), P: this.$t("train.curve.pose") };
+      const many = new Set(Object.keys(m).map(k => (k.match(/\((\w)\)$/) || [])[1])).size > 1;
+      return Object.keys(m)
+        .filter(k => /(mAP50|mAP50-95|precision|recall|accuracy_top1|accuracy_top5|mIoU)(\(\w\))?$/.test(k))
+        .map(k => {
+          const [, name, kind] = k.match(/^metrics\/(.*?)(?:\((\w)\))?$/);
+          return { key: k, name: many && kind ? `${name}（${kinds[kind] || kind}）` : name, value: m[k].toFixed(3) };
+        });
+    },
+    /** how Ultralytics picks best.pt, in words */
+    fitnessRule() {
+      const w = (this.detail && this.detail.fitness_weights) || this.catalog.fitness || [0, 0, 0.1, 0.9];
+      const names = ["P", "R", "mAP50", "mAP50-95"];
+      const parts = w.map((v, i) => (v ? (v === 1 ? names[i] : `${v}×${names[i]}`) : null)).filter(Boolean);
+      if (this.detail && this.detail.task === "classify") return "(top-1 + top-5) / 2";
+      return parts.join(" + ");
     },
     logText() {
       if (this.live && this.live.runId === this.openId) {
@@ -1008,6 +1049,20 @@ export default {
   border-radius: 8px;
   padding: 6px 10px;
   background: #fff;
+}
+.best-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  background: #fff8e1;
+  border: 1px solid #ffe8a1;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+.best-metric {
+  font-variant-numeric: tabular-nums;
 }
 .smoothing {
   width: 140px;

@@ -1637,6 +1637,16 @@
         "gpu_mem": "GPU memory (GB)",
         "time": "seconds per epoch"
       }
+    },
+    "best": {
+      "label": "Best: epoch {epoch}",
+      "short": "best",
+      "title": "best.pt holds epoch {epoch}",
+      "since": "{n} epochs without improvement since (stops after {patience})",
+      "latest": "the latest epoch",
+      "saved": "this epoch is the model saved to the Models page (best.pt)",
+      "how": "by {rule}",
+      "howHint": "Ultralytics picks best.pt by this score (fitness); segmentation / pose add up the box and mask / keypoint scores"
     }
   },
   "terminal": {
