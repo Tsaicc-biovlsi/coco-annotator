@@ -4,7 +4,7 @@
       <span class="title" :title="hint || title">{{ title }}</span>
       <span v-if="hint" class="hint text-muted">{{ hint }}</span>
     </div>
-    <div class="plot">
+    <div ref="plot" class="plot">
       <svg
         ref="svg"
         :viewBox="`0 0 ${W} ${H}`"
@@ -127,7 +127,24 @@ export default {
       return { ticks: t.ticks.filter(v => v <= hi), step: t.step, lo: 0, hi };
     }
   },
+  mounted() {
+    // drawn at its real size: the text stays readable on a phone
+    this.fit();
+    if (typeof ResizeObserver !== "undefined") {
+      this.observer = new ResizeObserver(() => this.fit());
+      this.observer.observe(this.$refs.plot);
+    }
+  },
+  beforeUnmount() {
+    if (this.observer) this.observer.disconnect();
+  },
   methods: {
+    fit() {
+      const width = this.$refs.plot && this.$refs.plot.clientWidth;
+      if (!width) return;
+      this.W = Math.round(width);
+      this.H = Math.round(Math.min(260, Math.max(170, width * 0.5)));
+    },
     px(x) {
       return this.L + ((x - this.xAxis.lo) / (this.xAxis.hi - this.xAxis.lo)) * (this.W - this.L - this.R);
     },

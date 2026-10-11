@@ -1182,4 +1182,40 @@ export default {
   word-break: break-all;
   margin: 0;
 }
+/* phones: the run's name on its own line, progress and score below */
+@media (max-width: 767.98px) {
+  .run-head {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+  .run-head > .run-name {
+    flex: 1 1 calc(100% - 110px);
+  }
+  .run-head > .run-model {
+    order: 5;
+    flex: 1 1 100%;
+  }
+  .run-progress {
+    order: 6;
+    flex: 1 1 140px;
+    width: auto;
+  }
+  .run-head > .metric {
+    order: 7;
+    min-width: 0;
+  }
+  .run-head > .fa {
+    order: 2;
+  }
+  .page-container {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .arg-key {
+    width: 40%;
+  }
+  .smoothing {
+    width: 100px;
+  }
+}
 </style>

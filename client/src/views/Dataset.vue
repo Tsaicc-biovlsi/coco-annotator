@@ -4,9 +4,12 @@
     
     <div
       class="bg-light"
-      :style="{ 'margin-left': sidebar.width + 'px' }"
+      :style="{ 'margin-left': (narrow ? 0 : sidebar.width) + 'px' }"
     >
-      <nav class="nav border-bottom shadow-sm" style="background-color: #4b5162">
+      <nav class="nav border-bottom shadow-sm" :class="{ 'nav-scroll': narrow }" style="background-color: #4b5162">
+        <a v-if="narrow" class="btn tab text-white" @click="sidebarOpen = !sidebarOpen">
+          <i class="fa fa-sliders" aria-hidden="true"></i> {{ $t('dataset.tools') }}
+        </a>
         <a class="btn tab" @click="tab = 'images'" :style="{'color': tab == 'images' ? 'white' : 'darkgray'}">
           <i class="fa fa-picture-o" aria-hidden="true"></i> {{ $t('dataset.images') }}
         </a>
@@ -231,11 +234,13 @@
       </div>
     </div>
 
+    <div v-if="narrow && sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
     <div
       id="filter"
       ref="sidebar"
       class="sidebar"
-      :style="{ width: sidebar.width + 'px' }"
+      :class="{ 'sidebar-mobile': narrow, open: sidebarOpen }"
+      :style="{ width: narrow ? 'min(85vw, 320px)' : sidebar.width + 'px' }"
     >
       <div style="padding-top: 10px" />
       <h3>{{ dataset.name }}</h3>
@@ -521,6 +526,9 @@ export default {
         data: { state: true, message: "Loading data" }
       },
       mouseDown: false,
+      // a phone: the sidebar slides in over the page
+      narrow: window.innerWidth < 768,
+      sidebarOpen: false,
       sidebar: {
         drag: false,
         width: window.innerWidth * 0.2,
@@ -1111,6 +1119,11 @@ export default {
     this.updatePage();
   },
   mounted() {
+    this.onResize = () => {
+      this.narrow = window.innerWidth < 768;
+      if (!this.narrow) this.sidebarOpen = false;
+    };
+    window.addEventListener("resize", this.onResize);
     window.addEventListener("mouseup", this.stopDrag);
     window.addEventListener("mousedown", this.startDrag);
     this.watchDataset();
@@ -1121,6 +1134,7 @@ export default {
     clearTimeout(this.importPoll);
     window.removeEventListener("mouseup", this.stopDrag);
     window.removeEventListener("mousedown", this.startDrag);
+    window.removeEventListener("resize", this.onResize);
   }
 };
 </script>
@@ -1162,6 +1176,28 @@ export default {
   right: 25px;
   font-size: 36px;
   margin-left: 50px;
+}
+
+.sidebar-mobile {
+  z-index: 1020;
+  transform: translateX(-100%);
+  transition: transform 0.2s ease;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.3);
+}
+.sidebar-mobile.open {
+  transform: none;
+}
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1019;
+  background: rgba(0, 0, 0, 0.35);
+}
+.nav-scroll {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
 }
 
 .sidebar-title {

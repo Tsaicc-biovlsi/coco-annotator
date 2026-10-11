@@ -249,7 +249,8 @@
     "ranBy": "由 {names} 執行",
     "perUserHint": "使用者的數字只算自己畫的標註；用模型自動標註和匯入的另外列出。這次更新之前用模型產生的標註大多無法分辨，仍算在執行模型的人身上。",
     "taskStillRunning": "這個工作還在進行中，完成後按鈕就會恢復。",
-    "exportFailed": "匯出失敗（詳細原因可到「任務」頁查看）"
+    "exportFailed": "匯出失敗（詳細原因可到「任務」頁查看）",
+    "tools": "工具與篩選"
   },
   "datasetCard": {
     "addUsernames": "新增使用者名稱",
