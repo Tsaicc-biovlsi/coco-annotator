@@ -1,6 +1,8 @@
 """Runs queued trainings one at a time: unpack the YOLO export, run
 Ultralytics in a child process, follow results.csv, keep the best weights
 in the models folder (where pre-annotation finds them)."""
+import codecs
+import collections
 import csv
 import datetime
 import logging
@@ -10,6 +12,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import threading
 import time
 import zipfile
 
@@ -20,6 +23,8 @@ logger = logging.getLogger("trainer")
 POLL_SECONDS = 3
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 LOG_TAIL_CHARS = 6000
+# how often the page's view of the output is refreshed while training
+LOG_SECONDS = 1
 # model name suffix of each task (yolo26s-seg.pt)
 TASK_SUFFIX = {"detect": "", "segment": "-seg", "obb": "-obb", "pose": "-pose", "classify": "-cls"}
 
@@ -125,19 +130,58 @@ def _read_results(path):
     return rows
 
 
-def _tail(path):
-    if not os.path.isfile(path):
-        return ""
-    with open(path, "rb") as fp:
-        fp.seek(0, os.SEEK_END)
-        size = fp.tell()
-        fp.seek(max(0, size - LOG_TAIL_CHARS * 3))
-        text = fp.read().decode("utf-8", "replace")
-    # colours / cursor moves of the terminal output, and progress bars that
-    # rewrite their line with \r: keep the last state of each line
-    text = ANSI.sub("", text)
-    lines = [line.split("\r")[-1] for line in text.split("\n")]
-    return "\n".join(lines)[-LOG_TAIL_CHARS:]
+class LogFollower:
+    """Reads the training's output as it comes. Progress bars rewrite their
+    line with \r ten times a second: only the line's last state is kept, so
+    the log stays small and its end always has the lines before the bar
+    (reading the end of the raw output would be one huge bar line)."""
+
+    def __init__(self, log_file):
+        self.log = log_file
+        self.lines = collections.deque(maxlen=400)
+        self.current = ""
+        self.version = 0
+        self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
+        self._lock = threading.Lock()
+
+    def feed(self, data):
+        text = self._decoder.decode(data, final=not data).replace("\r\n", "\n")
+        with self._lock:
+            text = self.current + text
+            *done, self.current = text.split("\n")
+            for line in done:
+                line = ANSI.sub("", line).split("\r")[-1].rstrip()
+                self.lines.append(line)
+                self.log.write((line + "\n").encode())
+            if done:
+                self.log.flush()
+            # keep only the bar's last state (escape codes may be cut: strip at the end)
+            if "\r" in self.current:
+                parts = self.current.split("\r")
+                last = parts[-1] or (parts[-2] if len(parts) > 1 else "")
+                self.current = last if parts[-1] else last + "\r"
+            self.version += 1
+
+    def follow(self, stream):
+        fd = stream.fileno()
+        while True:
+            chunk = os.read(fd, 65536)
+            self.feed(chunk)
+            if not chunk:
+                break
+        with self._lock:
+            if self.current.strip("\r"):
+                line = ANSI.sub("", self.current).strip("\r").rstrip()
+                self.lines.append(line)
+                self.log.write((line + "\n").encode())
+                self.log.flush()
+            self.current = ""
+
+    def tail(self):
+        with self._lock:
+            current = ANSI.sub("", self.current).strip("\r")
+            text = "\n".join(list(self.lines) + ([current] if current else []))
+        return text[-LOG_TAIL_CHARS:]
 
 
 def heartbeat(device=None, catalog=None):
@@ -162,6 +206,8 @@ def execute(run, command=None):
         os.makedirs(work, exist_ok=True)
         data = _unpack(export, os.path.join(work, "data"), run.task)
         out_dir = os.path.join(work, "runs")
+        # nothing left from an earlier run with this number
+        shutil.rmtree(out_dir, ignore_errors=True)
         cmd = (command or build_command)(run, data, out_dir)
     except Exception as e:  # nothing started: say why
         run.update(set__status="failed", set__error=str(e)[:1000], set__ended_at=now())
@@ -173,15 +219,26 @@ def execute(run, command=None):
     with open(log_path, "ab") as log:
         log.write(("$ " + " ".join(cmd) + "\n").encode())
         log.flush()
-        proc = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT, cwd=work, env=env,
+        out = LogFollower(log)
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=work, env=env,
                                 start_new_session=True)
+        reader = threading.Thread(target=out.follow, args=(proc.stdout,), daemon=True)
+        reader.start()
         stopped = False
+        shown = -1
+        last_poll = 0
         while True:
             code = proc.poll()
-            rows = _read_results(results)
-            run.reload("stop_requested")
-            run.update(set__metrics=rows, set__epoch=len(rows), set__log_tail=_tail(log_path))
-            heartbeat()
+            if time.monotonic() - last_poll >= POLL_SECONDS or code is not None:
+                # results, stop button, trainer alive
+                last_poll = time.monotonic()
+                rows = _read_results(results)
+                run.reload("stop_requested")
+                run.update(set__metrics=rows, set__epoch=len(rows))
+                heartbeat()
+            if out.version != shown:
+                shown = out.version
+                run.update(set__log_tail=out.tail())
             if code is not None:
                 break
             if run.stop_requested and not stopped:
@@ -192,7 +249,10 @@ def execute(run, command=None):
                     proc.wait(timeout=30)
                 except subprocess.TimeoutExpired:
                     os.killpg(proc.pid, signal.SIGKILL)
-            time.sleep(POLL_SECONDS)
+            time.sleep(min(LOG_SECONDS, POLL_SECONDS))
+        reader.join(timeout=10)
+        proc.stdout.close()
+        log_tail = out.tail()
     rows = _read_results(results)
     best = os.path.join(out_dir, "train", "weights", "best.pt")
     model_name = None
@@ -206,9 +266,9 @@ def execute(run, command=None):
     status = "stopped" if stopped else ("done" if code == 0 and model_name else "failed")
     error = ""
     if status == "failed":
-        tail = _tail(log_path).strip().splitlines()
+        tail = log_tail.strip().splitlines()
         error = (tail[-1] if tail else f"exit code {code}")[:1000]
-    run.update(set__status=status, set__metrics=rows, set__epoch=len(rows), set__log_tail=_tail(log_path),
+    run.update(set__status=status, set__metrics=rows, set__epoch=len(rows), set__log_tail=log_tail,
                set__model_name=model_name, set__error=error, set__ended_at=now())
 
 

@@ -325,6 +325,8 @@ import TrainAugment from "@/components/TrainAugment.vue";
 import { parseArgValue, showValue } from "@/libs/trainArgs";
 
 const POLL_MS = 3000;
+// the output of the training that is open, while it runs
+const LIVE_MS = 1000;
 const MAIN_ARGS = ["epochs", "imgsz", "batch", "patience"];
 let uid = 0;
 
@@ -741,9 +743,23 @@ export default {
   },
   mounted() {
     this.load();
-    this.timer = setInterval(() => {
-      if (!document.hidden) this.poll();
-    }, POLL_MS);
+    let last = 0;
+    this.timer = setInterval(async () => {
+      if (document.hidden || this.ticking) return;
+      this.ticking = true;
+      try {
+        if (Date.now() - last >= POLL_MS) {
+          last = Date.now();
+          await this.poll();
+        } else if (this.detail && this.detail.status === "running") {
+          await this.loadDetail();
+        }
+      } catch {
+        // try again next time
+      } finally {
+        this.ticking = false;
+      }
+    }, LIVE_MS);
   },
   beforeUnmount() {
     clearInterval(this.timer);

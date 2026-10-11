@@ -208,3 +208,27 @@ def test_training(dataset_directory, tmp_path, monkeypatch):
     assert sorted(i["key"] for i in parsed["ignored"]) == ["bogus", "data", "model", "task"]
     assert t.post("/api/train/parse-args", data={"file": (io.BytesIO(b"- a\n- b\n"), "a.yaml")},
                   content_type="multipart/form-data").status_code == 400
+
+
+def test_log_follower(tmp_path):
+    """Progress bars (\\r ten times a second) keep only their last state."""
+    from trainer.runner import LogFollower
+    path = tmp_path / "train.log"
+    with open(path, "wb") as fp:
+        out = LogFollower(fp)
+        out.feed("Ultralytics 8.4 \x1b[1mCPU\x1b[0m\r\nepoch 1/2\n".encode())
+        for i in range(1, 2001):
+            out.feed(f"\r\x1b[K  1/2  {i}/2000 \u2501\u2501 loss {1 / i:.3f}".encode())
+            if i == 1000:
+                tail = out.tail()
+                assert tail.splitlines()[:2] == ["Ultralytics 8.4 CPU", "epoch 1/2"]
+                assert tail.splitlines()[-1].strip().startswith("1/2  1000/2000")
+        # a character cut in two between reads
+        data = "\n驗證完成\n".encode()
+        out.feed(data[:3])
+        out.feed(data[3:])
+        out.feed(b"")
+    lines = path.read_text().splitlines()
+    assert lines == ["Ultralytics 8.4 CPU", "epoch 1/2", "  1/2  2000/2000 \u2501\u2501 loss 0.001", "驗證完成"]
+    assert path.stat().st_size < 200
+    assert "\r" not in out.tail() and "\x1b" not in out.tail()
