@@ -19,6 +19,7 @@ from .util import query_util, thumbnails
 from .authentication import login_manager
 from .sockets import socketio
 from . import terminal  # noqa: F401  (web terminal socket events)
+from . import train_live  # noqa: F401  (a training's output, live)
 
 import requests
 import logging

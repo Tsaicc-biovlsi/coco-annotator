@@ -309,7 +309,7 @@
                 </div>
               </div>
               <div class="fw-semibold small mt-2 mb-1">{{ $t('train.log') }}</div>
-              <pre ref="log" class="train-log">{{ detail.log_tail || '…' }}</pre>
+              <pre ref="log" class="train-log">{{ logText || '…' }}</pre>
             </div>
           </div>
         </div>
@@ -348,6 +348,8 @@ export default {
       detail: null,
       timer: null,
       showAdvanced: false,
+      // the open run's output, pushed as it is written: {runId, lines, progress}
+      live: null,
       argsNote: "",
       uploadPct: null,
       form: {
@@ -425,6 +427,13 @@ export default {
       });
       return out;
     },
+    logText() {
+      if (this.live && this.live.runId === this.openId) {
+        const lines = this.live.progress ? [...this.live.lines, this.live.progress] : this.live.lines;
+        return lines.join("\n");
+      }
+      return this.detail ? this.detail.log_tail : "";
+    },
     /** own arguments with their values as they will be sent */
     typedArgs() {
       const out = {};
@@ -457,6 +466,9 @@ export default {
     },
     "form.kind"() {
       this.pickVariant();
+    },
+    openId(id) {
+      this.watchLive(id);
     },
     weightChoices(list) {
       if (this.form.pretrained && !list.some(c => c.value === this.form.pretrained)) this.form.pretrained = "";
@@ -644,6 +656,21 @@ export default {
         // try again next time
       }
     },
+    /** follow the open run's output live over the socket (the page's poll
+     *  still brings the status and the charts) */
+    watchLive(id) {
+      this.live = null;
+      if (id == null) {
+        this.$socket.emit("train_unwatch");
+        return;
+      }
+      this.$socket.emit("train_watch", { run_id: id }, ack => {
+        if (!ack || !ack.ok || this.openId !== id) return;
+        const atBottom = this.logAtBottom();
+        this.live = { runId: id, lines: ack.lines || [], progress: ack.progress || "" };
+        if (atBottom) this.$nextTick(() => this.scrollLog());
+      });
+    },
     async toggle(r) {
       if (this.openId === r.id) {
         this.openId = null;
@@ -751,7 +778,7 @@ export default {
         if (Date.now() - last >= POLL_MS) {
           last = Date.now();
           await this.poll();
-        } else if (this.detail && this.detail.status === "running") {
+        } else if (this.detail && this.detail.status === "running" && !this.live) {
           await this.loadDetail();
         }
       } catch {
@@ -761,8 +788,25 @@ export default {
       }
     }, LIVE_MS);
   },
+  sockets: {
+    train_log(data) {
+      if (!this.live || data.run_id !== this.live.runId) return;
+      const atBottom = this.logAtBottom();
+      if (data.lines && data.lines.length) {
+        const lines = this.live.lines.concat(data.lines);
+        this.live.lines = lines.length > 1000 ? lines.slice(-1000) : lines;
+      }
+      this.live.progress = data.progress || "";
+      if (atBottom) this.$nextTick(() => this.scrollLog());
+    },
+    connect() {
+      // a new socket: watch again
+      if (this.openId != null) this.watchLive(this.openId);
+    }
+  },
   beforeUnmount() {
     clearInterval(this.timer);
+    if (this.openId != null) this.$socket.emit("train_unwatch");
   }
 };
 </script>

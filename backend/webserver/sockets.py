@@ -220,6 +220,8 @@ def disconnect():
     # a web terminal of this page ends with it
     from .terminal import close_for
     close_for(request.sid)
+    from .train_live import close_for as stop_watching
+    stop_watching(request.sid)
     if current_user.is_authenticated:
         logger.info(f'Socket connection has been disconnected with {current_user.username}')
         sids = ONLINE.get(current_user.username)

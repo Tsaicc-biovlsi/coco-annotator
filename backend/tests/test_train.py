@@ -232,3 +232,69 @@ def test_log_follower(tmp_path):
     assert lines == ["Ultralytics 8.4 CPU", "epoch 1/2", "  1/2  2000/2000 \u2501\u2501 loss 0.001", "驗證完成"]
     assert path.stat().st_size < 200
     assert "\r" not in out.tail() and "\x1b" not in out.tail()
+
+
+def test_live_output(tmp_path, monkeypatch):
+    """The page watching a run gets its new lines and progress bar as written."""
+    from database import RoleModel, TrainRunModel
+    from webserver import app
+    from webserver.sockets import socketio
+    from webserver import train_live
+    from trainer import runner
+    monkeypatch.setenv("MODELS_DIRECTORY", str(tmp_path))
+    monkeypatch.setattr(train_live, "STATUS_SECONDS", 0.2)
+    RoleModel.objects(key="trainer").delete()
+    RoleModel(key="trainer", name="trainer", permissions=["train"]).save()
+    run = TrainRunModel(name="live", creator="tr_live", export_id=1, dataset_id=1, task="detect", status="running")
+    run.save()
+    work = runner.work_dir(run.id)
+    os.makedirs(work)
+    log = open(os.path.join(work, "train.log"), "ab")
+    log.write(b"$ yolo train\nUltralytics 8.4\n")
+    log.flush()
+    out = runner.LogFollower(log, os.path.join(work, "progress.txt"))
+
+    import socketio as python_socketio
+    queue_manager = socketio.server.manager
+    socketio.server.manager = python_socketio.Manager()
+    socketio.server.manager.set_server(socketio.server)
+    try:
+        s_plain = socketio.test_client(app, flask_test_client=_login("tr_live_plain"))
+        assert s_plain.emit("train_watch", {"run_id": run.id}, callback=True)["ok"] is False
+        s = socketio.test_client(app, flask_test_client=_login("tr_live", role="trainer"))
+        first = s.emit("train_watch", {"run_id": run.id}, callback=True)
+        assert first["ok"] and first["lines"] == ["$ yolo train", "Ultralytics 8.4"] and first["live"]
+
+        def received(until, seconds=5):
+            got, end = [], time.time() + seconds
+            while time.time() < end:
+                got += [m["args"][0] for m in s.get_received() if m["name"] == "train_log"]
+                if until(got):
+                    break
+                time.sleep(0.05)
+            return got
+
+        out.feed(b"epoch 1/2\n\r\x1b[K 1/2 3/10 \xe2\x94\x81")
+        got = received(lambda g: any(e["progress"] == "1/2 3/10 ━".rjust(len(e["progress"])) for e in g))
+        assert ["epoch 1/2"] == [l for e in got for l in e["lines"]]
+        assert got[-1]["progress"].strip() == "1/2 3/10 ━"
+        t0 = time.time()
+        out.feed(b"\r\x1b[K 1/2 4/10")
+        got = received(lambda g: any(e["progress"].strip() == "1/2 4/10" for e in g))
+        assert got and time.time() - t0 < 1  # live, not once a second
+        # a second page shares the watcher, without lines twice
+        s2 = socketio.test_client(app, flask_test_client=_login("tr_live2", role="trainer"))
+        assert s2.emit("train_watch", {"run_id": run.id}, callback=True)["lines"][-1] == "epoch 1/2"
+        out.feed(b"\ndone\n")
+        got = received(lambda g: any("done" in e["lines"] for e in g))
+        assert [l for e in got for l in e["lines"]] == ["1/2 4/10", "done"] or \
+            [l.strip() for e in got for l in e["lines"]] == ["1/2 4/10", "done"]
+        assert [m["args"][0]["lines"] for m in s2.get_received() if m["name"] == "train_log" and m["args"][0]["lines"]] \
+            == [[" 1/2 4/10", "done"]]
+        # finished: the watcher stops
+        run.update(set__status="done")
+        time.sleep(1)
+        assert run.id not in train_live.WATCHERS
+    finally:
+        socketio.server.manager = queue_manager
+    log.close()

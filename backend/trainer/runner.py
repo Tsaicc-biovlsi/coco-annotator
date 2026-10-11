@@ -136,8 +136,12 @@ class LogFollower:
     the log stays small and its end always has the lines before the bar
     (reading the end of the raw output would be one huge bar line)."""
 
-    def __init__(self, log_file):
+    def __init__(self, log_file, progress_path=None):
         self.log = log_file
+        # the progress bar's state, for the page to follow live (the log
+        # file only gets finished lines)
+        self.progress_path = progress_path
+        self._shown_progress = None
         self.lines = collections.deque(maxlen=400)
         self.current = ""
         self.version = 0
@@ -161,6 +165,22 @@ class LogFollower:
                 last = parts[-1] or (parts[-2] if len(parts) > 1 else "")
                 self.current = last if parts[-1] else last + "\r"
             self.version += 1
+            self._write_progress()
+
+    def _write_progress(self):
+        if not self.progress_path:
+            return
+        text = ANSI.sub("", self.current).strip("\r").rstrip()
+        if text == self._shown_progress:
+            return
+        self._shown_progress = text
+        try:
+            tmp = self.progress_path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as fp:
+                fp.write(text)
+            os.replace(tmp, self.progress_path)
+        except OSError:
+            pass
 
     def follow(self, stream):
         fd = stream.fileno()
@@ -176,6 +196,7 @@ class LogFollower:
                 self.log.write((line + "\n").encode())
                 self.log.flush()
             self.current = ""
+            self._write_progress()
 
     def tail(self):
         with self._lock:
@@ -219,7 +240,7 @@ def execute(run, command=None):
     with open(log_path, "ab") as log:
         log.write(("$ " + " ".join(cmd) + "\n").encode())
         log.flush()
-        out = LogFollower(log)
+        out = LogFollower(log, os.path.join(work, "progress.txt"))
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=work, env=env,
                                 start_new_session=True)
         reader = threading.Thread(target=out.follow, args=(proc.stdout,), daemon=True)
