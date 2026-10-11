@@ -146,6 +146,8 @@ def test_training(dataset_directory, tmp_path, monkeypatch):
     assert r.status_code == 200, r.data
     p = r.get_json()["params"]
     assert p["model"] == "yolo26s.yaml" and p["epochs"] == 7 and p["batch"] == 0.7
+    assert "export_augment" in p and p["export_augment"] is None  # the export was not augmented
+    assert "export_augment" in t.get(f"/api/train/{r.get_json()['id']}").get_json()["params"]
     assert p["extra"] == {"lr0": 0.002, "cos_lr": True, "freeze": [0, 1], "optimizer": "AdamW",
                           "pretrained": "yolo26n.pt"}
     cmd = runner.build_command(TrainRunModel.objects(id=r.get_json()["id"]).first(), "/d/data.yaml", "/out")

@@ -1761,5 +1761,42 @@
       "closed": "已登出",
       "lost": "與網站的連線中斷，終端機已關閉"
     }
+  },
+  "trainAug": {
+    "title": "資料增強",
+    "export": "匯出時",
+    "exportWhat": "（已經做好、存在 zip 裡的增強圖）",
+    "exportCopies": "每張訓練圖 +{n} 張：",
+    "exportCopiesAll": "每張圖 +{n} 張（含驗證／測試集）：",
+    "exportImages": "共 {n} 張增強圖",
+    "exportNone": "沒有：只有原圖。",
+    "train": "訓練時",
+    "trainWhat": "（Ultralytics 每一輪隨機套用，不會存檔）",
+    "off": "未啟用：",
+    "custom": "自訂",
+    "clickToEdit": "點一下修改",
+    "closeMosaic": "最後 {n} 輪關閉馬賽克（close_mosaic），讓模型適應正常的圖。",
+    "unknown": "訓練服務還沒回報 Ultralytics 的預設值。",
+    "overlap": "匯出和訓練時都會做：{list}（效果疊加；不想重複可在進階參數把訓練時的設成 0）。",
+    "editHint": "點增強項目可以在進階參數修改它的值。",
+    "arg": {
+      "mosaic": "馬賽克（4 張拼 1 張）",
+      "mixup": "MixUp 疊圖",
+      "cutmix": "CutMix 剪貼",
+      "copy_paste": "複製貼上物件",
+      "fliplr": "左右翻轉",
+      "flipud": "上下翻轉",
+      "degrees": "旋轉",
+      "translate": "平移",
+      "scale": "縮放",
+      "shear": "錯切",
+      "perspective": "透視",
+      "hsv_h": "色調",
+      "hsv_s": "飽和度",
+      "hsv_v": "亮度",
+      "bgr": "RGB↔BGR",
+      "auto_augment": "自動增強",
+      "erasing": "隨機擦除"
+    }
   }
 }

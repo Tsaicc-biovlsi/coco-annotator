@@ -168,6 +168,20 @@
             </div>
           </div>
 
+          <!-- augmentation: in the export, and while training -->
+          <div v-if="chosenExport" class="mt-3 border-top pt-2">
+            <div class="fw-semibold mb-1"><i class="fa fa-magic" /> {{ $t('trainAug.title') }}</div>
+            <TrainAugment
+              :export-augment="chosenExport.augment"
+              :defaults="catalog.args"
+              :extra="typedArgs"
+              :task="task"
+              editable
+              @edit="editArg"
+            />
+            <div class="small text-muted">{{ $t('trainAug.editHint') }}</div>
+          </div>
+
           <!-- any other Ultralytics argument -->
           <div v-if="exports.length" class="mt-3 border-top pt-2">
             <button type="button" class="btn btn-sm btn-link px-0 text-decoration-none fw-semibold" @click="showAdvanced = !showAdvanced">
@@ -276,6 +290,16 @@
               </div>
               <div v-if="detail.error" class="alert alert-danger py-2 small mb-2 text-break">{{ detail.error }}</div>
 
+              <div class="aug-detail mb-2">
+                <div class="fw-semibold small mb-1"><i class="fa fa-magic" /> {{ $t('trainAug.title') }}</div>
+                <TrainAugment
+                  :export-augment="detail.params.export_augment"
+                  :defaults="catalog.args"
+                  :extra="detail.params.extra || {}"
+                  :task="r.task"
+                />
+              </div>
+
               <div v-if="detail.metrics && detail.metrics.length" class="row g-2">
                 <div class="col-md-6">
                   <MetricChart :rows="detail.metrics" :keys="metricKeys(detail.metrics)" :title="$t('train.chartMetrics')" :fixed-max="1" />
@@ -297,6 +321,7 @@
 <script>
 import axios from "axios";
 import MetricChart from "@/components/MetricChart.vue";
+import TrainAugment from "@/components/TrainAugment.vue";
 import { parseArgValue, showValue } from "@/libs/trainArgs";
 
 const POLL_MS = 3000;
@@ -306,7 +331,7 @@ let uid = 0;
 /** Training YOLO models on the server (the trainer service runs them one at a time). */
 export default {
   name: "TrainPage",
-  components: { MetricChart },
+  components: { MetricChart, TrainAugment },
   data() {
     return {
       status: null,
@@ -398,6 +423,14 @@ export default {
       });
       return out;
     },
+    /** own arguments with their values as they will be sent */
+    typedArgs() {
+      const out = {};
+      this.filledArgs.forEach(r => {
+        if (!(r.key in out)) out[r.key] = parseArgValue(r.value);
+      });
+      return out;
+    },
     filledArgs() {
       return this.form.args.filter(r => r.key && String(r.value).trim() !== "");
     },
@@ -473,6 +506,24 @@ export default {
     addArg(key = "", value = "") {
       this.form.args.push({ uid: ++uid, key, value });
       this.showAdvanced = true;
+    },
+    /** change one argument (from the augmentation list): its row, or a new one */
+    editArg(key, value) {
+      let row = this.form.args.find(a => a.key === key);
+      if (!row) {
+        this.addArg(key, value);
+        row = this.form.args[this.form.args.length - 1];
+      }
+      this.showAdvanced = true;
+      this.$nextTick(() => {
+        const i = this.form.args.indexOf(row);
+        const el = this.$el.querySelectorAll(".arg-row .arg-value")[i];
+        if (el) {
+          el.focus();
+          el.select();
+          el.scrollIntoView({ block: "center", behavior: "smooth" });
+        }
+      });
     },
     argProblem(row, i) {
       if (!row.key) return "";
@@ -614,7 +665,7 @@ export default {
       try {
         const f = this.form;
         const extra = {};
-        this.filledArgs.forEach(r => (extra[r.key] = parseArgValue(r.value)));
+        Object.assign(extra, this.typedArgs);
         if (this.isYamlModel && f.pretrained) extra.pretrained = f.pretrained;
         const body = { export_id: f.export_id, epochs: f.epochs, imgsz: f.imgsz, batch: f.batch, patience: f.patience, name: f.name, source: f.source, extra };
         if (f.source === "models") body.base_model = f.base_model;
@@ -768,6 +819,12 @@ export default {
 .arg-value {
   flex: 1;
   font-family: Menlo, Consolas, monospace;
+}
+.aug-detail {
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: #fff;
 }
 .command {
   background: #f1f3f5;

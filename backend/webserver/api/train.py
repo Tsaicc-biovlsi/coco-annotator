@@ -457,7 +457,9 @@ class TrainRuns(Resource):
             params={'model': model, 'label': label, 'source': source,
                     'base_model': args.get('base_model') or None, 'upload_id': upload.id if upload else None,
                     'epochs': epochs, 'imgsz': imgsz, 'batch': batch, 'patience': patience,
-                    'extra': extra})
+                    'extra': extra,
+                    # what the export already did (kept: the export may be removed later)
+                    'export_augment': getattr(export, 'augment', None)})
         run.save()
         activity.record('train', current_user, dataset_id=export.dataset_id,
                         detail={'run': run.id, 'export_id': export.id, 'task': task, 'model': label,
@@ -475,7 +477,12 @@ class TrainRun(Resource):
         run = TrainRunModel.objects(id=run_id).first()
         if run is None:
             return {'message': 'Invalid run'}, 400
-        return run.to_dict(full=True)
+        out = run.to_dict(full=True)
+        params = out.setdefault('params', {}) or {}
+        if 'export_augment' not in params:  # runs queued before this was kept
+            export = ExportModel.objects(id=run.export_id).only('augment').first()
+            params['export_augment'] = getattr(export, 'augment', None) if export else None
+        return out
 
     @login_required
     def delete(self, run_id):

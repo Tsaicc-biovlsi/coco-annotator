@@ -1629,5 +1629,42 @@
       "closed": "Logged out",
       "lost": "Lost the connection to the site; the terminal closed"
     }
+  },
+  "trainAug": {
+    "title": "Augmentation",
+    "export": "At export",
+    "exportWhat": "(already made, in the zip)",
+    "exportCopies": "+{n} per training image:",
+    "exportCopiesAll": "+{n} per image (val / test too):",
+    "exportImages": "{n} augmented images",
+    "exportNone": "None: original images only.",
+    "train": "While training",
+    "trainWhat": "(Ultralytics, at random each epoch, nothing saved)",
+    "off": "Off:",
+    "custom": "custom",
+    "clickToEdit": "click to change",
+    "closeMosaic": "Mosaic off for the last {n} epochs (close_mosaic), so the model sees normal images.",
+    "unknown": "The trainer has not reported Ultralytics' defaults yet.",
+    "overlap": "Done at export and again while training: {list} (they add up; set the training one to 0 in Advanced arguments to avoid it).",
+    "editHint": "Click an augmentation to change its value in Advanced arguments.",
+    "arg": {
+      "mosaic": "Mosaic (4 in 1)",
+      "mixup": "MixUp",
+      "cutmix": "CutMix",
+      "copy_paste": "Copy-paste objects",
+      "fliplr": "Horizontal flip",
+      "flipud": "Vertical flip",
+      "degrees": "Rotation",
+      "translate": "Translate",
+      "scale": "Scale",
+      "shear": "Shear",
+      "perspective": "Perspective",
+      "hsv_h": "Hue",
+      "hsv_s": "Saturation",
+      "hsv_v": "Brightness",
+      "bgr": "RGB↔BGR",
+      "auto_augment": "Auto augment",
+      "erasing": "Random erasing"
+    }
   }
 }
