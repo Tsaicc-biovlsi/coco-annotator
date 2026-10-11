@@ -298,3 +298,41 @@ def test_live_output(tmp_path, monkeypatch):
     finally:
         socketio.server.manager = queue_manager
     log.close()
+
+
+def test_steps(tmp_path, monkeypatch):
+    """Points within each epoch, from the progress bar: kept by the trainer,
+    given by the API (thinned out), pushed live."""
+    import json
+    from database import RoleModel, TrainRunModel
+    from trainer import runner
+    monkeypatch.setenv("MODELS_DIRECTORY", str(tmp_path))
+    monkeypatch.setattr(runner, "STEP_SECONDS", 0)
+    RoleModel.objects(key="trainer").delete()
+    RoleModel(key="trainer", name="trainer", permissions=["train"]).save()
+    run = TrainRunModel(name="steps", creator="tr_steps", export_id=1, dataset_id=1, task="detect", status="running")
+    run.save()
+    work = runner.work_dir(run.id)
+    os.makedirs(work)
+    steps = os.path.join(work, "steps.jsonl")
+    with open(os.path.join(work, "train.log"), "ab") as log:
+        out = runner.LogFollower(log, os.path.join(work, "progress.txt"), steps)
+        out.feed(b"      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size\n")
+        for e in (1, 2):
+            for b in range(1, 11):
+                bar = f"\r\x1b[K{e:>11}/2      1.5G      {2 / (e * b):.3f}      0.900      1.100         12        640: {b * 10}% ━━ {b}/10 3it/s"
+                out.feed(bar.encode())
+            out.feed(b"\n")
+            out.feed("                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100% ━━ 1/1\n".encode())
+    points = [json.loads(l) for l in open(steps)]
+    assert len(points) == 20 and points[0] == {"box_loss": 2.0, "cls_loss": 0.9, "dfl_loss": 1.1, "x": 0.1, "gpu_mem": 1.5}
+    assert points[9]["x"] == 1.0 and points[-1]["x"] == 2.0 and points[-1]["box_loss"] == 0.1
+
+    t = _login("tr_steps", role="trainer")
+    got = t.get(f"/api/train/{run.id}/steps").get_json()
+    assert got["total"] == 20 and got["points"] == points
+    from webserver.api import train as train_api
+    monkeypatch.setattr(train_api, "MAX_STEPS", 4)
+    thin = t.get(f"/api/train/{run.id}/steps").get_json()["points"]
+    assert len(thin) < 20 and {1.0, 2.0} <= {p["x"] for p in thin}  # epoch ends kept
+    assert _login("tr_steps_plain").get(f"/api/train/{run.id}/steps").status_code == 403

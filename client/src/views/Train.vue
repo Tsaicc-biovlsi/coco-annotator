@@ -300,14 +300,25 @@
                 />
               </div>
 
-              <div v-if="detail.metrics && detail.metrics.length" class="row g-2">
-                <div class="col-md-6">
-                  <MetricChart :rows="detail.metrics" :keys="metricKeys(detail.metrics)" :title="$t('train.chartMetrics')" :fixed-max="1" />
+              <template v-if="chartGroups.length">
+                <div class="d-flex align-items-center gap-2 small mb-1 flex-wrap">
+                  <span class="fw-semibold"><i class="fa fa-line-chart" /> {{ $t('train.curves') }}</span>
+                  <span v-if="steps.points.length" class="text-muted">{{ $t('train.stepsCount', { n: steps.total }) }}</span>
+                  <label class="ms-auto d-flex align-items-center gap-2 mb-0" for="trainSmoothing">
+                    {{ $t('train.smoothing') }}
+                    <input id="trainSmoothing" v-model.number="smoothing" type="range" min="0" max="0.99" step="0.01" class="form-range smoothing" />
+                    <span class="text-muted smoothing-value">{{ smoothing.toFixed(2) }}</span>
+                  </label>
                 </div>
-                <div class="col-md-6">
-                  <MetricChart :rows="detail.metrics" :keys="lossKeys(detail.metrics)" :title="$t('train.chartLoss')" />
+                <div v-for="g in chartGroups" :key="g.key" class="mb-2">
+                  <div class="small text-muted mb-1">{{ g.title }}</div>
+                  <div class="row g-2">
+                    <div v-for="c in g.charts" :key="c.key" class="col-xl-4 col-md-6">
+                      <ScalarChart :title="c.title" :hint="c.hint" :series="c.series" :smoothing="smoothing" />
+                    </div>
+                  </div>
                 </div>
-              </div>
+              </template>
               <div class="fw-semibold small mt-2 mb-1">{{ $t('train.log') }}</div>
               <pre ref="log" class="train-log">{{ logText || '…' }}</pre>
             </div>
@@ -320,7 +331,7 @@
 
 <script>
 import axios from "axios";
-import MetricChart from "@/components/MetricChart.vue";
+import ScalarChart from "@/components/ScalarChart.vue";
 import TrainAugment from "@/components/TrainAugment.vue";
 import { parseArgValue, showValue } from "@/libs/trainArgs";
 
@@ -330,10 +341,30 @@ const LIVE_MS = 1000;
 const MAIN_ARGS = ["epochs", "imgsz", "batch", "patience"];
 let uid = 0;
 
+const SMOOTHING_KEY = "train.smoothing";
+const COLORS = { batch: "#2a78d6", train: "#2a78d6", val: "#e8590c" };
+const PG_COLORS = ["#1a9e6e", "#8a5cd1", "#d6336c"];
+const METRIC_ORDER = ["precision", "recall", "mAP50", "mAP50-95", "accuracy_top1", "accuracy_top5"];
+const MAX_STEPS = 8000;
+
+function readSmoothing() {
+  try {
+    const v = parseFloat(localStorage.getItem(SMOOTHING_KEY));
+    return Number.isFinite(v) ? Math.min(0.99, Math.max(0, v)) : 0.6;
+  } catch {
+    return 0.6;
+  }
+}
+
+/** keep a long list of points light: every other one (each epoch's end stays) */
+function thin(points) {
+  return points.filter((p, i) => i % 2 === 0 || i === points.length - 1 || Number.isInteger(p.x));
+}
+
 /** Training YOLO models on the server (the trainer service runs them one at a time). */
 export default {
   name: "TrainPage",
-  components: { MetricChart, TrainAugment },
+  components: { ScalarChart, TrainAugment },
   data() {
     return {
       status: null,
@@ -350,6 +381,9 @@ export default {
       showAdvanced: false,
       // the open run's output, pushed as it is written: {runId, lines, progress}
       live: null,
+      // points within the epochs (progress bar) of the open run
+      steps: { runId: null, points: [], total: 0 },
+      smoothing: readSmoothing(),
       argsNote: "",
       uploadPct: null,
       form: {
@@ -427,6 +461,77 @@ export default {
       });
       return out;
     },
+    /** charts like TensorBoard: metrics, losses (within each epoch too),
+     *  learning rate, GPU memory */
+    chartGroups() {
+      if (!this.detail) return [];
+      const rows = this.detail.metrics || [];
+      const keys = [...new Set(rows.flatMap(r => Object.keys(r)))];
+      const steps = this.steps.runId === this.openId ? this.steps.points : [];
+      const byEpoch = key => rows.filter(r => r[key] != null).map((r, i) => [r.epoch != null ? r.epoch : i + 1, r[key]]);
+      const suffix = { B: this.$t("train.curve.box"), M: this.$t("train.curve.mask"), P: this.$t("train.curve.pose") };
+      const groups = [];
+
+      const metrics = keys
+        .filter(k => k.startsWith("metrics/"))
+        .map(k => {
+          const m = k.match(/^metrics\/(.*?)(?:\((\w)\))?$/);
+          return { key: k, name: m[1], kind: m[2] };
+        })
+        .sort((a, b) => (a.kind || "").localeCompare(b.kind || "") || (METRIC_ORDER.indexOf(a.name) + 1 || 99) - (METRIC_ORDER.indexOf(b.name) + 1 || 99));
+      if (metrics.length) {
+        groups.push({
+          key: "metrics",
+          title: this.$t("train.curve.metrics"),
+          charts: metrics.map(m => ({
+            key: m.key,
+            title: m.name,
+            hint: [m.kind && suffix[m.kind], this.$te("train.curve.hint." + m.name) ? this.$t("train.curve.hint." + m.name) : ""].filter(Boolean).join(" · "),
+            series: [{ name: this.$t("train.curve.val"), color: COLORS.val, points: byEpoch(m.key), dots: true }]
+          }))
+        });
+      }
+
+      const losses = keys.filter(k => k.startsWith("train/")).map(k => k.slice(6));
+      if (losses.length) {
+        groups.push({
+          key: "losses",
+          title: this.$t("train.curve.losses"),
+          charts: losses.map(name => {
+            const series = [];
+            const batch = steps.filter(p => p[name] != null).map(p => [p.x, p[name]]);
+            if (batch.length) series.push({ name: this.$t("train.curve.batch"), color: COLORS.batch, points: batch });
+            else series.push({ name: this.$t("train.curve.train"), color: COLORS.train, points: byEpoch("train/" + name), dots: true });
+            if (keys.includes("val/" + name)) {
+              series.push({ name: this.$t("train.curve.val"), color: COLORS.val, points: byEpoch("val/" + name), dots: true });
+            }
+            return { key: name, title: name, hint: this.$te("train.curve.hint." + name) ? this.$t("train.curve.hint." + name) : "", series };
+          })
+        });
+      }
+
+      const other = [];
+      const lrs = keys.filter(k => k.startsWith("lr/")).sort();
+      if (lrs.length) {
+        other.push({
+          key: "lr",
+          title: "lr",
+          hint: this.$t("train.curve.hint.lr"),
+          series: lrs.map((k, i) => ({ name: k.slice(3), color: PG_COLORS[i % PG_COLORS.length], points: byEpoch(k) }))
+        });
+      }
+      const mem = steps.filter(p => p.gpu_mem != null).map(p => [p.x, p.gpu_mem]);
+      if (mem.some(p => p[1] > 0)) {
+        other.push({ key: "gpu", title: "gpu_mem", hint: this.$t("train.curve.hint.gpu_mem"), series: [{ name: "GB", color: "#495057", points: mem }] });
+      }
+      const times = byEpoch("time");
+      if (times.length > 1) {
+        const perEpoch = times.map((p, i) => [p[0], i ? p[1] - times[i - 1][1] : p[1]]);
+        other.push({ key: "time", title: "time", hint: this.$t("train.curve.hint.time"), series: [{ name: "s", color: "#a07c00", points: perEpoch, dots: true }] });
+      }
+      if (other.length) groups.push({ key: "other", title: this.$t("train.curve.other"), charts: other });
+      return groups;
+    },
     logText() {
       if (this.live && this.live.runId === this.openId) {
         const lines = this.live.progress ? [...this.live.lines, this.live.progress] : this.live.lines;
@@ -469,6 +574,15 @@ export default {
     },
     openId(id) {
       this.watchLive(id);
+      this.steps = { runId: id, points: [], total: 0 };
+      if (id != null) this.loadSteps(id);
+    },
+    smoothing(v) {
+      try {
+        localStorage.setItem(SMOOTHING_KEY, String(v));
+      } catch {
+        // not kept
+      }
     },
     weightChoices(list) {
       if (this.form.pretrained && !list.some(c => c.value === this.form.pretrained)) this.form.pretrained = "";
@@ -635,6 +749,7 @@ export default {
       const r = await axios.get(`/api/train/${this.openId}`);
       const atBottom = this.logAtBottom();
       this.detail = r.data;
+      if (r.data.status === "running" && !this.live) this.loadSteps(r.data.id);
       if (atBottom) this.$nextTick(() => this.scrollLog());
     },
     logAtBottom() {
@@ -654,6 +769,17 @@ export default {
         }
       } catch {
         // try again next time
+      }
+    },
+    async loadSteps(id) {
+      try {
+        const r = await axios.get(`/api/train/${id}/steps`);
+        if (this.openId !== id) return;
+        // points pushed meanwhile come after the ones of the answer
+        const after = this.steps.runId === id ? this.steps.points.filter(p => !r.data.points.length || p.x > r.data.points[r.data.points.length - 1].x) : [];
+        this.steps = { runId: id, points: r.data.points.concat(after), total: r.data.total + after.length };
+      } catch {
+        // no points
       }
     },
     /** follow the open run's output live over the socket (the page's poll
@@ -759,14 +885,6 @@ export default {
       const name = /accuracy/.test(key) ? "top-1" : "mAP50-95";
       return `${name} ${row[key].toFixed(3)}`;
     },
-    metricKeys(rows) {
-      const keys = Object.keys(rows[rows.length - 1] || {});
-      return keys.filter(k => k.startsWith("metrics/"));
-    },
-    lossKeys(rows) {
-      const keys = Object.keys(rows[rows.length - 1] || {});
-      return keys.filter(k => /loss/.test(k));
-    }
   },
   mounted() {
     this.load();
@@ -797,6 +915,11 @@ export default {
         this.live.lines = lines.length > 1000 ? lines.slice(-1000) : lines;
       }
       this.live.progress = data.progress || "";
+      if (data.steps && data.steps.length && this.steps.runId === data.run_id) {
+        let points = this.steps.points.concat(data.steps);
+        if (points.length > MAX_STEPS) points = thin(points);
+        this.steps = { runId: data.run_id, points, total: this.steps.total + data.steps.length };
+      }
       if (atBottom) this.$nextTick(() => this.scrollLog());
     },
     connect() {
@@ -885,6 +1008,13 @@ export default {
   border-radius: 8px;
   padding: 6px 10px;
   background: #fff;
+}
+.smoothing {
+  width: 140px;
+}
+.smoothing-value {
+  width: 2.5em;
+  font-variant-numeric: tabular-nums;
 }
 .command {
   background: #f1f3f5;

@@ -1,6 +1,7 @@
 """A training's output, live: the page watching a run gets each new line
 and the progress bar as the trainer writes them (shared models folder),
 over its socket. Needs the "train" permission."""
+import json
 import os
 import threading
 import time
@@ -26,6 +27,46 @@ def room(run_id):
     return f"train:{run_id}"
 
 
+class _Tail:
+    """New whole lines of a file that only grows."""
+
+    def __init__(self, path):
+        self.path = path
+        self.offset = None
+        self.partial = b""
+
+    def new_lines(self):
+        try:
+            size = os.path.getsize(self.path)
+        except OSError:
+            return []
+        if self.offset is None or size < self.offset:  # started again
+            self.offset, self.partial = 0, b""
+        if size == self.offset:
+            return []
+        with open(self.path, "rb") as fp:
+            fp.seek(self.offset)
+            data = fp.read(size - self.offset)
+        self.offset = size
+        data = self.partial + data
+        *done, self.partial = data.split(b"\n")
+        return [line.decode("utf-8", "replace") for line in done]
+
+
+def read_steps(path):
+    out = []
+    try:
+        with open(path, encoding="utf-8") as fp:
+            for line in fp:
+                try:
+                    out.append(json.loads(line))
+                except ValueError:
+                    pass
+    except OSError:
+        pass
+    return out
+
+
 class Watcher:
     """Follows one run's files while someone watches it (one thread per run,
     shared by every page watching it)."""
@@ -38,6 +79,7 @@ class Watcher:
         self.offset = None
         self.partial = b""
         self.progress = None
+        self.steps = _Tail(os.path.join(work_dir(run_id), "steps.jsonl"))
 
     def snapshot(self, end=None):
         """The end of the output so far (up to ``end``), and where to go on from."""
@@ -92,11 +134,17 @@ class Watcher:
                     return
             with _LOCK:
                 lines = self.new_lines()
+                steps = []
+                for line in self.steps.new_lines():
+                    try:
+                        steps.append(json.loads(line))
+                    except ValueError:
+                        pass
             progress = self.read_progress() if running else ""
-            if lines or progress != self.progress:
+            if lines or steps or progress != self.progress:
                 self.progress = progress
-                socketio.emit('train_log', {'run_id': self.run_id, 'lines': lines, 'progress': progress},
-                              room=room(self.run_id))
+                socketio.emit('train_log', {'run_id': self.run_id, 'lines': lines, 'progress': progress,
+                                            'steps': steps}, room=room(self.run_id))
             if time.monotonic() - last_status > STATUS_SECONDS:
                 last_status = time.monotonic()
                 run = TrainRunModel.objects(id=self.run_id).only('status').first()
@@ -136,6 +184,11 @@ def train_watch(data):
         watcher.sids.add(sid)
         if start:
             lines, watcher.offset = watcher.snapshot()
+            # points so far come from the API; new ones from here
+            try:
+                watcher.steps.offset = os.path.getsize(watcher.steps.path)
+            except OSError:
+                watcher.steps.offset = 0
         else:
             # up to where the running thread is: it sends what comes after
             lines, _ = watcher.snapshot((watcher.offset or 0) - len(watcher.partial))

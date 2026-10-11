@@ -501,6 +501,30 @@ class TrainRun(Resource):
         return {'success': True}
 
 
+MAX_STEPS = 4000
+
+
+@api.route('/<int:run_id>/steps')
+class TrainRunSteps(Resource):
+
+    @login_required
+    def get(self, run_id):
+        """ The losses within each epoch (from the progress bar), at most
+        4000 points (each epoch's end always kept) """
+        if not _allowed():
+            return {'message': 'No permission to train models'}, 403
+        if TrainRunModel.objects(id=run_id).only('id').first() is None:
+            return {'message': 'Invalid run'}, 400
+        from ..train_live import read_steps
+        points = read_steps(os.path.join(work_dir(run_id), 'steps.jsonl'))
+        total = len(points)
+        if total > MAX_STEPS:
+            every = -(-total // MAX_STEPS)
+            points = [p for i, p in enumerate(points)
+                      if i % every == 0 or i == total - 1 or float(p.get('x', 0)).is_integer()]
+        return {'points': points, 'total': total}
+
+
 @api.route('/<int:run_id>/stop')
 class TrainRunStop(Resource):
 

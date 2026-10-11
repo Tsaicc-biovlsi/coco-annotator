@@ -5,6 +5,7 @@ import codecs
 import collections
 import csv
 import datetime
+import json
 import logging
 import os
 import re
@@ -130,14 +131,46 @@ def _read_results(path):
     return rows
 
 
+_BAR_HEAD = re.compile(r"^\s*Epoch\s+GPU_mem\s+(.*?)\s+Instances\s+Size\s*$")
+_BAR = re.compile(r"^\s*(\d+)/(\d+)\s+([\d.]+)([KMGT]?)B?\s+(.*?):\s*(\d+)%.*?\s(\d+)/(\d+)")
+STEP_SECONDS = 0.2
+
+
+def parse_step(text, losses):
+    """A training progress bar line ("  3/100  2.1G  1.23  0.98 ...  640: 45% ━━ 9/20")
+    as a point: x = epochs done (2.45), the losses so far in this epoch, GPU
+    memory (GB). None for other lines (validation bars, …)."""
+    m = _BAR.match(text)
+    if not m or not losses:
+        return None
+    epoch, _, mem, unit, rest, _, batch, batches = m.groups()
+    values = rest.split()
+    if len(values) != len(losses) + 2:  # + instances, size
+        return None
+    try:
+        point = {k: float(v) for k, v in zip(losses, values)}
+        batch, batches = int(batch), int(batches)
+    except ValueError:
+        return None
+    point["x"] = round(int(epoch) - 1 + (batch / batches if batches else 0), 4)
+    point["gpu_mem"] = round(float(mem) * {"K": 1e-6, "M": 1e-3, "G": 1, "T": 1e3}.get(unit, 1), 3)
+    return point
+
+
 class LogFollower:
     """Reads the training's output as it comes. Progress bars rewrite their
     line with \r ten times a second: only the line's last state is kept, so
     the log stays small and its end always has the lines before the bar
     (reading the end of the raw output would be one huge bar line)."""
 
-    def __init__(self, log_file, progress_path=None):
+    def __init__(self, log_file, progress_path=None, steps_path=None):
         self.log = log_file
+        # each state of the training progress bar: the losses within an
+        # epoch (results.csv only has one value per epoch)
+        self.steps_path = steps_path
+        self.losses = []
+        self._last_step = None
+        self._last_step_at = 0
         # the progress bar's state, for the page to follow live (the log
         # file only gets finished lines)
         self.progress_path = progress_path
@@ -157,6 +190,7 @@ class LogFollower:
                 line = ANSI.sub("", line).split("\r")[-1].rstrip()
                 self.lines.append(line)
                 self.log.write((line + "\n").encode())
+                self._step(line, final=True)
             if done:
                 self.log.flush()
             # keep only the bar's last state (escape codes may be cut: strip at the end)
@@ -167,10 +201,33 @@ class LogFollower:
             self.version += 1
             self._write_progress()
 
+    def _step(self, text, final=False):
+        if not self.steps_path:
+            return
+        head = _BAR_HEAD.match(text)
+        if head:
+            self.losses = head.group(1).split()
+            return
+        point = parse_step(text, self.losses)
+        if point is None:
+            return
+        now = time.monotonic()
+        # a point when the bar moved, at most five a second (the epoch's end always)
+        last = self._last_step or {}
+        if point == last or (not final and (point["x"] == last.get("x") or now - self._last_step_at < STEP_SECONDS)):
+            return
+        self._last_step, self._last_step_at = point, now
+        try:
+            with open(self.steps_path, "a", encoding="utf-8") as fp:
+                fp.write(json.dumps(point) + "\n")
+        except OSError:
+            pass
+
     def _write_progress(self):
         if not self.progress_path:
             return
         text = ANSI.sub("", self.current).strip("\r").rstrip()
+        self._step(text)
         if text == self._shown_progress:
             return
         self._shown_progress = text
@@ -229,6 +286,9 @@ def execute(run, command=None):
         out_dir = os.path.join(work, "runs")
         # nothing left from an earlier run with this number
         shutil.rmtree(out_dir, ignore_errors=True)
+        for old in ("steps.jsonl", "progress.txt"):
+            if os.path.exists(os.path.join(work, old)):
+                os.remove(os.path.join(work, old))
         cmd = (command or build_command)(run, data, out_dir)
     except Exception as e:  # nothing started: say why
         run.update(set__status="failed", set__error=str(e)[:1000], set__ended_at=now())
@@ -240,7 +300,7 @@ def execute(run, command=None):
     with open(log_path, "ab") as log:
         log.write(("$ " + " ".join(cmd) + "\n").encode())
         log.flush()
-        out = LogFollower(log, os.path.join(work, "progress.txt"))
+        out = LogFollower(log, os.path.join(work, "progress.txt"), os.path.join(work, "steps.jsonl"))
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=work, env=env,
                                 start_new_session=True)
         reader = threading.Thread(target=out.follow, args=(proc.stdout,), daemon=True)
