@@ -384,6 +384,11 @@ def execute(run, command=None):
         reader.join(timeout=10)
         proc.stdout.close()
         log_tail = out.tail()
+    run.reload("delete_requested")
+    if run.delete_requested:  # removed while it ran: nothing kept
+        shutil.rmtree(work, ignore_errors=True)
+        run.delete()
+        return
     rows = _read_results(results)
     best = os.path.join(out_dir, "train", "weights", "best.pt")
     model_name = None
@@ -477,7 +482,10 @@ def recover():
     """Runs left "running" when the trainer stopped (server restarted, power
     cut…): queued again to go on from their last finished epoch, else failed."""
     for run in TrainRunModel.objects(status="running"):
-        if os.path.isfile(last_weights(run.id)) and (run.epoch or 0) < (run.epochs or 0):
+        if run.delete_requested:
+            shutil.rmtree(work_dir(run.id), ignore_errors=True)
+            run.delete()
+        elif os.path.isfile(last_weights(run.id)) and (run.epoch or 0) < (run.epochs or 0):
             queue_resume(run, "")
             logger.info("run %s resumes after epoch %s", run.id, run.epoch)
         else:

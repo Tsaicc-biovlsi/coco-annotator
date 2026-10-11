@@ -21,6 +21,8 @@ class TrainRunModel(DynamicDocument):
     params = DictField(default=dict)
     status = StringField(default='queued')
     stop_requested = BooleanField(default=False)
+    #: removed as soon as the trainer has stopped it
+    delete_requested = BooleanField(default=False)
     epoch = IntField(default=0)
     epochs = IntField(default=0)
     #: one row per finished epoch (columns of Ultralytics' results.csv)
@@ -42,7 +44,7 @@ class TrainRunModel(DynamicDocument):
             'id': self.id, 'name': self.name, 'creator': self.creator, 'export_id': self.export_id,
             'dataset_id': self.dataset_id, 'dataset_names': list(self.dataset_names or []),
             'task': self.task, 'params': dict(self.params or {}), 'status': self.status,
-            'stop_requested': bool(self.stop_requested), 'epoch': self.epoch, 'epochs': self.epochs,
+            'stop_requested': bool(self.stop_requested), 'delete_requested': bool(self.delete_requested), 'epoch': self.epoch, 'epochs': self.epochs,
             'model_name': self.model_name, 'error': self.error,
             'created_at': iso(self.created_at), 'started_at': iso(self.started_at), 'ended_at': iso(self.ended_at),
             'last': (self.metrics or [None])[-1],

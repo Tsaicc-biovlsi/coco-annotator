@@ -153,6 +153,25 @@ def test_training(dataset_directory, tmp_path, monkeypatch):
     stopped = TrainRunModel.objects(id=r2["id"]).first()
     assert stopped.status == "stopped" and 0 < stopped.epoch < 50
 
+    # removing a running one: stopped, then gone (no model kept)
+    monkeypatch.setenv("FAKE_EPOCH_SECONDS", "0.3")
+    r4 = t.post("/api/train/", json={"export_id": eid, "epochs": 50}).get_json()
+    claimed = runner.claim_next()
+    worker = threading.Thread(target=runner.execute, args=(claimed,), kwargs={"command": _fake_command(str(script))})
+    worker.start()
+    time.sleep(1)
+    assert _login("tr_other3", role="trainer").delete(f"/api/train/{r4['id']}").status_code == 403
+    assert t.delete(f"/api/train/{r4['id']}").get_json() == {"success": True, "deleting": True}
+    worker.join(timeout=20)
+    assert TrainRunModel.objects(id=r4["id"]).first() is None
+    assert not os.path.exists(runner.work_dir(r4["id"]))
+    assert not (models / f"trained/tr_ds-detect-run{r4['id']}.pt").exists()
+    # a queued one goes at once
+    r5 = t.post("/api/train/", json={"export_id": eid}).get_json()
+    assert t.delete(f"/api/train/{r5['id']}").get_json() == {"success": True}
+    assert TrainRunModel.objects(id=r5["id"]).first() is None
+    monkeypatch.setenv("FAKE_EPOCH_SECONDS", "0")
+
     # a queued one is simply cancelled; finished ones can be removed
     assert t.get(f"/api/train/{r2['id']}").get_json()["archive"]["size"] > 0  # a stopped one too
 

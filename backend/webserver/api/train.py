@@ -521,16 +521,24 @@ class TrainRun(Resource):
 
     @login_required
     def delete(self, run_id):
-        """ Remove a finished run (its working files; a trained model stays) """
+        """ Remove a run and its working files (a model already saved to the
+        models folder stays). A running one is stopped first and removed by
+        the trainer then, without saving a model. """
         if not _allowed():
             return {'message': 'No permission to train models'}, 403
         run = TrainRunModel.objects(id=run_id).first()
         if run is None:
             return {'message': 'Invalid run'}, 400
-        if run.status in ('queued', 'running'):
-            return {'message': 'Stop it first'}, 400
         if run.creator != current_user.username and not current_user.is_admin:
             return {'message': 'Only its creator or an admin can remove it'}, 403
+        if run.status == 'running':
+            run.update(set__stop_requested=True, set__delete_requested=True)
+            return {'success': True, 'deleting': True}
+        if run.status == 'queued':
+            # not started: gone now (unless the trainer just took it)
+            if not TrainRunModel.objects(id=run.id, status='queued').update_one(set__status='stopped'):
+                run.update(set__stop_requested=True, set__delete_requested=True)
+                return {'success': True, 'deleting': True}
         shutil.rmtree(work_dir(run.id), ignore_errors=True)
         run.delete()
         return {'success': True}

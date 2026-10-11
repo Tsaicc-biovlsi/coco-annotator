@@ -89,7 +89,7 @@
                     <button type="button" class="btn btn-outline-secondary" @click="toggleEdit(m)">
                       <i class="fa fa-pencil" /> {{ $t('models.edit') }}
                     </button>
-                    <a class="btn btn-outline-secondary" :href="`/api/model/yolo/model/${encodeURIComponent(m.name)}/download`">
+                    <a class="btn btn-outline-secondary" :href="`${modelUrl(m.name)}/download`">
                       <i class="fa fa-download" /> {{ $t('models.download') }}
                     </a>
                     <button type="button" class="btn btn-outline-danger" @click="remove(m)">
@@ -176,6 +176,11 @@ export default {
     this.load();
   },
   methods: {
+    /** a model's API path: "trained/x.pt" keeps its "/" (an encoded %2F
+     *  is refused by many reverse proxies: 404) */
+    modelUrl(name) {
+      return "/api/model/yolo/model/" + name.split("/").map(encodeURIComponent).join("/");
+    },
     load() {
       this.loading = true;
       return axios
@@ -206,7 +211,7 @@ export default {
     async save(m, changes, closeEditor = false) {
       this.busy = { ...this.busy, [m.name]: true };
       try {
-        const r = await axios.put(`/api/model/yolo/model/${encodeURIComponent(m.name)}`, changes);
+        const r = await axios.put(this.modelUrl(m.name), changes);
         Object.assign(m, r.data.model);
         if (closeEditor) this.toggleEdit(m);
         this.$toastr.success(this.$t("models.saved", { name: m.display_name || m.name }));
@@ -221,7 +226,7 @@ export default {
     async remove(m) {
       if (!confirm(this.$t("modelRun.confirmDelete", { name: m.name }))) return;
       try {
-        await axios.delete(`/api/model/yolo/model/${encodeURIComponent(m.name)}`);
+        await axios.delete(this.modelUrl(m.name));
         this.$toastr.success(this.$t("modelRun.deleted", { name: m.name }));
         await this.load();
       } catch (error) {
