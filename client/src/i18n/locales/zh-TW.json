@@ -1702,7 +1702,7 @@
     "toModels": "前往模型頁",
     "log": "訓練輸出",
     "queued": "已加入排隊：#{id}",
-    "stopConfirm": "停止這個訓練？到目前為止最好的權重仍會存到「模型」頁。",
+    "stopConfirm": "停止這個訓練？到目前為止最好的權重仍會存到「模型」頁，之後也可以從停下的地方繼續。",
     "removeConfirm": "刪除訓練紀錄 #{id}？（已存到「模型」頁的模型不會刪除）",
     "augmented": "含增強",
     "trainThis": "用這份訓練",
@@ -1781,7 +1781,11 @@
       "howHint": "Ultralytics 用這個分數（fitness）挑 best.pt；分割／姿態會把框和遮罩／關鍵點的分數相加"
     },
     "download": "下載訓練結果 .zip",
-    "downloadHint": "runs/train 底下的全部：weights/best.pt、last.pt、results.csv、args.yaml、各種圖（混淆矩陣、PR 曲線、訓練圖片範例）和訓練輸出"
+    "downloadHint": "runs/train 底下的全部：weights/best.pt、last.pt、results.csv、args.yaml、各種圖（混淆矩陣、PR 曲線、訓練圖片範例）和訓練輸出",
+    "resume": "從第 {n} 輪之後繼續",
+    "resumeHint": "用最後完成那一輪的權重和狀態（last.pt）接著訓練，參數和資料都不變",
+    "resumeQueued": "#{id} 已排隊，會從中斷處繼續",
+    "resumed": "已從中斷處繼續 {n} 次（伺服器重新啟動時會自動接續）"
   },
   "terminal": {
     "title": "終端機",

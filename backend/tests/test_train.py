@@ -9,15 +9,26 @@ from webserver.util.passwords import hash_password
 FAKE = r'''
 import csv, os, sys, time
 args = dict(a.split("=", 1) for a in sys.argv[1:] if "=" in a)
-out = os.path.join(args["project"], args["name"])
-os.makedirs(os.path.join(out, "weights"), exist_ok=True)
-epochs = int(args["epochs"])
-assert os.path.exists(args["data"]), args["data"]
-with open(os.path.join(out, "results.csv"), "w", newline="") as fp:
+if "resume" in args:  # go on: runs/train/weights/last.pt
+    out = os.path.dirname(os.path.dirname(args["resume"]))
+    epochs = int(open(os.path.join(out, "epochs.txt")).read())
+    done = len(open(os.path.join(out, "results.csv")).read().splitlines()) - 1
+    mode = "a"
+    print(f"Resuming from epoch {done + 1}", flush=True)
+else:
+    out = os.path.join(args["project"], args["name"])
+    os.makedirs(os.path.join(out, "weights"), exist_ok=True)
+    epochs = int(args["epochs"])
+    assert os.path.exists(args["data"]), args["data"]
+    open(os.path.join(out, "epochs.txt"), "w").write(str(epochs))
+    done, mode = 0, "w"
+with open(os.path.join(out, "results.csv"), mode, newline="") as fp:
     w = csv.writer(fp)
-    w.writerow(["                  epoch", "      train/box_loss", "   metrics/mAP50(B)", " metrics/mAP50-95(B)"])
-    for e in range(1, epochs + 1):
+    if mode == "w":
+        w.writerow(["                  epoch", "      train/box_loss", "   metrics/mAP50(B)", " metrics/mAP50-95(B)"])
+    for e in range(done + 1, epochs + 1):
         w.writerow([e, 1.0 / e, 0.1 * e, 0.3 if e == 2 else 0.1]); fp.flush()
+        open(os.path.join(out, "weights", "last.pt"), "wb").write(b"last")
         print(f"\x1b[K\x1b[1mepoch {e}/{epochs}\x1b[0m", flush=True)
         time.sleep(float(os.environ.get("FAKE_EPOCH_SECONDS", "0")))
 open(os.path.join(out, "weights", "best.pt"), "wb").write(b"weights")
@@ -48,6 +59,9 @@ def _login(username, role=None):
 def _fake_command(script):
     def build(run, data, out_dir):
         p = run.params
+        if p.get("resume"):
+            from trainer import runner
+            return [sys.executable, script, f"resume={runner.last_weights(run.id)}"]
         return [sys.executable, script, f"data={data}", f"epochs={p['epochs']}", f"project={out_dir}", "name=train"]
     return build
 
@@ -141,6 +155,40 @@ def test_training(dataset_directory, tmp_path, monkeypatch):
 
     # a queued one is simply cancelled; finished ones can be removed
     assert t.get(f"/api/train/{r2['id']}").get_json()["archive"]["size"] > 0  # a stopped one too
+
+    # go on from where it stopped
+    monkeypatch.setenv("FAKE_EPOCH_SECONDS", "0")
+    assert t.get(f"/api/train/{r2['id']}").get_json()["resumable"] is True
+    assert plain.post(f"/api/train/{r2['id']}/resume").status_code == 403
+    assert _login("tr_other2", role="trainer").post(f"/api/train/{r2['id']}/resume").status_code == 403
+    steps = os.path.join(runner.work_dir(r2["id"]), "steps.jsonl")
+    stopped_at = TrainRunModel.objects(id=r2["id"]).first().epoch
+    with open(steps, "w") as fp:
+        fp.write('{"x": 0.5}\n{"x": %d}\n{"x": %d.5}\n' % (stopped_at, stopped_at))
+    resumed = t.post(f"/api/train/{r2['id']}/resume").get_json()
+    assert resumed["status"] == "queued" and resumed["params"]["resume"] and resumed["params"]["resumes"] == 1
+    claimed = runner.claim_next()
+    assert claimed.id == r2["id"]
+    runner.execute(claimed, command=_fake_command(str(script)))
+    again = t.get(f"/api/train/{r2['id']}").get_json()
+    assert again["status"] == "done", again
+    assert [m["epoch"] for m in again["metrics"]] == list(range(1, 51))  # no epoch twice, none missing
+    assert "resumed after epoch" in again["log_tail"] and again["resumable"] is False
+    assert open(steps).read() == '{"x": 0.5}\n{"x": %d}\n' % stopped_at  # the cut-off epoch's points go
+    assert t.post(f"/api/train/{r2['id']}/resume").status_code == 400  # finished: nothing to resume
+    assert t.post(f"/api/train/{run['id']}/resume").status_code == 400
+
+    # the trainer stopped in the middle (server restarted): queued again, to go on
+    from database import TrainRunModel as Runs
+    Runs.objects(id=r2["id"]).update_one(set__status="running", set__epoch=10)
+    no_weights = Runs(name="x", creator="tr_owner", export_id=eid, dataset_id=ds, task="detect",
+                      status="running", epochs=5)
+    no_weights.save()
+    runner.recover()
+    assert Runs.objects(id=r2["id"]).first().status == "queued"
+    assert Runs.objects(id=r2["id"]).first().params["resumes"] == 2
+    assert Runs.objects(id=no_weights.id).first().status == "failed"
+    Runs.objects(id=r2["id"]).update_one(set__status="done")
     r3 = t.post("/api/train/", json={"export_id": eid}).get_json()
     assert t.get(f"/api/train/{r3['id']}/download").status_code == 400  # not finished
     assert t.post(f"/api/train/{r3['id']}/stop").get_json()["status"] == "stopped"

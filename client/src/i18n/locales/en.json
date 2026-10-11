@@ -1570,7 +1570,7 @@
     "toModels": "Models page",
     "log": "Output",
     "queued": "Queued: #{id}",
-    "stopConfirm": "Stop this training? The best weights so far still go to the Models page.",
+    "stopConfirm": "Stop this training? The best weights so far still go to the Models page, and it can be resumed later.",
     "removeConfirm": "Remove training #{id}? (A model saved to the Models page stays)",
     "augmented": "augmented",
     "trainThis": "Train on this",
@@ -1649,7 +1649,11 @@
       "howHint": "Ultralytics picks best.pt by this score (fitness); segmentation / pose add up the box and mask / keypoint scores"
     },
     "download": "Download results .zip",
-    "downloadHint": "Everything in runs/train: weights/best.pt, last.pt, results.csv, args.yaml, plots (confusion matrix, PR curves, batch samples) and the output"
+    "downloadHint": "Everything in runs/train: weights/best.pt, last.pt, results.csv, args.yaml, plots (confusion matrix, PR curves, batch samples) and the output",
+    "resume": "Resume after epoch {n}",
+    "resumeHint": "Go on with the last finished epoch's weights and state (last.pt), same arguments and data",
+    "resumeQueued": "#{id} queued to resume",
+    "resumed": "Resumed {n} times (a server restart resumes it by itself)"
   },
   "terminal": {
     "title": "Terminal",

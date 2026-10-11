@@ -15,7 +15,8 @@ from werkzeug.datastructures import FileStorage
 
 from database import DatasetModel, ExportModel, TrainRunModel, TrainerStatusModel, TrainUploadModel
 from trainer import catalog as model_catalog
-from trainer.runner import TASK_SUFFIX, archive_path, package, safe_name, uploads_dir, work_dir
+from trainer.runner import (TASK_SUFFIX, archive_path, package, queue_resume, resumable, safe_name,
+                            uploads_dir, work_dir)
 from ..util import activity
 
 api = Namespace('train', description='Train models on the server')
@@ -407,6 +408,7 @@ class TrainRuns(Resource):
             d['queue_position'] = queued.index(r.id) + 1 if r.id in queued else None
             d['best'] = _best(r, weights)
             d['archive'] = _archive(r)
+            d['resumable'] = resumable(r)
             out.append(d)
         return {'runs': out}
 
@@ -509,6 +511,7 @@ class TrainRun(Resource):
         out = run.to_dict(full=True)
         out['best'] = _best(run, _fitness_weights())
         out['archive'] = _archive(run)
+        out['resumable'] = resumable(run)
         out['fitness_weights'] = _fitness_weights()
         params = out.setdefault('params', {}) or {}
         if 'export_augment' not in params:  # runs queued before this was kept
@@ -531,6 +534,29 @@ class TrainRun(Resource):
         shutil.rmtree(work_dir(run.id), ignore_errors=True)
         run.delete()
         return {'success': True}
+
+
+@api.route('/<int:run_id>/resume')
+class TrainRunResume(Resource):
+
+    @login_required
+    def post(self, run_id):
+        """ Go on from the last finished epoch of a stopped or failed training
+        (queued again; same arguments, same data) """
+        if not _allowed():
+            return {'message': 'No permission to train models'}, 403
+        run = TrainRunModel.objects(id=run_id).first()
+        if run is None:
+            return {'message': 'Invalid run'}, 400
+        if run.creator != current_user.username and not current_user.is_admin:
+            return {'message': 'Only its creator or an admin can resume it'}, 403
+        if not resumable(run):
+            return {'message': 'Nothing to resume: no finished epoch, or it reached its epochs'}, 400
+        queue_resume(run)
+        activity.record('train', current_user, dataset_id=run.dataset_id,
+                        detail={'run': run.id, 'resume': True, 'after_epoch': run.epoch},
+                        text=f"{run.name} resume")
+        return TrainRunModel.objects(id=run.id).first().to_dict()
 
 
 @api.route('/<int:run_id>/download')

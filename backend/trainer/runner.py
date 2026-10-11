@@ -88,9 +88,42 @@ def _value(v):
     return str(v)
 
 
+def last_weights(run_id):
+    return os.path.join(work_dir(run_id), "runs", "train", "weights", "last.pt")
+
+
+def _trim_steps(path, epochs_done):
+    """Points of the epoch that was cut off go: it is trained again."""
+    if not os.path.isfile(path):
+        return
+    keep = []
+    with open(path, encoding="utf-8") as fp:
+        for line in fp:
+            try:
+                if json.loads(line).get("x", 0) <= epochs_done:
+                    keep.append(line)
+            except ValueError:
+                pass
+    with open(path, "w", encoding="utf-8") as fp:
+        fp.writelines(keep)
+
+
+def resumable(run):
+    """Can go on from where it stopped: the last epoch's weights are there
+    and it did not reach its epochs."""
+    return (run.status in ("failed", "stopped") and os.path.isfile(last_weights(run.id))
+            and (run.epoch or 0) < (run.epochs or 0))
+
+
 def build_command(run, data, out_dir):
     """The Ultralytics command line (replaced in tests)."""
     p = run.params or {}
+    if p.get("resume"):
+        # on from the last finished epoch: Ultralytics takes everything else
+        # (arguments, data, where it writes) from the checkpoint
+        return [sys.executable, "-c", "from ultralytics.cfg import entrypoint; entrypoint()",
+                run.task or "detect", "train", f"model={last_weights(run.id)}",
+                f"resume={last_weights(run.id)}"]
     args = [
         f"model={_weights(p.get('model') or '')}", f"data={data}", f"epochs={int(p.get('epochs', 100))}",
         f"imgsz={int(p.get('imgsz', 640))}", f"batch={p.get('batch', -1)}",
@@ -279,16 +312,29 @@ def execute(run, command=None):
     work = work_dir(run.id)
     log_path = os.path.join(work, "train.log")
     try:
-        if export is None or not export.path or not os.path.isfile(export.path):
-            raise ValueError("the export file no longer exists")
-        os.makedirs(work, exist_ok=True)
-        data = _unpack(export, os.path.join(work, "data"), run.task)
+        resume = bool((run.params or {}).get("resume"))
         out_dir = os.path.join(work, "runs")
-        # nothing left from an earlier run with this number
-        shutil.rmtree(out_dir, ignore_errors=True)
-        for old in ("steps.jsonl", "progress.txt"):
-            if os.path.exists(os.path.join(work, old)):
-                os.remove(os.path.join(work, old))
+        if resume:
+            # the data as it was unpacked (the export may be gone since)
+            if not os.path.isfile(last_weights(run.id)):
+                raise ValueError("no weights of a finished epoch to resume from")
+            _trim_steps(os.path.join(work, "steps.jsonl"), run.epoch or 0)
+            if os.path.isdir(os.path.join(work, "data")):
+                data = None
+            elif export is None or not export.path or not os.path.isfile(export.path):
+                raise ValueError("the unpacked data and the export are both gone")
+            else:
+                data = _unpack(export, os.path.join(work, "data"), run.task)
+        else:
+            if export is None or not export.path or not os.path.isfile(export.path):
+                raise ValueError("the export file no longer exists")
+            os.makedirs(work, exist_ok=True)
+            data = _unpack(export, os.path.join(work, "data"), run.task)
+            # nothing left from an earlier run with this number
+            shutil.rmtree(out_dir, ignore_errors=True)
+            for old in ("steps.jsonl", "progress.txt", "results.zip"):
+                if os.path.exists(os.path.join(work, old)):
+                    os.remove(os.path.join(work, old))
         cmd = (command or build_command)(run, data, out_dir)
     except Exception as e:  # nothing started: say why
         run.update(set__status="failed", set__error=str(e)[:1000], set__ended_at=now())
@@ -297,10 +343,14 @@ def execute(run, command=None):
     # online: Ultralytics downloads the base weights the first time
     env = dict(os.environ, PYTHONUNBUFFERED="1")
     env.pop("YOLO_OFFLINE", None)
+    if resume and os.path.exists(archive_path(run.id)):
+        os.remove(archive_path(run.id))  # packed again at the end
     with open(log_path, "ab") as log:
         log.write(("$ " + " ".join(cmd) + "\n").encode())
         log.flush()
         out = LogFollower(log, os.path.join(work, "progress.txt"), os.path.join(work, "steps.jsonl"))
+        if resume:
+            out.feed(f"--- resumed after epoch {run.epoch} ---\n".encode())
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=work, env=env,
                                 start_new_session=True)
         reader = threading.Thread(target=out.follow, args=(proc.stdout,), daemon=True)
@@ -413,12 +463,31 @@ def _device_name():
         return "CPU"
 
 
+def queue_resume(run, reason=""):
+    """Queue a run again, to go on from its last finished epoch."""
+    params = dict(run.params or {})
+    params["resume"] = True
+    params["resumes"] = int(params.get("resumes") or 0) + 1
+    return TrainRunModel.objects(id=run.id, status__in=["running", "failed", "stopped"]).update_one(
+        set__status="queued", set__params=params, set__stop_requested=False, set__error=reason,
+        set__ended_at=None)
+
+
+def recover():
+    """Runs left "running" when the trainer stopped (server restarted, power
+    cut…): queued again to go on from their last finished epoch, else failed."""
+    for run in TrainRunModel.objects(status="running"):
+        if os.path.isfile(last_weights(run.id)) and (run.epoch or 0) < (run.epochs or 0):
+            queue_resume(run, "")
+            logger.info("run %s resumes after epoch %s", run.id, run.epoch)
+        else:
+            run.update(set__status="failed", set__error="the trainer restarted during this training",
+                       set__ended_at=datetime.datetime.utcnow())
+
+
 def serve():
     """Run queued trainings, forever."""
-    # a run left "running" by a restart did not finish
-    TrainRunModel.objects(status="running").update(
-        set__status="failed", set__error="the trainer restarted during this training",
-        set__ended_at=datetime.datetime.utcnow())
+    recover()
     device = _device_name()
     from .catalog import build
     heartbeat(device, build())

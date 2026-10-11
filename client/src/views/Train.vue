@@ -281,6 +281,15 @@
                     <i class="fa fa-stop" />
                     {{ r.status === 'queued' ? $t('train.cancel') : r.stop_requested ? $t('train.stopping') : $t('train.stop') }}
                   </button>
+                  <button
+                    v-if="detail.resumable && (r.creator === ($store.state.user.user || {}).username || $store.getters['user/isAdmin'])"
+                    type="button"
+                    class="btn btn-sm btn-primary"
+                    :title="$t('train.resumeHint')"
+                    @click="resume(r)"
+                  >
+                    <i class="fa fa-play" /> {{ $t('train.resume', { n: r.epoch }) }}
+                  </button>
                   <a
                     v-if="detail.archive"
                     class="btn btn-sm btn-success"
@@ -291,7 +300,7 @@
                     <i class="fa fa-download" /> {{ $t('train.download') }}
                     <span v-if="detail.archive.size" class="opacity-75">（{{ fmtSize(detail.archive.size) }}）</span>
                   </a>
-                  <button v-else type="button" class="btn btn-sm btn-outline-secondary" @click="remove(r)">
+                  <button v-if="r.status !== 'running' && r.status !== 'queued'" type="button" class="btn btn-sm btn-outline-secondary" @click="remove(r)">
                     <i class="fa fa-trash" /> {{ $t('train.remove') }}
                   </button>
                 </span>
@@ -302,6 +311,9 @@
                 <RouterLink class="ms-2" to="/models">{{ $t('train.toModels') }}</RouterLink>
               </div>
               <div v-if="detail.error" class="alert alert-danger py-2 small mb-2 text-break">{{ detail.error }}</div>
+              <div v-if="detail.params.resumes" class="small text-muted mb-2">
+                <i class="fa fa-history" /> {{ $t('train.resumed', { n: detail.params.resumes }) }}
+              </div>
 
               <div class="aug-detail mb-2">
                 <div class="fw-semibold small mb-1"><i class="fa fa-magic" /> {{ $t('trainAug.title') }}</div>
@@ -886,6 +898,16 @@ export default {
         this.$toastr.error(data.message || String(error));
       } finally {
         this.busy = false;
+      }
+    },
+    async resume(r) {
+      try {
+        await axios.post(`/api/train/${r.id}/resume`);
+        this.$toastr.success(this.$t("train.resumeQueued", { id: r.id }));
+        await this.loadRuns();
+      } catch (error) {
+        const data = (error.response && error.response.data) || {};
+        this.$toastr.error(data.message || String(error));
       }
     },
     async stop(r) {
