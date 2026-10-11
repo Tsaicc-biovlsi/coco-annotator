@@ -245,7 +245,7 @@
             <div class="run-head" role="button" @click="toggle(r)">
               <span class="badge" :class="statusClass(r.status)">{{ $t('train.status.' + r.status) }}</span>
               <span class="fw-semibold text-truncate run-name">#{{ r.id }} {{ r.name }}</span>
-              <span class="small text-muted text-nowrap">{{ $t('yolo.' + r.task) }} · {{ modelLabel(r) }}</span>
+              <span class="small text-muted text-nowrap run-model" :title="modelLabel(r)">{{ $t('yolo.' + r.task) }} · {{ modelLabel(r) }}</span>
               <span class="run-progress">
                 <span class="progress" style="height: 8px">
                   <span class="progress-bar" :class="r.status === 'failed' ? 'bg-danger' : 'bg-success'" :style="{ width: pct(r) + '%' }" />
@@ -259,7 +259,7 @@
                 <i class="fa fa-star text-warning" /> {{ mainMetric(r.best.metrics) }} <span class="text-muted">@{{ r.best.epoch }}</span>
               </span>
               <span v-else class="small text-nowrap metric" :title="mainMetricKey(r.last) || ''">{{ mainMetric(r.last) }}</span>
-              <span class="small text-muted text-nowrap d-none d-md-inline">{{ r.creator }}</span>
+              <span class="small text-muted text-nowrap d-none d-md-inline creator">{{ r.creator }}</span>
               <i class="fa" :class="openId === r.id ? 'fa-chevron-up' : 'fa-chevron-down'" />
             </div>
 
@@ -1143,9 +1143,29 @@ export default {
   display: flex;
 }
 .metric {
-  width: 120px;
+  /* "★ mAP50-95 0.387 @12": as wide as it needs, the name gives way */
+  flex: none;
+  min-width: 120px;
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+.run-head > * {
+  flex-shrink: 0;
+}
+.run-head > .run-name,
+.run-head > .run-model {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.run-head > .run-model {
+  flex-shrink: 3;
+}
+.creator {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .run-body {
   padding: 4px 4px 12px;
