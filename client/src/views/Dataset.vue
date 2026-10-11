@@ -30,7 +30,7 @@
         </a>
       </nav>
     
-      <div class="bg-light text-start" style="overflow: auto; height: calc(100vh - 100px); margin: 10px">
+      <div class="bg-light text-start" style="overflow: auto; height: calc(var(--vh) - 104px); margin: 10px">
         <div class="page-container" v-show="tab == 'images'">
           
           <ol class="breadcrumb">
@@ -1159,7 +1159,7 @@ export default {
 }
 
 .sidebar {
-  height: 100%;
+  height: var(--vh);
   position: fixed;
   color: white;
   z-index: 1;
@@ -1180,6 +1180,8 @@ export default {
 
 .sidebar-mobile {
   z-index: 1020;
+  overflow-y: auto;
+  padding-bottom: 24px;
   transform: translateX(-100%);
   transition: transform 0.2s ease;
   box-shadow: 2px 0 12px rgba(0, 0, 0, 0.3);

@@ -454,7 +454,7 @@ export default {
   width: 340px;
   max-width: calc(100vw - 36px);
   height: 480px;
-  max-height: calc(100vh - 36px);
+  max-height: calc(var(--vh) - 36px);
   display: flex;
   flex-direction: column;
   background: #fff;

@@ -1,7 +1,7 @@
 <template>
   <div>
     <div style="padding-top: 55px" />
-    <div class="bg-light train-page" style="overflow: auto; height: calc(100vh - 55px)">
+    <div class="bg-light train-page" style="overflow: auto; height: calc(var(--vh) - 55px)">
       <div class="page-container py-4">
         <div class="d-flex align-items-start flex-wrap gap-2 mb-3">
           <div class="me-auto">

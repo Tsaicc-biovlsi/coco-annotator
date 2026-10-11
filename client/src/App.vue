@@ -152,6 +152,24 @@ export default {
 @import "./assets/tagsStyle.css";
 @import "./assets/tooltip.css";
 
+/* the visible height: on phones 100vh also counts what the browser's own
+   bars (iPhone Safari's bottom toolbar) cover, so the end of a page could
+   not be scrolled to */
+:root {
+  --vh: 100vh;
+}
+@supports (height: 100dvh) {
+  :root {
+    --vh: 100dvh;
+  }
+}
+/* phones: room below the last thing on a page */
+@media (max-width: 767.98px) {
+  #app .page-container {
+    padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
 #app {
   font-family: "Avenir", Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;

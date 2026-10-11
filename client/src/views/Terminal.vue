@@ -192,7 +192,7 @@ export default {
 
 <style scoped>
 .terminal-page {
-  height: calc(100vh - 55px);
+  height: calc(var(--vh) - 55px);
   background: #f1f3f5;
   text-align: left;
 }

@@ -3,7 +3,7 @@
     <div style="padding-top: 55px" />
     <div
       class="album py-5 container"
-      style="overflow: auto; height: calc(100vh - 55px)"
+      style="overflow: auto; height: calc(var(--vh) - 55px)"
     >
       <div class="row">
         <div class="col-sm text-start">

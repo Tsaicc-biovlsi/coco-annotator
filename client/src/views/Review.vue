@@ -941,7 +941,7 @@ export default {
 <style scoped>
 .quick-review {
   background: #1f2430;
-  height: 100vh;
+  height: var(--vh);
   display: flex;
   flex-direction: column;
   text-align: left;
