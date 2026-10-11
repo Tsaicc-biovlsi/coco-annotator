@@ -825,7 +825,9 @@
     "augmented": "增強 +{n} 張（每張 ×{copies}）",
     "splitPartAug": "{name} {pct}%（{n} 張 + 增強 {extra} 張）",
     "cancelDownload": "取消下載",
-    "browserDownload": "檔案很大，交給瀏覽器下載（進度在瀏覽器的下載列）"
+    "browserDownload": "檔案很大，交給瀏覽器下載（進度在瀏覽器的下載列）",
+    "augScopeTrain": "只增強訓練集",
+    "augScopeAll": "訓練、驗證、測試集都增強"
   },
   "exportSplit": {
     "title": "切分成訓練 / 驗證 / 測試集",

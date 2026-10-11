@@ -116,6 +116,10 @@
                       >{{ part }}</div>
                       <div v-if="exp.augment" class="small text-muted lh-sm" :title="augmentTitle(exp.augment)">
                         <i class="fa fa-magic" /> {{ $t('exportList.augmented', { n: exp.augment.images, copies: exp.augment.copies }) }}
+                        <div class="aug-ops">
+                          <span v-for="op in augmentOps(exp.augment)" :key="op" class="aug-op">{{ op }}</span>
+                        </div>
+                        <div class="aug-scope">{{ $t(exp.augment.scope === 'all' ? 'exportList.augScopeAll' : 'exportList.augScopeTrain') }}</div>
                       </div>
                     </td>
                     <td class="text-center">
@@ -789,7 +793,17 @@ export default {
       }
     },
     augmentTitle(aug) {
-      return AUGMENT_OPS.filter(o => aug.ops && aug.ops[o.key]).map(o => this.$t("exportAugment.op." + o.key)).join("、");
+      return this.augmentOps(aug).join("、");
+    },
+    /** the augmentations of an export, with their amounts (±15°) */
+    augmentOps(aug) {
+      const ops = (aug && aug.ops) || {};
+      return AUGMENT_OPS.filter(o => ops[o.key]).map(o => {
+        let label = this.$t("exportAugment.op." + o.key);
+        if (o.key === "rotate" && typeof ops.rotate === "number") label += ` ±${ops.rotate}°`;
+        if (o.key === "scale" && typeof ops.scale === "number") label += ` ≥${Math.round(ops.scale * 100)}%`;
+        return label;
+      });
     },
     /** A running task: open it on the Tasks page, or just say it is still running */
     openTask(id) {
@@ -1179,4 +1193,25 @@ export default {
   padding: 0.6rem 0.75rem;
 }
 
+.aug-ops {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+  max-width: 220px;
+  margin: 2px auto 0;
+  white-space: normal;
+}
+.aug-op {
+  background: #e7f1ff;
+  color: #084298;
+  border-radius: 999px;
+  padding: 0 6px;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+.aug-scope {
+  font-size: 0.7rem;
+  white-space: normal;
+}
 </style>
