@@ -187,41 +187,15 @@
             <button type="button" class="btn btn-sm btn-link px-0 text-decoration-none fw-semibold" @click="showAdvanced = !showAdvanced">
               <i class="fa" :class="showAdvanced ? 'fa-caret-down' : 'fa-caret-right'" />
               {{ $t('train.advanced') }}
-              <span v-if="filledArgs.length" class="badge text-bg-primary ms-1">{{ filledArgs.length }}</span>
+              <span v-if="Object.keys(typedArgs).length" class="badge text-bg-primary ms-1">{{ Object.keys(typedArgs).length }}</span>
             </button>
             <div v-show="showAdvanced">
               <div class="small text-muted mb-2">
                 {{ $t('train.advancedHint') }}
                 <a href="https://docs.ultralytics.com/modes/train/#train-settings" target="_blank" rel="noopener">{{ $t('train.argsDocs') }} <i class="fa fa-external-link" /></a>
               </div>
-              <datalist id="trainArgNames">
-                <option v-for="(v, k) in argDefaults" :key="k" :value="k">{{ fmtDefault(v) }}</option>
-              </datalist>
-              <div v-for="(row, i) in form.args" :key="row.uid" class="arg-row">
-                <input
-                  v-model.trim="row.key"
-                  class="form-control form-control-sm arg-key"
-                  :class="{ 'is-invalid': argProblem(row, i) }"
-                  list="trainArgNames"
-                  :placeholder="$t('train.argName')"
-                  :title="argProblem(row, i) || ''"
-                  autocapitalize="off"
-                  spellcheck="false"
-                />
-                <span class="text-muted">=</span>
-                <input
-                  v-model="row.value"
-                  class="form-control form-control-sm arg-value"
-                  :placeholder="row.key in argDefaults ? $t('train.argDefault', { v: fmtDefault(argDefaults[row.key]) }) : $t('train.argValue')"
-                  autocapitalize="off"
-                  spellcheck="false"
-                />
-                <button type="button" class="btn btn-sm btn-outline-secondary" :title="$t('train.remove')" @click="form.args.splice(i, 1)">
-                  <i class="fa fa-times" />
-                </button>
-              </div>
+              <TrainArgsTable ref="argsTable" v-model="form.overrides" :defaults="catalog.args || {}" :exclude="TABLE_EXCLUDE" />
               <div class="d-flex flex-wrap gap-2 mt-2">
-                <button type="button" class="btn btn-sm btn-outline-primary" @click="addArg()"><i class="fa fa-plus" /> {{ $t('train.addArg') }}</button>
                 <button type="button" class="btn btn-sm btn-outline-secondary" @click="$refs.argsFile.click()">
                   <i class="fa fa-file-text-o" /> {{ $t('train.loadArgs') }}
                 </button>
@@ -377,13 +351,13 @@
 import axios from "axios";
 import ScalarChart from "@/components/ScalarChart.vue";
 import TrainAugment from "@/components/TrainAugment.vue";
+import TrainArgsTable from "@/components/TrainArgsTable.vue";
 import { parseArgValue, showValue } from "@/libs/trainArgs";
 
 const POLL_MS = 3000;
 // the output of the training that is open, while it runs
 const LIVE_MS = 1000;
 const MAIN_ARGS = ["epochs", "imgsz", "batch", "patience"];
-let uid = 0;
 
 const SMOOTHING_KEY = "train.smoothing";
 const COLORS = { batch: "#2a78d6", train: "#2a78d6", val: "#e8590c" };
@@ -408,7 +382,7 @@ function thin(points) {
 /** Training YOLO models on the server (the trainer service runs them one at a time). */
 export default {
   name: "TrainPage",
-  components: { ScalarChart, TrainAugment },
+  components: { ScalarChart, TrainAugment, TrainArgsTable },
   data() {
     return {
       status: null,
@@ -444,8 +418,11 @@ export default {
         batch: -1,
         patience: 50,
         name: "",
-        args: []
-      }
+        // training arguments changed from their defaults: {name: text}
+        overrides: {}
+      },
+      // the main ones have their own fields; pretrained is the weights choice
+      TABLE_EXCLUDE: [...MAIN_ARGS, "pretrained"]
     };
   },
   computed: {
@@ -495,14 +472,6 @@ export default {
         f.items.filter(i => i.kind === "pt" && i.task === this.task).forEach(i => out.push({ value: i.name, label: i.name }))
       );
       this.uploads.filter(u => u.kind === "pt").forEach(u => out.push({ value: `upload:${u.id}`, label: `${u.name} (${this.$t("train.fromUpload")})` }));
-      return out;
-    },
-    /** arguments that can be added (the main ones have their own fields) */
-    argDefaults() {
-      const out = {};
-      Object.entries(this.catalog.args || {}).forEach(([k, v]) => {
-        if (!MAIN_ARGS.includes(k)) out[k] = v;
-      });
       return out;
     },
     /** charts like TensorBoard: metrics, losses (within each epoch too),
@@ -605,13 +574,10 @@ export default {
     /** own arguments with their values as they will be sent */
     typedArgs() {
       const out = {};
-      this.filledArgs.forEach(r => {
-        if (!(r.key in out)) out[r.key] = parseArgValue(r.value);
+      Object.entries(this.form.overrides).forEach(([k, v]) => {
+        if (String(v).trim() !== "") out[k] = parseArgValue(v);
       });
       return out;
-    },
-    filledArgs() {
-      return this.form.args.filter(r => r.key && String(r.value).trim() !== "");
     },
     commandPreview() {
       const f = this.form;
@@ -621,7 +587,7 @@ export default {
         const w = this.weightChoices.find(c => c.value === f.pretrained);
         parts.push(`pretrained=${w ? w.label.replace(/ \(.*\)$/, "") : f.pretrained}`);
       }
-      this.filledArgs.forEach(r => parts.push(`${r.key}=${showValue(parseArgValue(r.value))}`));
+      Object.entries(this.typedArgs).forEach(([k, v]) => parts.push(`${k}=${showValue(v)}`));
       return parts.join(" ");
     }
   },
@@ -694,38 +660,11 @@ export default {
         this.variants[0];
       this.form.model = v ? v.name : "";
     },
-    addArg(key = "", value = "") {
-      this.form.args.push({ uid: ++uid, key, value });
-      this.showAdvanced = true;
-    },
-    /** change one argument (from the augmentation list): its row, or a new one */
+    /** change one argument (from the augmentation list) in the table */
     editArg(key, value) {
-      let row = this.form.args.find(a => a.key === key);
-      if (!row) {
-        this.addArg(key, value);
-        row = this.form.args[this.form.args.length - 1];
-      }
+      if (!(key in this.form.overrides)) this.form.overrides = { ...this.form.overrides, [key]: value };
       this.showAdvanced = true;
-      this.$nextTick(() => {
-        const i = this.form.args.indexOf(row);
-        const el = this.$el.querySelectorAll(".arg-row .arg-value")[i];
-        if (el) {
-          el.focus();
-          el.select();
-          el.scrollIntoView({ block: "center", behavior: "smooth" });
-        }
-      });
-    },
-    argProblem(row, i) {
-      if (!row.key) return "";
-      if ((this.catalog.blocked || []).includes(row.key) || (Object.keys(this.catalog.args || {}).length && !(row.key in this.catalog.args))) {
-        return this.$t("train.argUnknown");
-      }
-      if (this.form.args.some((r, j) => j < i && r.key === row.key)) return this.$t("train.argDup");
-      return "";
-    },
-    fmtDefault(v) {
-      return showValue(v);
+      this.$nextTick(() => this.$refs.argsTable && this.$refs.argsTable.focus(key));
     },
     fmtSize(bytes) {
       if (!bytes) return "0 B";
@@ -754,9 +693,7 @@ export default {
             this.form[k] = v;
             return;
           }
-          const row = this.form.args.find(a => a.key === k);
-          if (row) row.value = showValue(v);
-          else this.addArg(k, showValue(v));
+          this.form.overrides = { ...this.form.overrides, [k]: showValue(v) };
         });
         const ignored = (r.data.ignored || []).map(i => i.key);
         this.argsNote = this.$t("train.argsLoaded", { n }) + (ignored.length ? "；" + this.$t("train.argsIgnored", { list: ignored.join(", ") }) : "");
@@ -873,12 +810,6 @@ export default {
       this.scrollLog();
     },
     async start() {
-      const problem = this.form.args.map((r, i) => this.argProblem(r, i) && r.key).find(Boolean);
-      if (problem) {
-        this.showAdvanced = true;
-        this.$toastr.error(`${problem}: ${this.argProblem(this.form.args.find(r => r.key === problem), this.form.args.length)}`);
-        return;
-      }
       this.busy = true;
       try {
         const f = this.form;
@@ -1060,22 +991,6 @@ export default {
 .upload-row.on {
   background: #e7f1ff;
 }
-.arg-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 4px;
-  max-width: 640px;
-}
-.arg-key {
-  width: 200px;
-  flex: none;
-  font-family: Menlo, Consolas, monospace;
-}
-.arg-value {
-  flex: 1;
-  font-family: Menlo, Consolas, monospace;
-}
 .aug-detail {
   border: 1px solid #e9ecef;
   border-radius: 8px;
@@ -1210,9 +1125,6 @@ export default {
   .page-container {
     padding-left: 10px;
     padding-right: 10px;
-  }
-  .arg-key {
-    width: 40%;
   }
   .smoothing {
     width: 100px;
