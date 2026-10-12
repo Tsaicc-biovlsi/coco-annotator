@@ -253,6 +253,49 @@ class WorkerFail(Resource):
         return {}
 
 
+UPLOADS = ('best', 'archive')
+MAX_PART = 64 * 1024 * 1024
+
+
+def _upload_path(run_id, name):
+    return os.path.join(work_dir(run_id), f'{name}.upload')
+
+
+@api.route('/runs/<int:run_id>/part')
+class WorkerPart(Resource):
+
+    def post(self, run_id):
+        """ A piece of a result file (?file=best|archive&offset=N, the bytes
+        as the body): sent in pieces, so a proxy's upload limit does not
+        matter. Answers how much has arrived. """
+        worker = _worker()
+        if worker is None:
+            return _denied()
+        run = _run_of(worker, run_id)
+        name = request.args.get('file')
+        if run is None or name not in UPLOADS:
+            return {'message': 'Unknown run or file'}, 404
+        try:
+            offset = int(request.args.get('offset', 0))
+        except ValueError:
+            return {'message': 'offset'}, 400
+        data = request.get_data(cache=False)
+        if len(data) > MAX_PART:
+            return {'message': 'piece too large'}, 413
+        path = _upload_path(run.id, name)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        size = os.path.getsize(path) if os.path.exists(path) else 0
+        if offset == 0:
+            size = 0
+            open(path, 'wb').close()
+        if offset != size:  # a piece missing or sent twice: say where to go on
+            return {'size': size, 'resend': True}
+        with open(path, 'ab') as fp:
+            fp.write(data)
+        heartbeat(name=worker.name, kind='remote', run_id=run.id)
+        return {'size': size + len(data)}
+
+
 @api.route('/runs/<int:run_id>/finish')
 class WorkerFinish(Resource):
 
@@ -279,22 +322,40 @@ class WorkerFinish(Resource):
             data = {}
         rows = [r for r in data.get('metrics') or [] if isinstance(r, dict)]
         status = data.get('status') if data.get('status') in ('done', 'stopped', 'failed') else 'failed'
+        # the files: sent before in pieces (data "uploaded": {name: size}),
+        # or with this request
+        uploaded = data.get('uploaded') if isinstance(data.get('uploaded'), dict) else {}
+
+        def received(name):
+            path = _upload_path(run.id, name)
+            if name in uploaded and os.path.isfile(path) and os.path.getsize(path) == uploaded[name]:
+                return path
+            return None
+
         model_name = None
-        best = request.files.get('best')
-        if best is not None and rows:
+        best, best_part = request.files.get('best'), received('best')
+        if (best is not None or best_part) and rows:
             name = f"{safe_name('+'.join(run.dataset_names or ['model']))}-{run.task}-run{run.id}.pt"
             target = os.path.join(models_dir(), 'trained')
             os.makedirs(target, exist_ok=True)
-            best.save(os.path.join(target, name))
+            if best_part:
+                shutil.move(best_part, os.path.join(target, name))
+            else:
+                best.save(os.path.join(target, name))
             model_name = f'trained/{name}'
         if status == 'done' and not model_name:
             status = 'failed'
-        archive = request.files.get('archive')
-        if archive is not None:
+        archive, archive_part = request.files.get('archive'), received('archive')
+        if archive_part:
+            os.replace(archive_part, archive_path(run.id))
+        elif archive is not None:
             os.makedirs(work, exist_ok=True)
             tmp = archive_path(run.id) + '.part'
             archive.save(tmp)
             os.replace(tmp, archive_path(run.id))
+        for name in UPLOADS:  # pieces not used
+            if os.path.exists(_upload_path(run.id, name)):
+                os.remove(_upload_path(run.id, name))
         progress = os.path.join(work, 'progress.txt')
         if os.path.exists(progress):
             os.remove(progress)

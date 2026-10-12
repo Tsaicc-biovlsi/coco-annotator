@@ -433,7 +433,9 @@ class _TestSite:
         self.h = {"X-Worker-Token": token}
 
     def post(self, path, json_body=None, timeout=30, data=None, files=None):
-        if files is not None or data is not None:
+        if isinstance(data, bytes):
+            r = self.c.post(f"/api/worker/{path}", data=data, headers=self.h)
+        elif files is not None or data is not None:
             form = dict(data or {})
             for key, (name, fp) in (files or {}).items():
                 form[key] = (fp, name)
@@ -630,31 +632,56 @@ def test_other_servers(dataset_directory, tmp_path, monkeypatch):
     TrainRunModel.objects(id=slow["id"]).update_one(set__status="stopped")
 
 
-def test_worker_upload_too_large(tmp_path, monkeypatch):
-    """A proxy refusing the results zip as too large: the model still goes,
-    and the worker keeps its files."""
-    import requests
+def test_worker_upload_in_pieces(tmp_path, monkeypatch):
+    """Results go back in pieces (a proxy's upload limit does not matter);
+    a piece that fails is sent again; nothing is removed if it never arrives."""
     from types import SimpleNamespace
     from trainer import runner, worker
     monkeypatch.setenv("MODELS_DIRECTORY", str(tmp_path))
     monkeypatch.setattr(worker, "RETRY_SECONDS", 0)
-    run = SimpleNamespace(id=777, task="detect", params={}, epoch=3, epochs=3, dataset_names=["x"])
-    train = os.path.join(runner.work_dir(777), "runs", "train", "weights")
-    os.makedirs(train)
-    best = os.path.join(train, "best.pt")
-    open(best, "wb").write(b"w")
-    sent = []
+    monkeypatch.setattr(worker, "PART_BYTES", 4)
+    run = SimpleNamespace(id=778, task="detect", params={}, epoch=3, epochs=3, dataset_names=["x"])
+    weights = os.path.join(runner.work_dir(778), "runs", "train", "weights")
+    os.makedirs(weights)
+    best = os.path.join(weights, "best.pt")
+    open(best, "wb").write(b"0123456789")
+    got, ends = {}, []
 
     class Site:
+        flaky = 1
+
         def post(self, path, json_body=None, timeout=30, data=None, files=None):
+            if "/part?" in path:
+                name = path.split("file=")[1].split("&")[0]
+                offset = int(path.split("offset=")[1])
+                if name == "best" and offset == 4 and self.flaky:
+                    self.flaky -= 1
+                    raise ConnectionError("dropped")
+                buf = got.setdefault(name, b"")
+                if offset == len(buf):
+                    got[name] = buf + data
+                return {"size": len(got[name])}
             if path.endswith("/finish"):
-                sent.append(sorted(files))
-                if "archive" in files:
-                    response = SimpleNamespace(status_code=413)
-                    raise requests.HTTPError("413 Request Entity Too Large", response=response)
+                ends.append(data["data"])
             return {}
 
-    io = worker.RemoteIO(Site(), {"id": 777}, run)
+    io = worker.RemoteIO(Site(), {"id": 778}, run)
     io.finish("done", [{"epoch": 1}], "", "", best, False)
-    assert sent == [["archive", "best"], ["best"]]
-    assert os.path.isfile(runner.archive_path(777))  # not delivered: kept here
+    assert got["best"] == b"0123456789" and len(got["archive"]) > 0
+    assert '"uploaded": {"best": 10' in ends[0]
+    assert not os.path.exists(runner.work_dir(778))  # all there: removed here
+
+    # a site that never takes the pieces: the files stay here
+    run.id = 779
+    os.makedirs(os.path.join(runner.work_dir(779), "runs", "train", "weights"))
+    best = os.path.join(runner.work_dir(779), "runs", "train", "weights", "best.pt")
+    open(best, "wb").write(b"w")
+
+    class Refusing(Site):
+        def post(self, path, json_body=None, timeout=30, data=None, files=None):
+            if "/part?" in path:
+                raise ConnectionError("refused")
+            return {}
+
+    worker.RemoteIO(Refusing(), {"id": 779}, run).finish("done", [{"epoch": 1}], "", "", best, False)
+    assert os.path.isfile(best)

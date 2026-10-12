@@ -23,6 +23,8 @@ from .runner import (POLL_SECONDS, _unpack, archive_path, execute, last_weights,
 logger = logging.getLogger("trainer.worker")
 
 RETRY_SECONDS = 10
+# results go back in pieces of this size (a proxy may refuse large uploads)
+PART_BYTES = 8 * 1024 * 1024
 # exports kept here, so training on one again needs no new download
 CACHE_GB = float(os.getenv("WORKER_CACHE_GB", "30"))
 HEARTBEAT_SECONDS = 10
@@ -255,48 +257,61 @@ class RemoteIO:
             package(self.run)
         except Exception as e:
             logger.warning("could not pack run %s: %s", self.run.id, e)
-        data = json.dumps({"status": status, "metrics": rows, "log_tail": log_tail, "error": error,
-                           "has_last": has_last})
         archive = archive_path(self.run.id) if os.path.isfile(archive_path(self.run.id)) else None
-        # everything; if that is refused as too large (a proxy's upload limit)
-        # or keeps failing: the model only; at last the status only
+        # the files in pieces (a proxy's upload limit does not matter), then the end
+        uploaded = {}
+        for name, path in (("best", best), ("archive", archive)):
+            if path and self._upload(name, path):
+                uploaded[name] = _size(path)
+        data = json.dumps({"status": status, "metrics": rows, "log_tail": log_tail, "error": error,
+                           "has_last": has_last, "uploaded": uploaded})
         sent = False
-        for with_best, with_archive, tries in ((True, True, 3), (True, False, 2), (False, False, 2)):
-            if (with_archive and not archive) or (with_best and not best and archive):
-                continue
-            for attempt in range(1, tries + 1):
-                files = {}
-                try:
-                    if with_best and best:
-                        files["best"] = ("best.pt", open(best, "rb"))
-                    if with_archive and archive:
-                        files["archive"] = ("results.zip", open(archive, "rb"))
-                    self.site.post(f"runs/{self.run.id}/finish", data={"data": data}, files=files, timeout=1800)
-                    sent = True
-                    break
-                except PermissionError:
-                    raise
-                except requests.HTTPError as e:
-                    logger.warning("run %s: the site refused the results (%s)", self.run.id, e)
-                    if e.response is not None and e.response.status_code == 413:
-                        break  # too large: send less
-                    time.sleep(RETRY_SECONDS * attempt)
-                except Exception as e:
-                    logger.warning("run %s: could not send the results (%s), try %s", self.run.id, e, attempt)
-                    time.sleep(RETRY_SECONDS * attempt)
-                finally:
-                    for _, f in files.values():
-                        f.close()
-            if sent:
-                if not (with_best and with_archive):
-                    logger.warning("run %s: sent without %s; it stays in %s", self.run.id,
-                                   "the results zip" if with_best else "the model and the results zip",
-                                   work_dir(self.run.id))
+        for attempt in range(1, 7):
+            try:
+                self.site.post(f"runs/{self.run.id}/finish", data={"data": data}, timeout=120)
+                sent = True
                 break
+            except PermissionError:
+                raise
+            except Exception as e:
+                logger.warning("run %s: could not report the end (%s), try %s", self.run.id, e, attempt)
+                time.sleep(RETRY_SECONDS * attempt)
+        complete = (not best or "best" in uploaded) and (not archive or "archive" in uploaded)
+        if sent and not complete:
+            logger.warning("run %s: not everything was sent; it stays in %s", self.run.id, work_dir(self.run.id))
         # only what it needs to go on from where it stopped is kept here
         # (and all of it when the site did not get everything)
-        if sent and not has_last and (with_best and with_archive or not archive):
+        if sent and complete and not has_last:
             shutil.rmtree(work_dir(self.run.id), ignore_errors=True)
+
+    def _upload(self, name, path):
+        """Send a file in pieces; True when all of it arrived."""
+        total = _size(path)
+        offset = 0
+        failures = 0
+        with open(path, "rb") as fp:
+            while offset < total or total == 0:
+                fp.seek(offset)
+                piece = fp.read(PART_BYTES)
+                try:
+                    answer = self.site.post(f"runs/{self.run.id}/part?file={name}&offset={offset}",
+                                            data=piece, timeout=300) or {}
+                    offset = int(answer.get("size", offset))
+                    failures = 0
+                except PermissionError:
+                    raise
+                except Exception as e:
+                    failures += 1
+                    logger.warning("run %s: sending %s (%s), try %s", self.run.id, name, e, failures)
+                    if failures > 8:
+                        return False
+                    time.sleep(RETRY_SECONDS * min(failures, 3))
+                    continue
+                if total == 0:
+                    break
+                self._status(f"Sending {name}.{'pt' if name == 'best' else 'zip'} to the site: "
+                             f"{offset / 1e6:.0f} / {total / 1e6:.0f} MB ({100 * offset / total:.0f}%)")
+        return True
 
 
 def _cache_dir():
