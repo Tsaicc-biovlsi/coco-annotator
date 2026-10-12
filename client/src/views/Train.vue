@@ -659,7 +659,7 @@ export default {
         `TRAINER_URL=${window.location.origin}`,
         `TRAINER_TOKEN=${this.setup.token}`,
         "EOF",
-        "sudo docker compose -f docker-compose.worker.yml up -d --build"
+        "sudo docker compose -f docker-compose.worker.yml up -d"
       ].join("\n");
     },
     logText() {

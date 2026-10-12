@@ -23,6 +23,8 @@ from .runner import (POLL_SECONDS, _unpack, archive_path, execute, last_weights,
 logger = logging.getLogger("trainer.worker")
 
 RETRY_SECONDS = 10
+# exports kept here, so training on one again needs no new download
+CACHE_GB = float(os.getenv("WORKER_CACHE_GB", "30"))
 HEARTBEAT_SECONDS = 10
 
 
@@ -144,7 +146,8 @@ class RemoteIO:
 
     def prepare(self, work, resume):
         # model files of the site (uploaded, from its Models page)
-        folder = os.path.join(work, "files")
+        # kept for the next runs (same name and size: the same file)
+        folder = os.path.join(runner.models_dir(), ".cache", "files")
         os.makedirs(folder, exist_ok=True)
         for f in self.job.get("files") or []:
             dest = os.path.join(folder, os.path.basename(f["name"]))
@@ -163,19 +166,25 @@ class RemoteIO:
         if not export.get("available"):
             raise ValueError("the unpacked data and the export are both gone" if resume
                              else "the export file no longer exists")
-        zip_path = os.path.join(work, "export.zip")
+        cached = _cached_export(export)
+        if cached and os.path.isfile(cached):
+            os.utime(cached)  # recently used
+            self._status(f"Export #{export.get('id')} is already here", line=True)
+        else:
+            target = cached or os.path.join(work, "export.zip")
+            self._fetch(f"runs/{self.run.id}/export", target, f"Downloading export #{export.get('id')}")
+            cached = target
+            _prune_cache(keep=cached)
         try:
-            self._fetch(f"runs/{self.run.id}/export", zip_path, f"Downloading export #{export.get('id')}")
             if self._status("Unpacking the export…", line=True):
                 raise Stopped()
-            data = _unpack(SimpleNamespace(path=zip_path, folder=export.get("folder")),
+            data = _unpack(SimpleNamespace(path=cached, folder=export.get("folder")),
                            os.path.join(work, "data"), self.run.task)
             self._status("Starting the training…", line=True)
             return data
         finally:
-            for leftover in (zip_path, zip_path + ".part"):
-                if os.path.exists(leftover):
-                    os.remove(leftover)
+            if not cached.startswith(_cache_dir()) and os.path.exists(cached):
+                os.remove(cached)
 
     def fail(self, error):
         try:
@@ -288,6 +297,34 @@ class RemoteIO:
         # (and all of it when the site did not get everything)
         if sent and not has_last and (with_best and with_archive or not archive):
             shutil.rmtree(work_dir(self.run.id), ignore_errors=True)
+
+
+def _cache_dir():
+    return os.path.join(runner.models_dir(), ".cache", "exports")
+
+
+def _cached_export(export):
+    """Where an export is kept here (None: not kept, e.g. no size known)."""
+    if not CACHE_GB or not export.get("size"):
+        return None
+    os.makedirs(_cache_dir(), exist_ok=True)
+    return os.path.join(_cache_dir(), f"export-{export.get('id')}-{export['size']}-{export.get('mtime', 0)}.zip")
+
+
+def _prune_cache(keep=None):
+    """Oldest-used exports go when the kept ones pass WORKER_CACHE_GB."""
+    folder = _cache_dir()
+    if not os.path.isdir(folder):
+        return
+    files = [os.path.join(folder, f) for f in os.listdir(folder) if f.endswith(".zip")]
+    files.sort(key=lambda f: os.path.getatime(f) if os.path.exists(f) else 0)
+    total = sum(_size(f) for f in files)
+    for f in files:
+        if total <= CACHE_GB * 1e9:
+            break
+        if f != keep:
+            total -= _size(f)
+            os.remove(f)
 
 
 def _resumable_here():

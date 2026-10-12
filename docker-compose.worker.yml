@@ -5,29 +5,36 @@
 #   2. Here, in this folder, a .env with
 #        TRAINER_URL=http://<the annotator server's IP>:5000
 #        TRAINER_TOKEN=<the token>
-#   3. docker compose -f docker-compose.worker.yml up -d --build
+#   3. docker compose -f docker-compose.worker.yml up -d
 #
-# Only this container runs here (no website, no database). Its working files
-# (downloaded exports, base weights, runs that can still be resumed) are in
-# ./worker. Requires the NVIDIA Container Toolkit.
+# Nothing is built: it runs Ultralytics' own image (PyTorch + CUDA +
+# Ultralytics) with this folder's code mounted, so updating is `git pull`
+# and `docker compose -f docker-compose.worker.yml restart`.
+# WORKER_IMAGE picks another image (a pinned version, or the annotator's own
+# image copied over: see the README).
+#
+# Its working files (exports kept for the next time, base weights, runs that
+# can still be resumed) are in ./worker. Requires the NVIDIA Container Toolkit.
 services:
   trainer-worker:
-    build:
-      context: .
-      target: webserver
-      args:
-        SAM: ${SAM:-cuda}
-    image: coco-annotator-webserver
+    image: ${WORKER_IMAGE:-ultralytics/ultralytics:latest}
     container_name: annotator_trainer_worker
     restart: unless-stopped
+    working_dir: /app
     command: ["python", "-m", "trainer.worker"]
     environment:
       TRAINER_URL: ${TRAINER_URL:?set TRAINER_URL in .env}
       TRAINER_TOKEN: ${TRAINER_TOKEN:?set TRAINER_TOKEN in .env}
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: "1"
       MODELS_DIRECTORY: /work
+      YOLO_CONFIG_DIR: /work/.ultralytics
+      # exports kept here (GB)
+      WORKER_CACHE_GB: ${WORKER_CACHE_GB:-30}
     # the training data loaders share memory between processes
     shm_size: ${TRAIN_SHM:-8gb}
     volumes:
+      - "./backend:/app:ro"
       - "${WORKER_DIR:-./worker}:/work"
     deploy:
       resources:

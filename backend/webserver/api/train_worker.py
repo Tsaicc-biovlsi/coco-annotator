@@ -91,7 +91,10 @@ def job(run):
         'id': run.id, 'task': run.task, 'epoch': run.epoch or 0, 'epochs': run.epochs or 0,
         'params': dict(run.params or {}), 'dataset_names': list(run.dataset_names or []),
         'export': {'id': run.export_id, 'folder': getattr(export, 'folder', None) if export else None,
-                   'available': bool(export and export.path and os.path.isfile(export.path))},
+                   'available': bool(export and export.path and os.path.isfile(export.path)),
+                   # the worker keeps exports it downloaded: same file, no new download
+                   'size': os.path.getsize(export.path) if export and export.path and os.path.isfile(export.path) else 0,
+                   'mtime': int(os.path.getmtime(export.path)) if export and export.path and os.path.isfile(export.path) else 0},
         'files': [{k: v for k, v in f.items() if k != 'path'} for f in files],
     }
 

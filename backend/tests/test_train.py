@@ -544,7 +544,7 @@ def test_other_servers(dataset_directory, tmp_path, monkeypatch):
     remote = worker.RemoteIO(site, job, run)
     worker.execute(run, command=_fake_command(str(script)), io=remote)
     # the model file came from the site, into the worker's folder
-    assert run.params["model"] == os.path.join(runner.work_dir(mine["id"]), "files", job["files"][0]["name"])
+    assert run.params["model"] == os.path.join(str(worker_dir), ".cache", "files", job["files"][0]["name"])
     done = t.get(f"/api/train/{mine['id']}").get_json()
     assert done["status"] == "done" and done["worker"] == "gpu2" and done["epoch"] == 3, done
     assert done["model_name"] == f"trained/tr_remote_ds-detect-run{mine['id']}.pt"
@@ -601,8 +601,10 @@ def test_other_servers(dataset_directory, tmp_path, monkeypatch):
                           epochs=job["epochs"], dataset_names=job["dataset_names"])
     worker.execute(run, command=_fake_command(str(script)), io=worker.RemoteIO(site, job, run))
     gone = t.get(f"/api/train/{early['id']}").get_json()
-    assert gone["status"] == "stopped" and gone["epoch"] == 0 and "Downloading export" in open(
+    # (the export is kept from before: no new download)
+    assert gone["status"] == "stopped" and gone["epoch"] == 0 and "is already here" in open(
         os.path.join(site_work(early["id"]), "train.log")).read()
+    assert "Downloading export" in open(os.path.join(site_work(mine["id"]), "train.log")).read()
 
     # its server went away in the middle: stopping takes effect at once
     from database import TrainerStatusModel

@@ -265,8 +265,21 @@ sudo docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --buil
     TRAINER_URL=http://<這台網站伺服器的內網 IP>:5000
     TRAINER_TOKEN=<token>
     EOF
-    sudo docker compose -f docker-compose.worker.yml up -d --build
+    sudo docker compose -f docker-compose.worker.yml up -d
     ```
+
+    **不用建置映像檔：** 它直接用 Ultralytics 官方映像檔（`ultralytics/ultralytics`，內含 PyTorch、CUDA、Ultralytics），程式碼從這個資料夾掛進去，所以第一次只要下載映像檔，之後更新只要 `git pull` 再 `sudo docker compose -f docker-compose.worker.yml restart`。想要更快或固定版本：`.env` 加 `WORKER_IMAGE=`（例如 `ultralytics/ultralytics:<版本>`）；或從已經有映像檔的伺服器經內網複製過去，免得每台都上網下載：
+
+    ```bash
+    # 在已經有的那台（例如網站伺服器，映像檔叫 coco-annotator-webserver）
+    sudo docker save coco-annotator-webserver | gzip > annotator-image.tar.gz
+    scp annotator-image.tar.gz 帳號@新伺服器IP:~/
+    # 在新的那台
+    gunzip -c ~/annotator-image.tar.gz | sudo docker load
+    echo "WORKER_IMAGE=coco-annotator-webserver" >> .env
+    ```
+
+    匯出檔也會留在那台（`./worker/.cache/exports/`，`WORKER_CACHE_GB` 預設 30 GB，滿了先刪最久沒用的），同一份匯出再訓練就不必重新下載；用到的模型檔（官方權重、上傳的模型）也留著（`./worker/.cache/files/`）。
 
     它只跑一個 `annotator_trainer_worker` 容器，主動連到網站（網站不需要那台的帳號密碼，也不用替它開任何 port），連上後在訓練頁顯示為「gpu2 · 顯示卡名稱 · 閒置」。
 3. **指定在哪台訓練：** 新訓練的「在哪台訓練」選某一台就只由那台訓練；選「任何空著的」（預設）就由先空出來的那台接。訓練紀錄會標示在哪台跑（`· gpu2`），排隊中指定了的顯示 `→ gpu2`。

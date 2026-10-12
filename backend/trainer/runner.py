@@ -17,7 +17,13 @@ import threading
 import time
 import zipfile
 
-from database import ExportModel, TrainRunModel, TrainerStatusModel
+
+
+def _db():
+    """The site's database models: imported only where used, so a worker on
+    another server (trainer/worker.py) needs neither them nor their packages."""
+    import database
+    return database
 
 logger = logging.getLogger("trainer")
 
@@ -313,7 +319,7 @@ def heartbeat(device=None, catalog=None, name=None, kind="local", run_id=False):
         update["set__version"] = catalog.get("version") or ""
     if run_id is not False:
         update["set__run_id"] = run_id
-    TrainerStatusModel.objects(key=name or trainer_name()).update_one(upsert=True, **update)
+    _db().TrainerStatusModel.objects(key=name or trainer_name()).update_one(upsert=True, **update)
 
 
 class LocalIO:
@@ -322,7 +328,7 @@ class LocalIO:
 
     def __init__(self, run):
         self.run = run
-        self.export = ExportModel.objects(id=run.export_id).first()
+        self.export = _db().ExportModel.objects(id=run.export_id).first()
         self._polled = 0
         self._shown = -1
 
@@ -499,12 +505,12 @@ def claim_next(worker=None):
     trainer), now running on it; None when there is none."""
     from mongoengine.queryset.visitor import Q
     worker = worker or trainer_name()
-    for first in TrainRunModel.objects(Q(status="queued") & (Q(target__in=["", None]) | Q(target=worker))
+    for first in _db().TrainRunModel.objects(Q(status="queued") & (Q(target__in=["", None]) | Q(target=worker))
                                        ).order_by("id").only("id")[:5]:
-        claimed = TrainRunModel.objects(id=first.id, status="queued").update_one(
+        claimed = _db().TrainRunModel.objects(id=first.id, status="queued").update_one(
             set__status="running", set__started_at=datetime.datetime.utcnow(), set__worker=worker)
         if claimed:
-            return TrainRunModel.objects(id=first.id).first()
+            return _db().TrainRunModel.objects(id=first.id).first()
     return None
 
 
@@ -528,7 +534,7 @@ def queue_resume(run, reason=""):
     params["resume"] = True
     params["resumes"] = int(params.get("resumes") or 0) + 1
     # its last epoch's weights are on the server that trained it
-    return TrainRunModel.objects(id=run.id, status__in=["running", "failed", "stopped"]).update_one(
+    return _db().TrainRunModel.objects(id=run.id, status__in=["running", "failed", "stopped"]).update_one(
         set__status="queued", set__params=params, set__stop_requested=False, set__error=reason,
         set__ended_at=None, set__target=run.worker or "")
 
@@ -538,7 +544,7 @@ def recover():
     cut…): queued again to go on from their last finished epoch, else failed."""
     from mongoengine.queryset.visitor import Q
     me = trainer_name()
-    for run in TrainRunModel.objects(Q(status="running") & (Q(worker=me) | Q(worker__in=["", None]))):
+    for run in _db().TrainRunModel.objects(Q(status="running") & (Q(worker=me) | Q(worker__in=["", None]))):
         if run.delete_requested:
             shutil.rmtree(work_dir(run.id), ignore_errors=True)
             run.delete()
@@ -559,7 +565,7 @@ def serve():
     logger.info("trainer ready (%s)", device)
     # the name used before trainers had names
     if trainer_name() != "trainer":
-        TrainerStatusModel.objects(key="trainer").delete()
+        _db().TrainerStatusModel.objects(key="trainer").delete()
     while True:
         heartbeat(device, run_id=None)
         run = claim_next()
