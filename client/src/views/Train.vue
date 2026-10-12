@@ -430,6 +430,7 @@ import ScalarChart from "@/components/ScalarChart.vue";
 import TrainAugment from "@/components/TrainAugment.vue";
 import TrainArgsTable from "@/components/TrainArgsTable.vue";
 import { parseArgValue, showValue } from "@/libs/trainArgs";
+import { REPO_URL } from "@/links";
 
 const POLL_MS = 3000;
 // the output of the training that is open, while it runs
@@ -437,7 +438,6 @@ const LIVE_MS = 1000;
 const MAIN_ARGS = ["epochs", "imgsz", "batch", "patience"];
 
 const SMOOTHING_KEY = "train.smoothing";
-const REPO = "https://github.com/Tsaicc-biovlsi/coco-annotator.git";
 const COLORS = { batch: "#2a78d6", train: "#2a78d6", val: "#e8590c" };
 const PG_COLORS = ["#1a9e6e", "#8a5cd1", "#d6336c"];
 const METRIC_ORDER = ["precision", "recall", "mAP50", "mAP50-95", "accuracy_top1", "accuracy_top5"];
@@ -653,7 +653,7 @@ export default {
       if (!this.setup) return "";
       return [
         `# ${this.$t("train.servers.onOther", { name: this.setup.name })}`,
-        `git clone -b upgrade-2026 ${REPO} coco-annotator`,
+        `git clone -b upgrade-2026 ${REPO_URL}.git coco-annotator`,
         "cd coco-annotator",
         "cat > .env <<'EOF'",
         `TRAINER_URL=${window.location.origin}`,
