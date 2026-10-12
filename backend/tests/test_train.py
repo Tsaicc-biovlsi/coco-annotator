@@ -598,3 +598,33 @@ def test_other_servers(dataset_directory, tmp_path, monkeypatch):
     except PermissionError:
         pass
     TrainRunModel.objects(id=slow["id"]).update_one(set__status="stopped")
+
+
+def test_worker_upload_too_large(tmp_path, monkeypatch):
+    """A proxy refusing the results zip as too large: the model still goes,
+    and the worker keeps its files."""
+    import requests
+    from types import SimpleNamespace
+    from trainer import runner, worker
+    monkeypatch.setenv("MODELS_DIRECTORY", str(tmp_path))
+    monkeypatch.setattr(worker, "RETRY_SECONDS", 0)
+    run = SimpleNamespace(id=777, task="detect", params={}, epoch=3, epochs=3, dataset_names=["x"])
+    train = os.path.join(runner.work_dir(777), "runs", "train", "weights")
+    os.makedirs(train)
+    best = os.path.join(train, "best.pt")
+    open(best, "wb").write(b"w")
+    sent = []
+
+    class Site:
+        def post(self, path, json_body=None, timeout=30, data=None, files=None):
+            if path.endswith("/finish"):
+                sent.append(sorted(files))
+                if "archive" in files:
+                    response = SimpleNamespace(status_code=413)
+                    raise requests.HTTPError("413 Request Entity Too Large", response=response)
+            return {}
+
+    io = worker.RemoteIO(Site(), {"id": 777}, run)
+    io.finish("done", [{"epoch": 1}], "", "", best, False)
+    assert sent == [["archive", "best"], ["best"]]
+    assert os.path.isfile(runner.archive_path(777))  # not delivered: kept here

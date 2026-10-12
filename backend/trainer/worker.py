@@ -198,25 +198,45 @@ class RemoteIO:
             logger.warning("could not pack run %s: %s", self.run.id, e)
         data = json.dumps({"status": status, "metrics": rows, "log_tail": log_tail, "error": error,
                            "has_last": has_last})
-        for attempt in range(1, 7):
-            files = {}
-            try:
-                if best:
-                    files["best"] = ("best.pt", open(best, "rb"))
-                if os.path.isfile(archive_path(self.run.id)):
-                    files["archive"] = ("results.zip", open(archive_path(self.run.id), "rb"))
-                self.site.post(f"runs/{self.run.id}/finish", data={"data": data}, files=files, timeout=600)
+        archive = archive_path(self.run.id) if os.path.isfile(archive_path(self.run.id)) else None
+        # everything; if that is refused as too large (a proxy's upload limit)
+        # or keeps failing: the model only; at last the status only
+        sent = False
+        for with_best, with_archive, tries in ((True, True, 3), (True, False, 2), (False, False, 2)):
+            if (with_archive and not archive) or (with_best and not best and archive):
+                continue
+            for attempt in range(1, tries + 1):
+                files = {}
+                try:
+                    if with_best and best:
+                        files["best"] = ("best.pt", open(best, "rb"))
+                    if with_archive and archive:
+                        files["archive"] = ("results.zip", open(archive, "rb"))
+                    self.site.post(f"runs/{self.run.id}/finish", data={"data": data}, files=files, timeout=1800)
+                    sent = True
+                    break
+                except PermissionError:
+                    raise
+                except requests.HTTPError as e:
+                    logger.warning("run %s: the site refused the results (%s)", self.run.id, e)
+                    if e.response is not None and e.response.status_code == 413:
+                        break  # too large: send less
+                    time.sleep(RETRY_SECONDS * attempt)
+                except Exception as e:
+                    logger.warning("run %s: could not send the results (%s), try %s", self.run.id, e, attempt)
+                    time.sleep(RETRY_SECONDS * attempt)
+                finally:
+                    for _, f in files.values():
+                        f.close()
+            if sent:
+                if not (with_best and with_archive):
+                    logger.warning("run %s: sent without %s; it stays in %s", self.run.id,
+                                   "the results zip" if with_best else "the model and the results zip",
+                                   work_dir(self.run.id))
                 break
-            except PermissionError:
-                raise
-            except Exception as e:
-                logger.warning("run %s: could not send the results (%s), try %s", self.run.id, e, attempt)
-                time.sleep(RETRY_SECONDS * attempt)
-            finally:
-                for _, f in files.values():
-                    f.close()
         # only what it needs to go on from where it stopped is kept here
-        if not has_last:
+        # (and all of it when the site did not get everything)
+        if sent and not has_last and (with_best and with_archive or not archive):
             shutil.rmtree(work_dir(self.run.id), ignore_errors=True)
 
 
