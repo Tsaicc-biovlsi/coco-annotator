@@ -19,6 +19,7 @@ from .activity import api as ns_activity
 from .help import api as ns_help
 from .chat import api as ns_chat
 from .train import api as ns_train
+from .train_worker import api as ns_train_worker
 from .terminal import api as ns_terminal
 
 from config import Config
@@ -54,5 +55,6 @@ api.add_namespace(ns_activity)
 api.add_namespace(ns_help)
 api.add_namespace(ns_chat)
 api.add_namespace(ns_train)
+api.add_namespace(ns_train_worker)
 api.add_namespace(ns_terminal)
 

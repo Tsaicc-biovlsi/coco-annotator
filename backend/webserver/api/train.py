@@ -13,7 +13,8 @@ from flask_login import login_required, current_user
 from flask_restx import Namespace, Resource, reqparse
 from werkzeug.datastructures import FileStorage
 
-from database import DatasetModel, ExportModel, TrainRunModel, TrainerStatusModel, TrainUploadModel
+from database import (DatasetModel, ExportModel, TrainRunModel, TrainerStatusModel, TrainUploadModel,
+                      TrainWorkerModel)
 from trainer import catalog as model_catalog
 from trainer.runner import (TASK_SUFFIX, archive_path, package, queue_resume, resumable, safe_name,
                             uploads_dir, work_dir)
@@ -43,6 +44,8 @@ create_args.add_argument('batch', type=float, default=-1, location='json',
                          help='Images per batch; -1 automatic, 0.7 = use 70% of the GPU memory')
 create_args.add_argument('patience', type=int, default=50, location='json')
 create_args.add_argument('name', default='', location='json')
+create_args.add_argument('target', default='', location='json',
+                         help='The trainer (server) to train on; empty: whichever is free')
 
 
 upload_args = reqparse.RequestParser()
@@ -61,13 +64,42 @@ def _allowed():
     return current_user.has_perm('train')
 
 
+def _alive(row):
+    return bool(row and row.seen_at and
+                (datetime.datetime.utcnow() - row.seen_at).total_seconds() < TRAINER_ALIVE_SECONDS)
+
+
+def trainers():
+    """Every trainer: this server's and the other servers' (registered, or
+    seen in the last day), alive or not."""
+    workers = {w.name for w in TrainWorkerModel.objects.only('name')}
+    recent = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+    rows = {r.key: r for r in TrainerStatusModel.objects}
+    out = []
+    for key in sorted(set(rows) | workers, key=lambda k: (rows.get(k) is None or rows[k].kind != 'local', k)):
+        r = rows.get(key)
+        if r is None and key not in workers:
+            continue
+        if r is not None and key not in workers and (r.kind or 'local') == 'remote':
+            continue  # a worker that was removed
+        if r is not None and key not in workers and (not r.seen_at or r.seen_at < recent):
+            continue
+        out.append({'name': key, 'kind': (r.kind if r else 'remote') or 'local', 'alive': _alive(r),
+                    'device': r.device if r else '', 'version': r.version if r else '',
+                    'run_id': r.run_id if r else None,
+                    'seen_at': r.seen_at.isoformat() + 'Z' if r and r.seen_at else None})
+    return out
+
+
 def _catalog():
-    """What the trainer can train (it publishes it when it starts); before
-    it ever ran, what this server's Ultralytics knows."""
+    """What the trainers can train (each publishes it when it starts: this
+    server's first); before any ran, what this server's Ultralytics knows."""
     global _local_catalog
-    row = TrainerStatusModel.objects(key='trainer').only('catalog').first()
-    if row is not None and row.catalog and row.catalog.get('families'):
-        return row.catalog
+    rows = sorted(TrainerStatusModel.objects.only('catalog', 'kind', 'seen_at'),
+                  key=lambda r: (not _alive(r), r.kind != 'local'))
+    for row in rows:
+        if row.catalog and row.catalog.get('families'):
+            return row.catalog
     if _local_catalog is None:
         _local_catalog = model_catalog.build()
     return _local_catalog
@@ -204,14 +236,15 @@ class TrainerStatus(Resource):
         """ Is the trainer service running, on which device; queue length """
         if not _allowed():
             return {'message': 'No permission to train models'}, 403
-        row = TrainerStatusModel.objects(key='trainer').first()
-        alive = bool(row and row.seen_at and
-                     (datetime.datetime.utcnow() - row.seen_at).total_seconds() < TRAINER_ALIVE_SECONDS)
+        all_trainers = trainers()
+        alive = [t for t in all_trainers if t['alive']]
+        first = alive[0] if alive else (all_trainers[0] if all_trainers else None)
         return {
-            'alive': alive, 'device': row.device if row else '',
+            'alive': bool(alive), 'device': first['device'] if first else '',
+            'trainers': all_trainers, 'can_manage': bool(current_user.is_admin),
             'queued': TrainRunModel.objects(status='queued').count(),
             'running': TrainRunModel.objects(status='running').count(),
-            'tasks': list(TRAINABLE), 'version': row.version if row else '',
+            'tasks': list(TRAINABLE), 'version': first['version'] if first else '',
         }
 
 
@@ -479,12 +512,16 @@ class TrainRuns(Resource):
         batch = round(batch, 2) if 0 < batch < 1 else (-1 if batch < 1 else min(int(batch), 512))
         patience = max(0, min(int(args['patience']), 1000))
 
+        target = (args.get('target') or '').strip()
+        if target and target not in {t['name'] for t in trainers()}:
+            return {'message': f'Unknown trainer: {target}'}, 400
+
         dataset = DatasetModel.objects(id=export.dataset_id).first()
         names = list(getattr(export, 'dataset_names', None) or ([dataset.name] if dataset else []))
         run = TrainRunModel(
             name=(args.get('name') or '').strip()[:100] or " + ".join(names),
             creator=current_user.username, export_id=export.id, dataset_id=export.dataset_id,
-            dataset_names=names, task=task, epochs=epochs,
+            dataset_names=names, task=task, epochs=epochs, target=target,
             params={'model': model, 'label': label, 'source': source,
                     'base_model': args.get('base_model') or None, 'upload_id': upload.id if upload else None,
                     'epochs': epochs, 'imgsz': imgsz, 'batch': batch, 'patience': patience,

@@ -1,0 +1,38 @@
+# A trainer on another server: trains for the annotator at TRAINER_URL with
+# this server's GPU (README: 用其他伺服器訓練).
+#
+#   1. On the annotator: 訓練 → 訓練伺服器 → 新增 (a name), copy the token
+#   2. Here, in this folder, a .env with
+#        TRAINER_URL=http://<the annotator server's IP>:5000
+#        TRAINER_TOKEN=<the token>
+#   3. docker compose -f docker-compose.worker.yml up -d --build
+#
+# Only this container runs here (no website, no database). Its working files
+# (downloaded exports, base weights, runs that can still be resumed) are in
+# ./worker. Requires the NVIDIA Container Toolkit.
+services:
+  trainer-worker:
+    build:
+      context: .
+      target: webserver
+      args:
+        SAM: ${SAM:-cuda}
+    image: coco-annotator-webserver
+    container_name: annotator_trainer_worker
+    restart: unless-stopped
+    command: ["python", "-m", "trainer.worker"]
+    environment:
+      TRAINER_URL: ${TRAINER_URL:?set TRAINER_URL in .env}
+      TRAINER_TOKEN: ${TRAINER_TOKEN:?set TRAINER_TOKEN in .env}
+      MODELS_DIRECTORY: /work
+    # the training data loaders share memory between processes
+    shm_size: ${TRAIN_SHM:-8gb}
+    volumes:
+      - "${WORKER_DIR:-./worker}:/work"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

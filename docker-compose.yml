@@ -83,6 +83,8 @@ services:
     environment:
       <<: *backend-env
       MODELS_DIRECTORY: /models
+      # its name on the training page (other servers can train too)
+      TRAINER_NAME: ${TRAINER_NAME:-main}
     # the training data loaders share memory between processes
     shm_size: ${TRAIN_SHM:-8gb}
     volumes:

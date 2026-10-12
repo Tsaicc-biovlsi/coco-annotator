@@ -423,3 +423,178 @@ def test_steps(tmp_path, monkeypatch):
     thin = t.get(f"/api/train/{run.id}/steps").get_json()["points"]
     assert len(thin) < 20 and {1.0, 2.0} <= {p["x"] for p in thin}  # epoch ends kept
     assert _login("tr_steps_plain").get(f"/api/train/{run.id}/steps").status_code == 403
+
+
+class _TestSite:
+    """trainer.worker.Site over the Flask test client."""
+
+    def __init__(self, client, token):
+        self.c = client
+        self.h = {"X-Worker-Token": token}
+
+    def post(self, path, json_body=None, timeout=30, data=None, files=None):
+        if files is not None or data is not None:
+            form = dict(data or {})
+            for key, (name, fp) in (files or {}).items():
+                form[key] = (fp, name)
+            r = self.c.post(f"/api/worker/{path}", data=form, headers=self.h, content_type="multipart/form-data")
+        else:
+            r = self.c.post(f"/api/worker/{path}", json=json_body, headers=self.h)
+        if r.status_code == 401:
+            raise PermissionError("token")
+        assert r.status_code < 400, (path, r.status_code, r.data)
+        return r.get_json() if r.status_code != 204 and r.data else None
+
+    def download(self, path, dest):
+        r = self.c.get(f"/api/worker/{path}", headers=self.h)
+        if r.status_code == 404:
+            raise ValueError("not found")
+        with open(dest, "wb") as fp:
+            fp.write(r.data)
+        return dest
+
+
+def test_other_servers(dataset_directory, tmp_path, monkeypatch):
+    """Another server trains (a worker over the web API): targeted or any."""
+    import io
+    import zipfile
+    from types import SimpleNamespace
+    from PIL import Image
+    from database import RoleModel, TrainRunModel, UserModel
+    from trainer import runner, worker
+    from webserver import app
+    from webserver.api import train_worker, train as train_api
+    from config import Config
+
+    site_dir, worker_dir = tmp_path / "site", tmp_path / "worker"
+    site_dir.mkdir()
+    worker_dir.mkdir()
+    # the site's files and the worker's are on different servers
+    monkeypatch.setenv("MODELS_DIRECTORY", str(worker_dir))
+    monkeypatch.setattr(Config, "MODELS_DIRECTORY", str(site_dir))
+    site_work = lambda i: os.path.join(str(site_dir), ".training", f"run-{i}")  # noqa: E731
+    for mod in (train_worker, train_api):
+        monkeypatch.setattr(mod, "work_dir", site_work)
+    monkeypatch.setattr(train_worker, "models_dir", lambda: str(site_dir))
+    monkeypatch.setattr(train_worker, "archive_path", lambda i: os.path.join(site_work(i), "results.zip"))
+    monkeypatch.setattr(train_api, "uploads_dir", lambda: os.path.join(str(site_dir), ".training", "uploads"))
+    monkeypatch.setattr(runner, "POLL_SECONDS", 0.1)
+    monkeypatch.setattr(worker, "POLL_SECONDS", 0.1)
+    TrainRunModel.objects(status__in=["queued", "running"]).update(set__status="stopped")
+    RoleModel.objects(key="trainer").delete()
+    RoleModel(key="trainer", name="trainer", permissions=["train"]).save()
+    script = tmp_path / "fake_yolo.py"
+    script.write_text(FAKE)
+
+    UserModel.objects(username="tr_admin").delete()
+    UserModel(username="tr_admin", password=hash_password("pw"), name="a", is_admin=True).save()
+    admin = app.test_client()
+    admin.post("/api/user/login", json={"username": "tr_admin", "password": "pw"})
+    t = _login("tr_remote", role="trainer")
+
+    # an export to train on
+    ds = t.post("/api/dataset/", json={"name": "tr_remote_ds", "categories": ["boat"]}).get_json()["id"]
+    folder = os.path.join(dataset_directory, "tr_remote_ds")
+    os.makedirs(folder, exist_ok=True)
+    Image.new("RGB", (64, 48)).save(os.path.join(folder, "a.jpg"))
+    t.get(f"/api/dataset/{ds}/scan")
+    data = t.get(f"/api/dataset/{ds}/data").get_json()
+    t.post("/api/annotation/", json={"image_id": data["images"][0]["id"], "category_id": data["dataset"]["categories"][0],
+                                    "segmentation": [[5, 5, 30, 5, 30, 30, 5, 30]]})
+    t.get(f"/api/dataset/{ds}/export", query_string={"format": "yolo", "yolo_task": "detect", "with_images": "true"})
+    eid = [e for e in t.get("/api/train/exports").get_json()["exports"] if e["dataset_id"] == ds][0]["id"]
+    runner.heartbeat("CPU", CATALOG, name="main")
+
+    # admins add a server: its token, once
+    assert t.post("/api/worker/servers", json={"name": "gpu2"}).status_code == 403
+    assert admin.post("/api/worker/servers", json={"name": "bad name!"}).status_code == 400
+    token = admin.post("/api/worker/servers", json={"name": "gpu2"}).get_json()["token"]
+    assert admin.post("/api/worker/servers", json={"name": "gpu2"}).status_code == 400
+    assert admin.post("/api/worker/servers", json={"name": "main"}).status_code == 400  # this server's trainer
+    names = {x["name"]: x for x in t.get("/api/train/status").get_json()["trainers"]}
+    assert names["gpu2"]["alive"] is False and names["main"]["alive"] is True
+    assert app.test_client().post("/api/worker/claim", headers={"X-Worker-Token": "nope"}).status_code == 401
+
+    # a training for gpu2, one for any trainer, one for an unknown one
+    assert t.post("/api/train/", json={"export_id": eid, "target": "nope"}).status_code == 400
+    upload = t.post("/api/train/uploads", data={"file": (io.BytesIO(b"PK\x03\x04w"), "mine.pt")},
+                    content_type="multipart/form-data").get_json()
+    mine = t.post("/api/train/", json={"export_id": eid, "epochs": 3, "target": "gpu2", "source": "upload",
+                                      "upload_id": upload["id"]}).get_json()
+    anyone = t.post("/api/train/", json={"export_id": eid, "epochs": 2}).get_json()
+    assert mine["target"] == "gpu2" and anyone["target"] == ""
+    # this server's trainer skips the one meant for gpu2
+    took = runner.claim_next("main")
+    assert took.id == anyone["id"] and took.worker == "main"
+    TrainRunModel.objects(id=anyone["id"]).update_one(set__status="stopped")
+
+    site = _TestSite(app.test_client(), token)
+    site.post("hello", {"device": "RTX 3090", "catalog": CATALOG, "resumable": []})
+    names = {x["name"]: x for x in t.get("/api/train/status").get_json()["trainers"]}
+    assert names["gpu2"]["alive"] and names["gpu2"]["device"] == "RTX 3090" and names["gpu2"]["kind"] == "remote"
+
+    job = site.post("claim")
+    assert job["id"] == mine["id"] and job["files"] == [{"field": "model", "index": 0, "name": "mine-u%d.pt" % upload["id"],
+                                                        "size": 5}]
+    run = SimpleNamespace(id=job["id"], task=job["task"], params=dict(job["params"]), epoch=0,
+                          epochs=job["epochs"], dataset_names=job["dataset_names"])
+    remote = worker.RemoteIO(site, job, run)
+    worker.execute(run, command=_fake_command(str(script)), io=remote)
+    # the model file came from the site, into the worker's folder
+    assert run.params["model"] == os.path.join(runner.work_dir(mine["id"]), "files", job["files"][0]["name"])
+    done = t.get(f"/api/train/{mine['id']}").get_json()
+    assert done["status"] == "done" and done["worker"] == "gpu2" and done["epoch"] == 3, done
+    assert done["model_name"] == f"trained/tr_remote_ds-detect-run{mine['id']}.pt"
+    assert (site_dir / done["model_name"]).read_bytes() == b"weights"
+    names_in_zip = zipfile.ZipFile(os.path.join(site_work(mine["id"]), "results.zip")).namelist()
+    assert any(n.endswith("weights/best.pt") for n in names_in_zip)
+    site_log = open(os.path.join(site_work(mine["id"]), "train.log")).read()
+    assert "epoch 3/3" in site_log and "\x1b" not in site_log
+    assert not os.path.exists(runner.work_dir(mine["id"]))  # finished: nothing kept on the worker
+
+    # stopped on the worker: it keeps its last epoch, and resumes there
+    monkeypatch.setenv("FAKE_EPOCH_SECONDS", "0.3")
+    slow = t.post("/api/train/", json={"export_id": eid, "epochs": 40, "target": "gpu2"}).get_json()
+    job = site.post("claim")
+    run = SimpleNamespace(id=job["id"], task=job["task"], params=dict(job["params"]), epoch=0,
+                          epochs=job["epochs"], dataset_names=job["dataset_names"])
+    import threading
+    th = threading.Thread(target=worker.execute, args=(run,),
+                          kwargs={"command": _fake_command(str(script)), "io": worker.RemoteIO(site, job, run)})
+    th.start()
+    time.sleep(1.5)
+    t.post(f"/api/train/{slow['id']}/stop")
+    th.join(timeout=30)
+    stopped = t.get(f"/api/train/{slow['id']}").get_json()
+    assert stopped["status"] == "stopped" and 0 < stopped["epoch"] < 40 and stopped["resumable"], stopped
+    assert os.path.isfile(runner.last_weights(slow["id"]))  # kept on the worker
+    monkeypatch.setenv("FAKE_EPOCH_SECONDS", "0")
+    resumed = t.post(f"/api/train/{slow['id']}/resume").get_json()
+    assert resumed["target"] == "gpu2"  # only gpu2 has its weights
+    assert runner.claim_next("main") is None
+    job = site.post("claim")
+    assert job["id"] == slow["id"] and job["params"]["resume"]
+    run = SimpleNamespace(id=job["id"], task=job["task"], params=dict(job["params"]), epoch=job["epoch"],
+                          epochs=job["epochs"], dataset_names=job["dataset_names"])
+    worker.execute(run, command=_fake_command(str(script)), io=worker.RemoteIO(site, job, run))
+    again = t.get(f"/api/train/{slow['id']}").get_json()
+    assert again["status"] == "done" and [m["epoch"] for m in again["metrics"]] == list(range(1, 41))
+
+    # the worker restarted in the middle of one: queued to resume where it has the weights
+    TrainRunModel.objects(id=slow["id"]).update_one(set__status="running", set__epoch=10, set__worker="gpu2")
+    os.makedirs(os.path.dirname(runner.last_weights(slow["id"])), exist_ok=True)
+    open(runner.last_weights(slow["id"]), "wb").write(b"last")
+    site.post("hello", {"device": "RTX 3090", "catalog": CATALOG, "resumable": worker._resumable_here()})
+    back = TrainRunModel.objects(id=slow["id"]).first()
+    assert back.status == "queued" and back.target == "gpu2" and back.has_last
+
+    # removing the server: what waited for it goes to any trainer
+    assert admin.delete("/api/worker/servers/gpu2").get_json()["success"]
+    assert TrainRunModel.objects(id=slow["id"]).first().target == ""
+    assert "gpu2" not in {x["name"] for x in t.get("/api/train/status").get_json()["trainers"]}
+    try:
+        site.post("claim")
+        assert False, "a removed server's token still works"
+    except PermissionError:
+        pass
+    TrainRunModel.objects(id=slow["id"]).update_one(set__status="stopped")

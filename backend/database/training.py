@@ -31,6 +31,12 @@ class TrainRunModel(DynamicDocument):
     error = StringField(default='')
     #: the trained weights, as a name in the models folder
     model_name = StringField()
+    #: the trainer it must run on (a name; empty: whichever is free)
+    target = StringField(default='')
+    #: the trainer that runs / ran it
+    worker = StringField(default='')
+    #: a remote trainer still has its last finished epoch (last.pt), to resume
+    has_last = BooleanField(default=False)
     created_at = DateTimeField(default=datetime.datetime.utcnow)
     started_at = DateTimeField()
     ended_at = DateTimeField()
@@ -46,6 +52,7 @@ class TrainRunModel(DynamicDocument):
             'task': self.task, 'params': dict(self.params or {}), 'status': self.status,
             'stop_requested': bool(self.stop_requested), 'delete_requested': bool(self.delete_requested), 'epoch': self.epoch, 'epochs': self.epochs,
             'model_name': self.model_name, 'error': self.error,
+            'target': self.target or '', 'worker': self.worker or '',
             'created_at': iso(self.created_at), 'started_at': iso(self.started_at), 'ended_at': iso(self.ended_at),
             'last': (self.metrics or [None])[-1],
         }
@@ -56,8 +63,13 @@ class TrainRunModel(DynamicDocument):
 
 
 class TrainerStatusModel(DynamicDocument):
-    """Heartbeat of the trainer service (is it running, which GPU)."""
+    """Heartbeat of a trainer (this server's, or a worker on another one):
+    is it running, which GPU, what it is training. key: its name."""
     key = StringField(primary_key=True, default='trainer')
+    #: local (reads the database) or remote (a worker over the web API)
+    kind = StringField(default='local')
+    #: the run it is training now (None: free)
+    run_id = IntField()
     seen_at = DateTimeField()
     device = StringField(default='')
     version = StringField(default='')
@@ -65,6 +77,17 @@ class TrainerStatusModel(DynamicDocument):
     catalog = DictField(default=dict)
 
     meta = {'collection': 'trainer_status'}
+
+
+class TrainWorkerModel(DynamicDocument):
+    """Another server allowed to train (it connects with its token)."""
+    name = StringField(primary_key=True)
+    token_hash = StringField(required=True)
+    created_by = StringField()
+    created_at = DateTimeField(default=datetime.datetime.utcnow)
+    last_ip = StringField(default='')
+
+    meta = {'collection': 'train_worker'}
 
 
 class TrainUploadModel(DynamicDocument):

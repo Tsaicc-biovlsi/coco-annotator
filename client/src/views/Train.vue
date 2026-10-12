@@ -8,10 +8,76 @@
             <h3 class="mb-1"><i class="fa fa-graduation-cap" /> {{ $t('train.title') }}</h3>
             <div class="text-muted small">{{ $t('train.subtitle') }}</div>
           </div>
-          <span v-if="status" class="trainer-pill" :class="status.alive ? 'ok' : 'down'">
-            <i class="fa" :class="status.alive ? 'fa-check-circle' : 'fa-exclamation-circle'" />
-            {{ status.alive ? $t('train.alive', { device: status.device || '?' }) : $t('train.down') }}
-          </span>
+          <div v-if="status" class="d-flex flex-wrap gap-2 align-items-center justify-content-end">
+            <span
+              v-for="tr in status.trainers || []"
+              :key="tr.name"
+              class="trainer-pill"
+              :class="tr.alive ? (tr.run_id ? 'busy' : 'ok') : 'down'"
+              :title="tr.alive ? (tr.version ? 'Ultralytics ' + tr.version : '') : $t('train.servers.offlineHint')"
+            >
+              <i class="fa me-1" :class="tr.kind === 'remote' ? 'fa-server' : 'fa-desktop'" />
+              <b>{{ tr.name }}</b>
+              <span v-if="tr.device" class="fw-normal"> · {{ tr.device }}</span>
+              <span class="fw-normal">
+                · {{ !tr.alive ? $t('train.servers.offline') : tr.run_id ? $t('train.servers.training', { id: tr.run_id }) : $t('train.servers.idle') }}
+              </span>
+            </span>
+            <span v-if="!(status.trainers || []).length" class="trainer-pill down">
+              <i class="fa fa-exclamation-circle" /> {{ $t('train.down') }}
+            </span>
+            <button v-if="status.can_manage" type="button" class="btn btn-sm btn-outline-secondary" @click="toggleServers">
+              <i class="fa fa-server" /> {{ $t('train.servers.manage') }}
+            </button>
+          </div>
+        </div>
+
+        <!-- other servers that train (admins) -->
+        <div v-if="showServers" class="card p-3 shadow-sm mb-3">
+          <h6 class="border-bottom pb-2 d-flex align-items-center">
+            <b class="me-auto"><i class="fa fa-server" /> {{ $t('train.servers.title') }}</b>
+            <button type="button" class="btn-close" :aria-label="$t('train.servers.close')" @click="showServers = false" />
+          </h6>
+          <div class="small text-muted mb-2">{{ $t('train.servers.intro') }}</div>
+          <table v-if="servers.length" class="table table-sm align-middle small mb-2">
+            <thead>
+              <tr>
+                <th>{{ $t('train.servers.name') }}</th>
+                <th>{{ $t('train.servers.state') }}</th>
+                <th>{{ $t('train.servers.ip') }}</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="w in servers" :key="w.name">
+                <td><b>{{ w.name }}</b></td>
+                <td>
+                  <template v-if="trainerOf(w.name) && trainerOf(w.name).alive">
+                    <i class="fa fa-circle text-success" /> {{ trainerOf(w.name).device }}
+                  </template>
+                  <span v-else class="text-muted"><i class="fa fa-circle-o" /> {{ $t('train.servers.offline') }}</span>
+                </td>
+                <td class="text-muted">{{ w.last_ip || '—' }}</td>
+                <td class="text-end text-nowrap">
+                  <button type="button" class="btn btn-sm btn-link" @click="newToken(w)">{{ $t('train.servers.newToken') }}</button>
+                  <button type="button" class="btn btn-sm btn-link text-danger" @click="removeServer(w)"><i class="fa fa-trash" /></button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <form class="d-flex flex-wrap gap-2 align-items-center" @submit.prevent="addServer">
+            <input v-model.trim="newServer" class="form-control form-control-sm server-name" :placeholder="$t('train.servers.namePlaceholder')" maxlength="40" />
+            <button type="submit" class="btn btn-sm btn-primary" :disabled="!newServer"><i class="fa fa-plus" /> {{ $t('train.servers.add') }}</button>
+          </form>
+          <div v-if="setup" class="setup mt-3">
+            <div class="fw-semibold small mb-1">{{ $t('train.servers.setupTitle', { name: setup.name }) }}</div>
+            <div class="small text-warning-emphasis mb-1"><i class="fa fa-key" /> {{ $t('train.servers.tokenOnce') }}</div>
+            <pre class="command">{{ setupScript }}</pre>
+            <div class="d-flex gap-2 align-items-center">
+              <button type="button" class="btn btn-sm btn-outline-secondary" @click="copySetup"><i class="fa fa-copy" /> {{ $t('train.servers.copy') }}</button>
+              <span class="small text-muted">{{ $t('train.servers.setupHint') }}</span>
+            </div>
+          </div>
         </div>
         <div v-if="status && !status.alive" class="alert alert-warning small">{{ $t('train.downHint') }}</div>
 
@@ -155,6 +221,15 @@
                   <label class="form-label small mb-0" for="trainName">{{ $t('train.name') }}</label>
                   <input id="trainName" v-model="form.name" class="form-control form-control-sm" :placeholder="chosenExport ? chosenExport.datasets.join(' + ') : ''" />
                 </div>
+                <div v-if="status && (status.trainers || []).length > 1" class="col-12">
+                  <label class="form-label small mb-0" for="trainTarget">{{ $t('train.servers.where') }}</label>
+                  <select id="trainTarget" v-model="form.target" class="form-select form-select-sm">
+                    <option value="">{{ $t('train.servers.any') }}</option>
+                    <option v-for="tr in status.trainers" :key="tr.name" :value="tr.name">
+                      {{ tr.name }}{{ tr.device ? ' · ' + tr.device : '' }} · {{ !tr.alive ? $t('train.servers.offline') : tr.run_id ? $t('train.servers.training', { id: tr.run_id }) : $t('train.servers.idle') }}
+                    </option>
+                  </select>
+                </div>
               </div>
               <div class="small text-muted mt-2">{{ $t('train.paramsHint') }}</div>
               <div class="d-flex align-items-center gap-2 mt-3">
@@ -219,7 +294,9 @@
             <div class="run-head" role="button" @click="toggle(r)">
               <span class="badge" :class="statusClass(r.status)">{{ $t('train.status.' + r.status) }}</span>
               <span class="fw-semibold text-truncate run-name">#{{ r.id }} {{ r.name }}</span>
-              <span class="small text-muted text-nowrap run-model" :title="modelLabel(r)">{{ $t('yolo.' + r.task) }} · {{ modelLabel(r) }}</span>
+              <span class="small text-muted text-nowrap run-model" :title="modelLabel(r)">
+                {{ $t('yolo.' + r.task) }} · {{ modelLabel(r) }}<template v-if="whereLabel(r)"> · <i class="fa fa-server" /> {{ whereLabel(r) }}</template>
+              </span>
               <span class="run-progress">
                 <span class="progress" style="height: 8px">
                   <span class="progress-bar" :class="r.status === 'failed' ? 'bg-danger' : 'bg-success'" :style="{ width: pct(r) + '%' }" />
@@ -360,6 +437,7 @@ const LIVE_MS = 1000;
 const MAIN_ARGS = ["epochs", "imgsz", "batch", "patience"];
 
 const SMOOTHING_KEY = "train.smoothing";
+const REPO = "https://github.com/Tsaicc-biovlsi/coco-annotator.git";
 const COLORS = { batch: "#2a78d6", train: "#2a78d6", val: "#e8590c" };
 const PG_COLORS = ["#1a9e6e", "#8a5cd1", "#d6336c"];
 const METRIC_ORDER = ["precision", "recall", "mAP50", "mAP50-95", "accuracy_top1", "accuracy_top5"];
@@ -397,6 +475,11 @@ export default {
       detail: null,
       timer: null,
       showAdvanced: false,
+      // other servers that train (admins)
+      showServers: false,
+      servers: [],
+      newServer: "",
+      setup: null,
       // the open run's output, pushed as it is written: {runId, lines, progress}
       live: null,
       // points within the epochs (progress bar) of the open run
@@ -418,6 +501,8 @@ export default {
         batch: -1,
         patience: 50,
         name: "",
+        // the trainer (server) to train on; empty: whichever is free
+        target: "",
         // training arguments changed from their defaults: {name: text}
         overrides: {}
       },
@@ -563,6 +648,19 @@ export default {
       const parts = w.map((v, i) => (v ? (v === 1 ? names[i] : `${v}×${names[i]}`) : null)).filter(Boolean);
       if (this.detail && this.detail.task === "classify") return "(top-1 + top-5) / 2";
       return parts.join(" + ");
+    },
+    setupScript() {
+      if (!this.setup) return "";
+      return [
+        `# ${this.$t("train.servers.onOther", { name: this.setup.name })}`,
+        `git clone -b upgrade-2026 ${REPO} coco-annotator`,
+        "cd coco-annotator",
+        "cat > .env <<'EOF'",
+        `TRAINER_URL=${window.location.origin}`,
+        `TRAINER_TOKEN=${this.setup.token}`,
+        "EOF",
+        "sudo docker compose -f docker-compose.worker.yml up -d --build"
+      ].join("\n");
     },
     logText() {
       if (this.live && this.live.runId === this.openId) {
@@ -771,6 +869,53 @@ export default {
         // try again next time
       }
     },
+    trainerOf(name) {
+      return ((this.status && this.status.trainers) || []).find(t => t.name === name) || null;
+    },
+    /** where a run trains / trained / waits to */
+    whereLabel(r) {
+      const many = ((this.status && this.status.trainers) || []).length > 1;
+      if (r.status === "queued") return r.target ? "→ " + r.target : "";
+      return many || (r.worker && r.worker !== "main") ? r.worker : "";
+    },
+    async toggleServers() {
+      this.showServers = !this.showServers;
+      if (this.showServers) await this.loadServers();
+    },
+    async loadServers() {
+      const r = await axios.get("/api/worker/servers");
+      this.servers = r.data.workers || [];
+    },
+    async addServer() {
+      try {
+        const r = await axios.post("/api/worker/servers", { name: this.newServer });
+        this.setup = r.data;
+        this.newServer = "";
+        await Promise.all([this.loadServers(), this.poll()]);
+      } catch (error) {
+        const d = (error.response && error.response.data) || {};
+        this.$toastr.error(d.message || String(error));
+      }
+    },
+    async newToken(w) {
+      if (!confirm(this.$t("train.servers.newTokenConfirm", { name: w.name }))) return;
+      const r = await axios.post(`/api/worker/servers/${encodeURIComponent(w.name)}`);
+      this.setup = r.data;
+    },
+    async removeServer(w) {
+      if (!confirm(this.$t("train.servers.removeConfirm", { name: w.name }))) return;
+      await axios.delete(`/api/worker/servers/${encodeURIComponent(w.name)}`);
+      if (this.setup && this.setup.name === w.name) this.setup = null;
+      await Promise.all([this.loadServers(), this.poll()]);
+    },
+    async copySetup() {
+      try {
+        await navigator.clipboard.writeText(this.setupScript);
+        this.$toastr.success(this.$t("train.servers.copied"));
+      } catch {
+        // select it by hand
+      }
+    },
     async loadSteps(id) {
       try {
         const r = await axios.get(`/api/train/${id}/steps`);
@@ -816,7 +961,7 @@ export default {
         const extra = {};
         Object.assign(extra, this.typedArgs);
         if (this.isYamlModel && f.pretrained) extra.pretrained = f.pretrained;
-        const body = { export_id: f.export_id, epochs: f.epochs, imgsz: f.imgsz, batch: f.batch, patience: f.patience, name: f.name, source: f.source, extra };
+        const body = { export_id: f.export_id, epochs: f.epochs, imgsz: f.imgsz, batch: f.batch, patience: f.patience, name: f.name, source: f.source, extra, target: f.target };
         if (f.source === "models") body.base_model = f.base_model;
         else if (f.source === "upload") body.upload_id = f.upload_id;
         else body.model = f.model;
@@ -955,6 +1100,13 @@ export default {
 .trainer-pill.ok {
   background: #d1e7dd;
   color: #0f5132;
+}
+.trainer-pill.busy {
+  background: #cfe2ff;
+  color: #084298;
+}
+.server-name {
+  max-width: 220px;
 }
 .trainer-pill.down {
   background: #fff3cd;

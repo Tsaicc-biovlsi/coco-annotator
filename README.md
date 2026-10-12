@@ -251,6 +251,30 @@ sudo docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --buil
 
 會多一個 `annotator_trainer` 容器（與網站共用同一個映像檔、`models/` 與 `datasets/` 資料夾）。訓練頁右上角會顯示訓練服務是否在執行、用哪張顯示卡。訓練的暫存檔在 `models/.training/`（不會出現在模型頁），訓練紀錄刪除時一併刪除，已存到模型頁的模型不受影響。訓練用的資料載入器需要共用記憶體，預設給 8 GB（`.env` 的 `TRAIN_SHM` 可調）。沒有獨立容器時，也可以在網站容器加環境變數 `TRAINER_EMBEDDED=true` 讓網站自己訓練。
 
+### 用其他伺服器訓練
+
+內網的其他伺服器也可以用它的顯示卡幫忙訓練，幾台就能同時跑幾個訓練。訓練頁右上角列出每一台訓練服務（這台叫 `main`，`.env` 的 `TRAINER_NAME` 可改）：顯示卡、閒置／訓練中 #N／離線。
+
+1. **新增（管理員）：** 訓練頁 → 「訓練伺服器」→ 輸入名稱（例如 `gpu2`）→ 新增。畫面會給一組 token（只顯示這一次）和要在那台伺服器上執行的指令。
+2. **在那台伺服器上：** 需要 Docker 與 NVIDIA Container Toolkit，不用裝網站、資料庫。照畫面上的指令：
+
+    ```bash
+    git clone -b upgrade-2026 https://github.com/Tsaicc-biovlsi/coco-annotator.git coco-annotator
+    cd coco-annotator
+    cat > .env <<'EOF'
+    TRAINER_URL=http://<這台網站伺服器的內網 IP>:5000
+    TRAINER_TOKEN=<token>
+    EOF
+    sudo docker compose -f docker-compose.worker.yml up -d --build
+    ```
+
+    它只跑一個 `annotator_trainer_worker` 容器，主動連到網站（網站不需要那台的帳號密碼，也不用替它開任何 port），連上後在訓練頁顯示為「gpu2 · 顯示卡名稱 · 閒置」。
+3. **指定在哪台訓練：** 新訓練的「在哪台訓練」選某一台就只由那台訓練；選「任何空著的」（預設）就由先空出來的那台接。訓練紀錄會標示在哪台跑（`· gpu2`），排隊中指定了的顯示 `→ gpu2`。
+
+在其他伺服器上的訓練，網頁上看到的都和本機一樣：即時輸出與曲線、最佳輪數、停止、刪除、下載訓練結果 .zip；完成後模型傳回這台、放進「模型」頁。訓練資料（匯出檔）、上傳的模型和這台已下載過的官方權重都由網站傳過去，所以那台不一定要能連外網（沒下載過的官方權重則需要）。**中斷後繼續** 只能在原本那台接續（`last.pt` 留在那台的 `./worker/`），所以「繼續」會自動指定回那台；那台重開後，訓練中的那筆會自動排隊接續。完成的訓練不會留在那台。
+
+管理：「重新產生 token」會讓舊的立刻失效（那台的 `.env` 要換新的再 `up -d`）；「移除」後那台不能再接訓練，指定給它而還在排隊的訓練改成任何空著的接。
+
 ## 網頁終端機
 
 **預設關閉**：沒有頁面、選單，也不能在身分裡勾這個權限，網站不會發出任何 SSH 連線，伺服器也不用開放 22 port。要使用時在 `.env` 加 `TERMINAL_ENABLED=true` 再 `sudo docker compose up -d`。

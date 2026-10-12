@@ -19,3 +19,6 @@ db/*
 mongo-dump-*/
 .env
 backups/
+
+# a trainer worker's files (docker-compose.worker.yml)
+/worker/

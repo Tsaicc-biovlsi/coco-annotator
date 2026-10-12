@@ -30,6 +30,11 @@ LOG_SECONDS = 1
 TASK_SUFFIX = {"detect": "", "segment": "-seg", "obb": "-obb", "pose": "-pose", "classify": "-cls"}
 
 
+def trainer_name():
+    """This trainer's name (several servers can train: each has its own)."""
+    return (os.getenv("TRAINER_NAME") or "main").strip()[:40] or "main"
+
+
 def models_dir():
     return os.getenv("MODELS_DIRECTORY", "/models")
 
@@ -111,8 +116,11 @@ def _trim_steps(path, epochs_done):
 def resumable(run):
     """Can go on from where it stopped: the last epoch's weights are there
     and it did not reach its epochs."""
-    return (run.status in ("failed", "stopped") and os.path.isfile(last_weights(run.id))
-            and (run.epoch or 0) < (run.epochs or 0))
+    if run.status not in ("failed", "stopped") or (run.epoch or 0) >= (run.epochs or 0):
+        return False
+    if getattr(run, "has_last", False):  # kept on the (remote) trainer that ran it
+        return True
+    return os.path.isfile(last_weights(run.id))
 
 
 def build_command(run, data, out_dir):
@@ -295,41 +303,108 @@ class LogFollower:
         return text[-LOG_TAIL_CHARS:]
 
 
-def heartbeat(device=None, catalog=None):
-    update = {"set__seen_at": datetime.datetime.utcnow()}
+def heartbeat(device=None, catalog=None, name=None, kind="local", run_id=False):
+    """This trainer is alive (and what it is training: run_id, None = free)."""
+    update = {"set__seen_at": datetime.datetime.utcnow(), "set__kind": kind}
     if device is not None:
         update["set__device"] = device
     if catalog is not None:
         update["set__catalog"] = catalog
         update["set__version"] = catalog.get("version") or ""
-    TrainerStatusModel.objects(key="trainer").update_one(upsert=True, **update)
+    if run_id is not False:
+        update["set__run_id"] = run_id
+    TrainerStatusModel.objects(key=name or trainer_name()).update_one(upsert=True, **update)
 
 
-def execute(run, command=None):
-    """Train one run to the end (or until stopped)."""
-    now = datetime.datetime.utcnow
-    export = ExportModel.objects(id=run.export_id).first()
+class LocalIO:
+    """How a training talks to the site when the trainer reads the database
+    itself (this server). A worker on another server has its own (worker.py)."""
+
+    def __init__(self, run):
+        self.run = run
+        self.export = ExportModel.objects(id=run.export_id).first()
+        self._polled = 0
+        self._shown = -1
+
+    def _export_file(self):
+        e = self.export
+        return e if e is not None and e.path and os.path.isfile(e.path) else None
+
+    def prepare(self, work, resume):
+        """Unpack the export; the data path (None: already unpacked)."""
+        if resume and os.path.isdir(os.path.join(work, "data")):
+            return None
+        export = self._export_file()
+        if export is None:
+            raise ValueError("the unpacked data and the export are both gone" if resume
+                             else "the export file no longer exists")
+        return _unpack(export, os.path.join(work, "data"), self.run.task)
+
+    def fail(self, error):
+        self.run.update(set__status="failed", set__error=error[:1000], set__ended_at=datetime.datetime.utcnow())
+
+    def poll(self, rows, out, force=False):
+        """Every second while training: the output, and every few seconds the
+        epochs done; True when it is to be stopped."""
+        run = self.run
+        if force or time.monotonic() - self._polled >= POLL_SECONDS:
+            self._polled = time.monotonic()
+            r = rows()
+            run.reload("stop_requested")
+            run.update(set__metrics=r, set__epoch=len(r))
+            heartbeat()
+        if out.version != self._shown:
+            self._shown = out.version
+            run.update(set__log_tail=out.tail())
+        return bool(run.stop_requested)
+
+    def removed(self):
+        self.run.reload("delete_requested")
+        if self.run.delete_requested:  # removed while it ran: nothing kept
+            shutil.rmtree(work_dir(self.run.id), ignore_errors=True)
+            self.run.delete()
+            return True
+        return False
+
+    def finish(self, status, rows, log_tail, error, best, has_last):
+        run = self.run
+        model_name = None
+        if best:
+            names = run.dataset_names or ["model"]
+            name = f"{safe_name('+'.join(names))}-{run.task}-run{run.id}.pt"
+            target_dir = os.path.join(models_dir(), "trained")
+            os.makedirs(target_dir, exist_ok=True)
+            shutil.copy2(best, os.path.join(target_dir, name))
+            model_name = f"trained/{name}"
+        if status == "done" and not model_name:
+            status = "failed"
+        try:
+            package(run)
+        except Exception as e:  # the run is still done; the page can pack it later
+            logger.warning("could not pack run %s: %s", run.id, e)
+        run.update(set__status=status, set__metrics=rows, set__epoch=len(rows), set__log_tail=log_tail,
+                   set__model_name=model_name, set__error=error, set__ended_at=datetime.datetime.utcnow(),
+                   set__has_last=False)
+
+
+def execute(run, command=None, io=None):
+    """Train one run to the end (or until stopped). ``io``: how it reports
+    to the site (LocalIO here; a worker on another server has its own)."""
+    io = io or LocalIO(run)
     work = work_dir(run.id)
     log_path = os.path.join(work, "train.log")
+    resume = bool((run.params or {}).get("resume"))
+    out_dir = os.path.join(work, "runs")
     try:
-        resume = bool((run.params or {}).get("resume"))
-        out_dir = os.path.join(work, "runs")
+        os.makedirs(work, exist_ok=True)
         if resume:
-            # the data as it was unpacked (the export may be gone since)
             if not os.path.isfile(last_weights(run.id)):
                 raise ValueError("no weights of a finished epoch to resume from")
+            # the data as it was unpacked (the export may be gone since)
             _trim_steps(os.path.join(work, "steps.jsonl"), run.epoch or 0)
-            if os.path.isdir(os.path.join(work, "data")):
-                data = None
-            elif export is None or not export.path or not os.path.isfile(export.path):
-                raise ValueError("the unpacked data and the export are both gone")
-            else:
-                data = _unpack(export, os.path.join(work, "data"), run.task)
+            data = io.prepare(work, True)
         else:
-            if export is None or not export.path or not os.path.isfile(export.path):
-                raise ValueError("the export file no longer exists")
-            os.makedirs(work, exist_ok=True)
-            data = _unpack(export, os.path.join(work, "data"), run.task)
+            data = io.prepare(work, False)
             # nothing left from an earlier run with this number
             shutil.rmtree(out_dir, ignore_errors=True)
             for old in ("steps.jsonl", "progress.txt", "results.zip"):
@@ -337,7 +412,7 @@ def execute(run, command=None):
                     os.remove(os.path.join(work, old))
         cmd = (command or build_command)(run, data, out_dir)
     except Exception as e:  # nothing started: say why
-        run.update(set__status="failed", set__error=str(e)[:1000], set__ended_at=now())
+        io.fail(str(e))
         return
     results = os.path.join(out_dir, "train", "results.csv")
     # online: Ultralytics downloads the base weights the first time
@@ -356,23 +431,12 @@ def execute(run, command=None):
         reader = threading.Thread(target=out.follow, args=(proc.stdout,), daemon=True)
         reader.start()
         stopped = False
-        shown = -1
-        last_poll = 0
         while True:
             code = proc.poll()
-            if time.monotonic() - last_poll >= POLL_SECONDS or code is not None:
-                # results, stop button, trainer alive
-                last_poll = time.monotonic()
-                rows = _read_results(results)
-                run.reload("stop_requested")
-                run.update(set__metrics=rows, set__epoch=len(rows))
-                heartbeat()
-            if out.version != shown:
-                shown = out.version
-                run.update(set__log_tail=out.tail())
+            stop = io.poll(lambda: _read_results(results), out, force=code is not None)
             if code is not None:
                 break
-            if run.stop_requested and not stopped:
+            if stop and not stopped:
                 stopped = True
                 # the whole process group (data loader workers too)
                 os.killpg(proc.pid, signal.SIGINT)
@@ -384,32 +448,18 @@ def execute(run, command=None):
         reader.join(timeout=10)
         proc.stdout.close()
         log_tail = out.tail()
-    run.reload("delete_requested")
-    if run.delete_requested:  # removed while it ran: nothing kept
-        shutil.rmtree(work, ignore_errors=True)
-        run.delete()
+    if io.removed():
         return
     rows = _read_results(results)
     best = os.path.join(out_dir, "train", "weights", "best.pt")
-    model_name = None
-    if os.path.isfile(best) and rows:
-        names = run.dataset_names or ["model"]
-        name = f"{safe_name('+'.join(names))}-{run.task}-run{run.id}.pt"
-        target_dir = os.path.join(models_dir(), "trained")
-        os.makedirs(target_dir, exist_ok=True)
-        shutil.copy2(best, os.path.join(target_dir, name))
-        model_name = f"trained/{name}"
-    status = "stopped" if stopped else ("done" if code == 0 and model_name else "failed")
+    best = best if os.path.isfile(best) and rows else None
+    status = "stopped" if stopped else ("done" if code == 0 and best else "failed")
     error = ""
     if status == "failed":
         tail = log_tail.strip().splitlines()
         error = (tail[-1] if tail else f"exit code {code}")[:1000]
-    try:
-        package(run, log_path)
-    except Exception as e:  # the run is still done; the page can pack it later
-        logger.warning("could not pack run %s: %s", run.id, e)
-    run.update(set__status=status, set__metrics=rows, set__epoch=len(rows), set__log_tail=log_tail,
-               set__model_name=model_name, set__error=error, set__ended_at=now())
+    has_last = os.path.isfile(last_weights(run.id)) and len(rows) < (run.epochs or 0)
+    io.finish(status, rows, log_tail, error, best, has_last)
 
 
 # already compressed: stored as they are (faster, no bigger)
@@ -444,14 +494,18 @@ def package(run, log_path=None):
     return target
 
 
-def claim_next():
-    """The oldest queued run, now running (None when there is none)."""
-    first = TrainRunModel.objects(status="queued").order_by("id").first()
-    if first is None:
-        return None
-    claimed = TrainRunModel.objects(id=first.id, status="queued").update_one(
-        set__status="running", set__started_at=datetime.datetime.utcnow())
-    return TrainRunModel.objects(id=first.id).first() if claimed else None
+def claim_next(worker=None):
+    """The oldest queued run this trainer may take (meant for it, or for any
+    trainer), now running on it; None when there is none."""
+    from mongoengine.queryset.visitor import Q
+    worker = worker or trainer_name()
+    for first in TrainRunModel.objects(Q(status="queued") & (Q(target__in=["", None]) | Q(target=worker))
+                                       ).order_by("id").only("id")[:5]:
+        claimed = TrainRunModel.objects(id=first.id, status="queued").update_one(
+            set__status="running", set__started_at=datetime.datetime.utcnow(), set__worker=worker)
+        if claimed:
+            return TrainRunModel.objects(id=first.id).first()
+    return None
 
 
 def _device_name():
@@ -473,15 +527,18 @@ def queue_resume(run, reason=""):
     params = dict(run.params or {})
     params["resume"] = True
     params["resumes"] = int(params.get("resumes") or 0) + 1
+    # its last epoch's weights are on the server that trained it
     return TrainRunModel.objects(id=run.id, status__in=["running", "failed", "stopped"]).update_one(
         set__status="queued", set__params=params, set__stop_requested=False, set__error=reason,
-        set__ended_at=None)
+        set__ended_at=None, set__target=run.worker or "")
 
 
 def recover():
     """Runs left "running" when the trainer stopped (server restarted, power
     cut…): queued again to go on from their last finished epoch, else failed."""
-    for run in TrainRunModel.objects(status="running"):
+    from mongoengine.queryset.visitor import Q
+    me = trainer_name()
+    for run in TrainRunModel.objects(Q(status="running") & (Q(worker=me) | Q(worker__in=["", None]))):
         if run.delete_requested:
             shutil.rmtree(work_dir(run.id), ignore_errors=True)
             run.delete()
@@ -500,13 +557,17 @@ def serve():
     from .catalog import build
     heartbeat(device, build())
     logger.info("trainer ready (%s)", device)
+    # the name used before trainers had names
+    if trainer_name() != "trainer":
+        TrainerStatusModel.objects(key="trainer").delete()
     while True:
-        heartbeat(device)
+        heartbeat(device, run_id=None)
         run = claim_next()
         if run is None:
             time.sleep(POLL_SECONDS)
             continue
         logger.info("training run %s", run.id)
+        heartbeat(device, run_id=run.id)
         try:
             execute(run)
         except Exception as e:  # pragma: no cover - keep serving the queue
