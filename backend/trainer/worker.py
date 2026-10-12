@@ -26,6 +26,10 @@ RETRY_SECONDS = 10
 HEARTBEAT_SECONDS = 10
 
 
+class Stopped(Exception):
+    """Stopped from the site before the training began."""
+
+
 class Site:
     """The site's worker API (/api/worker)."""
 
@@ -41,15 +45,25 @@ class Site:
         r.raise_for_status()
         return r.json() if r.status_code != 204 and r.content else None
 
-    def download(self, path, dest):
+    def download(self, path, dest, progress=None):
+        """``progress(done, total)`` now and then; it returns True to give up."""
         tmp = dest + ".part"
         with self.http.get(f"{self.url}/{path}", stream=True, timeout=60) as r:
             if r.status_code == 404:
                 raise ValueError((r.json() or {}).get("message") or "not found on the site")
             r.raise_for_status()
+            total = int(r.headers.get("Content-Length") or 0)
+            done, told = 0, 0
             with open(tmp, "wb") as fp:
                 for chunk in r.iter_content(1024 * 1024):
                     fp.write(chunk)
+                    done += len(chunk)
+                    if progress and time.monotonic() - told >= 1:
+                        told = time.monotonic()
+                        if progress(done, total):
+                            raise Stopped()
+            if progress:
+                progress(done, total)
         os.replace(tmp, dest)
         return dest
 
@@ -103,6 +117,31 @@ class RemoteIO:
         self.stop = False
         self.delete = False
 
+    def _status(self, text, line=False):
+        """Before the training: what it is doing (as the progress bar, or a
+        line of the output); True when it is to be stopped."""
+        body = {"lines": [text] if line else [], "progress": "" if line else text}
+        try:
+            answer = self.site.post(f"runs/{self.run.id}/progress", body) or {}
+            self.stop = bool(answer.get("stop"))
+            self.delete = bool(answer.get("delete"))
+        except PermissionError:
+            raise
+        except Exception as e:
+            logger.warning("run %s: could not reach the site: %s", self.run.id, e)
+        return self.stop
+
+    def _fetch(self, path, dest, what):
+        def progress(done, total):
+            mb = done / 1e6
+            text = f"{what}: {mb:.0f} / {total / 1e6:.0f} MB" if total else f"{what}: {mb:.0f} MB"
+            if total:
+                text += f" ({100 * done / total:.0f}%)"
+            return self._status(text)
+        if self._status(f"{what}…", line=True):
+            raise Stopped()
+        self.site.download(path, dest, progress)
+
     def prepare(self, work, resume):
         # model files of the site (uploaded, from its Models page)
         folder = os.path.join(work, "files")
@@ -110,7 +149,7 @@ class RemoteIO:
         for f in self.job.get("files") or []:
             dest = os.path.join(folder, os.path.basename(f["name"]))
             if not os.path.isfile(dest) or _size(dest) != f.get("size"):
-                self.site.download(f"runs/{self.run.id}/files/{f['index']}", dest)
+                self._fetch(f"runs/{self.run.id}/files/{f['index']}", dest, f"Downloading {f['name']}")
             if f["field"] == "model":
                 self.run.params["model"] = dest
             elif f["field"] == "pretrained":
@@ -125,15 +164,26 @@ class RemoteIO:
             raise ValueError("the unpacked data and the export are both gone" if resume
                              else "the export file no longer exists")
         zip_path = os.path.join(work, "export.zip")
-        self.site.download(f"runs/{self.run.id}/export", zip_path)
         try:
-            return _unpack(SimpleNamespace(path=zip_path, folder=export.get("folder")),
+            self._fetch(f"runs/{self.run.id}/export", zip_path, f"Downloading export #{export.get('id')}")
+            if self._status("Unpacking the export…", line=True):
+                raise Stopped()
+            data = _unpack(SimpleNamespace(path=zip_path, folder=export.get("folder")),
                            os.path.join(work, "data"), self.run.task)
+            self._status("Starting the training…", line=True)
+            return data
         finally:
-            os.remove(zip_path)
+            for leftover in (zip_path, zip_path + ".part"):
+                if os.path.exists(leftover):
+                    os.remove(leftover)
 
     def fail(self, error):
         try:
+            if self.stop or self.delete:  # stopped while getting the data
+                self.site.post(f"runs/{self.run.id}/finish",
+                               data={"data": json.dumps({"status": "stopped", "metrics": [], "log_tail": ""})})
+                shutil.rmtree(work_dir(self.run.id), ignore_errors=True)
+                return
             self.site.post(f"runs/{self.run.id}/fail", {"error": error[:1000]})
         except Exception as e:
             logger.warning("could not report run %s failed: %s", self.run.id, e)

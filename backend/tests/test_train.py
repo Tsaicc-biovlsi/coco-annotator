@@ -445,12 +445,15 @@ class _TestSite:
         assert r.status_code < 400, (path, r.status_code, r.data)
         return r.get_json() if r.status_code != 204 and r.data else None
 
-    def download(self, path, dest):
+    def download(self, path, dest, progress=None):
         r = self.c.get(f"/api/worker/{path}", headers=self.h)
         if r.status_code == 404:
             raise ValueError("not found")
         with open(dest, "wb") as fp:
             fp.write(r.data)
+        if progress and progress(len(r.data), len(r.data)):
+            from trainer.worker import Stopped
+            raise Stopped()
         return dest
 
 
@@ -588,7 +591,32 @@ def test_other_servers(dataset_directory, tmp_path, monkeypatch):
     back = TrainRunModel.objects(id=slow["id"]).first()
     assert back.status == "queued" and back.target == "gpu2" and back.has_last
 
+    # stopped while the worker still downloads the data: it gives up there
+    TrainRunModel.objects(id=slow["id"]).update_one(set__status="stopped")
+    early = t.post("/api/train/", json={"export_id": eid, "epochs": 5, "target": "gpu2"}).get_json()
+    job = site.post("claim")
+    assert job["id"] == early["id"]
+    t.post(f"/api/train/{early['id']}/stop")
+    run = SimpleNamespace(id=job["id"], task=job["task"], params=dict(job["params"]), epoch=0,
+                          epochs=job["epochs"], dataset_names=job["dataset_names"])
+    worker.execute(run, command=_fake_command(str(script)), io=worker.RemoteIO(site, job, run))
+    gone = t.get(f"/api/train/{early['id']}").get_json()
+    assert gone["status"] == "stopped" and gone["epoch"] == 0 and "Downloading export" in open(
+        os.path.join(site_work(early["id"]), "train.log")).read()
+
+    # its server went away in the middle: stopping takes effect at once
+    from database import TrainerStatusModel
+    import datetime as dt
+    lost = t.post("/api/train/", json={"export_id": eid, "epochs": 5, "target": "gpu2"}).get_json()
+    assert site.post("claim")["id"] == lost["id"]
+    TrainerStatusModel.objects(key="gpu2").update_one(set__seen_at=dt.datetime.utcnow() - dt.timedelta(minutes=5))
+    assert t.post(f"/api/train/{lost['id']}/stop").get_json()["status"] == "stopped"
+    # it comes back later: told to stop, its results are not taken
+    assert site.post(f"runs/{lost['id']}/progress", {"lines": ["x"]})["stop"] is True
+    assert site.post(f"runs/{lost['id']}/finish", data={"data": '{"status": "done"}'})["ignored"]
+
     # removing the server: what waited for it goes to any trainer
+    TrainRunModel.objects(id=slow["id"]).update_one(set__status="queued")
     assert admin.delete("/api/worker/servers/gpu2").get_json()["success"]
     assert TrainRunModel.objects(id=slow["id"]).first().target == ""
     assert "gpu2" not in {x["name"] for x in t.get("/api/train/status").get_json()["trainers"]}

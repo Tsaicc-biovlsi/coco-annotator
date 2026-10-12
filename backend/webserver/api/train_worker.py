@@ -208,6 +208,8 @@ class WorkerProgress(Resource):
         run = _run_of(worker, run_id)
         if run is None:
             return {'stop': True, 'delete': True}
+        if run.status != 'running':  # stopped here meanwhile (the worker was unreachable)
+            return {'stop': True, 'delete': False}
         data = request.get_json(silent=True) or {}
         work = work_dir(run.id)
         os.makedirs(work, exist_ok=True)
@@ -266,6 +268,8 @@ class WorkerFinish(Resource):
             shutil.rmtree(work, ignore_errors=True)
             run.delete()
             return {'deleted': True}
+        if run.status != 'running':  # ended here meanwhile
+            return {'status': run.status, 'ignored': True}
         try:
             data = json.loads(request.form.get('data') or '{}')
         except ValueError:

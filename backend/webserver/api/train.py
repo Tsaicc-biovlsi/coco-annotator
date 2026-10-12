@@ -69,6 +69,13 @@ def _alive(row):
                 (datetime.datetime.utcnow() - row.seen_at).total_seconds() < TRAINER_ALIVE_SECONDS)
 
 
+def _trainer_alive(name):
+    """Whether the trainer of that name reports (unknown name: assume so)."""
+    if not name:
+        return True
+    return _alive(TrainerStatusModel.objects(key=name).first())
+
+
 def trainers():
     """Every trainer: this server's and the other servers' (registered, or
     seen in the last day), alive or not."""
@@ -568,7 +575,7 @@ class TrainRun(Resource):
             return {'message': 'Invalid run'}, 400
         if run.creator != current_user.username and not current_user.is_admin:
             return {'message': 'Only its creator or an admin can remove it'}, 403
-        if run.status == 'running':
+        if run.status == 'running' and _trainer_alive(run.worker):
             run.update(set__stop_requested=True, set__delete_requested=True)
             return {'success': True, 'deleting': True}
         if run.status == 'queued':
@@ -668,4 +675,8 @@ class TrainRunStop(Resource):
                 set__status='stopped', set__ended_at=datetime.datetime.utcnow())
         elif run.status == 'running':
             run.update(set__stop_requested=True)
+            if not _trainer_alive(run.worker):
+                # its trainer is gone (off, unreachable): nothing will stop it
+                run.update(set__status='stopped', set__ended_at=datetime.datetime.utcnow(),
+                           set__error='its trainer was not running')
         return TrainRunModel.objects(id=run.id).first().to_dict()
