@@ -373,10 +373,8 @@ export default {
 
       // Create new compoundpath
       this.compoundPath = new paper.CompoundPath();
-      this.compoundPath.onDoubleClick = () => {
-        if (this.activeTool !== "Select") return;
-        showModal(`#annotationSettings${this.annotation.id}`);
-      };
+      // double-click (any tool): the annotator opens the settings
+      this.compoundPath.onDoubleClick = () => {};
       this.keypoints = new Keypoints(this.keypointEdges, this.keypointLabels,
         this.keypointColors, {
           annotationId: this.annotation.id,
@@ -460,6 +458,9 @@ export default {
         );
       }
       return { category: this.$parent.category, data };
+    },
+    openSettings() {
+      showModal(`#annotationSettings${this.annotation.id}`);
     },
     deleteAnnotation(options) {
       // (templates call this with the click event as argument)

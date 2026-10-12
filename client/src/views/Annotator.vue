@@ -485,6 +485,7 @@ export default {
       modelRunning: false,
       // left + right button together: Select tool until both are released
       chord: { active: false, prevTool: null, first: null },
+      dblPress: null,
       autosave: {
         saved: null, // signature of the last saved state (null: not loaded yet)
         pending: null,
@@ -981,9 +982,9 @@ export default {
       return Object.values(this.$refs).find(r => r && r.name === name && r.tool) || null;
     },
     /** what the active tool has in progress (to take back a press) */
-    toolSnapshot() {
+    toolSnapshot(tool = this.activeTool) {
       const r = this.$refs;
-      switch (this.activeTool) {
+      switch (tool) {
         case "Polygon": {
           const path = r.polygon.polygon.path;
           return { path: !!path, n: path ? path.segments.length : 0 };
@@ -1504,6 +1505,65 @@ export default {
     },
 
     /** The tool matching the annotation shape under ``point`` (box, rotated box, polygon) */
+    /** the annotation (its component) drawn at a point, or null; a keypoint
+     *  there counts as none (it has its own settings) */
+    annotationAt(point) {
+      if (!this.paper || !this.paper.project) return null;
+      const hit = this.paper.project.hitTest(point, {
+        fill: true,
+        stroke: true,
+        tolerance: 3,
+        match: result => {
+          let item = result.item;
+          if (item && item.keypoint) return true;
+          while (item && item.data && item.data.annotationId === undefined) item = item.parent;
+          return !!(item && item.visible && item.data && item.data.annotationId !== undefined);
+        }
+      });
+      if (!hit || hit.item.keypoint) return null;
+      let item = hit.item;
+      while (item && item.data.annotationId === undefined) item = item.parent;
+      const category = this.categoryRefs()[item.data.categoryId];
+      return (category && category.annotationRefs()[item.data.annotationId]) || null;
+    },
+    /* ---------- double-click on a shape: its settings ---------- */
+    allAnnotationIds() {
+      const ids = new Set();
+      this.categoryRefs().forEach(c => c.annotationRefs().forEach(a => a.annotation && ids.add(a.annotation.id)));
+      return ids;
+    },
+    /** first press of a possible double-click: what was going on before it */
+    onDblPress(e) {
+      if (e.button !== 0 || e.detail !== 1) return;
+      const snaps = {};
+      ["Polygon", "BBox", "Rotated BBox"].forEach(t => (snaps[t] = this.toolSnapshot(t)));
+      this.dblPress = { time: Date.now(), tool: this.activeTool, snaps, ids: this.allAnnotationIds() };
+    },
+    /** double-click on a shape, with any tool: open its settings; what the
+     *  two presses started (a point, a box, an empty annotation) is taken back */
+    onCanvasDblClick(e) {
+      const press = this.dblPress;
+      this.dblPress = null;
+      if (!press || Date.now() - press.time > 1500 || !this.paper || !this.paper.view) return;
+      // in the middle of drawing (e.g. placing polygon points): not for us
+      const before = press.snaps[press.tool] || {};
+      if (before.path || before.drawing) return;
+      const rect = this.paper.view.element.getBoundingClientRect();
+      const point = this.paper.view.viewToProject(new paper.Point(e.clientX - rect.left, e.clientY - rect.top));
+      const target = this.annotationAt(point);
+      if (!target) return;
+      ["Polygon", "BBox", "Rotated BBox"].forEach(tool => this.undoFirstPress({ time: press.time, tool, snap: press.snaps[tool] }));
+      // an annotation the presses created (to draw in) goes again
+      setTimeout(() => {
+        this.categoryRefs().forEach(c =>
+          c.annotationRefs().forEach(a => {
+            if (a.annotation && !press.ids.has(a.annotation.id) && a.isEmpty) a.deleteAnnotation({ undoable: false });
+          })
+        );
+      }, 600);
+      this.showAnnotationById(target.annotation.id);
+      this.$nextTick(() => target.openSettings && target.openSettings());
+    },
     toolForShapeAt(point) {
       if (!this.paper || !this.paper.project) return null;
       const hit = this.paper.project.hitTest(point, {
@@ -1892,6 +1952,8 @@ export default {
     window.addEventListener("beforeunload", this.onPageHide);
     // capture phase: seen before paper.js handles the press
     this.$refs.frame.addEventListener("mousedown", this.onChordDown, true);
+    this.$refs.frame.addEventListener("mousedown", this.onDblPress, true);
+    this.$refs.frame.addEventListener("dblclick", this.onCanvasDblClick);
     this.$refs.frame.addEventListener("contextmenu", this.onCanvasContextMenu);
     document.addEventListener("mouseup", this.onChordUp, true);
     window.addEventListener("blur", this.endChord);
@@ -1904,6 +1966,8 @@ export default {
     window.removeEventListener("beforeunload", this.onPageHide);
     if (this.$refs.frame) {
       this.$refs.frame.removeEventListener("mousedown", this.onChordDown, true);
+      this.$refs.frame.removeEventListener("mousedown", this.onDblPress, true);
+      this.$refs.frame.removeEventListener("dblclick", this.onCanvasDblClick);
       this.$refs.frame.removeEventListener("contextmenu", this.onCanvasContextMenu);
     }
     document.removeEventListener("mouseup", this.onChordUp, true);
