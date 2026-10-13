@@ -1623,7 +1623,27 @@
     "thisImage": "就是目前這張圖",
     "today": "今天",
     "yesterday": "昨天",
-    "keysHint": "Enter 送出，Shift+Enter 換行"
+    "keysHint": "Enter 送出，Shift+Enter 換行",
+    "photo": "照片",
+    "viewPhoto": "看大圖",
+    "addPhotos": "上傳照片（也可以直接貼上或拖進來）",
+    "removePhoto": "移除",
+    "dropHere": "放開就加入照片",
+    "onlyPhotos": "只能傳圖片檔",
+    "maxPhotos": "一則訊息最多 {n} 張照片",
+    "photoFailed": "照片上傳失敗",
+    "openOriginal": "原圖",
+    "emoji": {
+      "title": "表情符號",
+      "recent": "最近用過",
+      "smileys": "表情",
+      "people": "手勢與人",
+      "symbols": "符號",
+      "objects": "物品",
+      "nature": "動物與自然",
+      "food": "食物",
+      "noneRecent": "還沒有用過的表情符號"
+    }
   },
   "exportMerge": {
     "title": "一起匯出其他資料集（合併成一份）",

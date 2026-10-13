@@ -87,3 +87,58 @@ def test_messages_reach_the_room_only(dataset_directory):
         assert got(s_stranger) == []
     finally:
         socketio.server.manager = queue_manager
+
+
+def test_photos_and_emoji(dataset_directory):
+    """Photos from the computer / phone (not the dataset's images) and emoji."""
+    import io
+    from PIL import Image
+    owner, member, stranger, ds, _ = _world(dataset_directory, "ch_ph")
+
+    def upload(client, img=None, fmt="JPEG", raw=None, name="p.jpg", **save):
+        buf = io.BytesIO()
+        if raw is None:
+            img.save(buf, fmt, **save)
+        else:
+            buf.write(raw)
+        buf.seek(0)
+        return client.post(f"/api/chat/dataset/{ds}/photo", data={"file": (buf, name)},
+                           content_type="multipart/form-data")
+
+    # a phone photo turned sideways by its EXIF, with a place in it
+    exif = Image.Exif()
+    exif[0x0112] = 6  # rotate 90
+    exif[0x8825] = {1: "N"}  # GPS
+    big = Image.new("RGB", (4000, 3000), (200, 30, 30))
+    r = upload(member, big, exif=exif.tobytes())
+    assert r.status_code == 200, r.data
+    photo = r.get_json()
+    assert (photo["w"], photo["h"]) == (1920, 2560)  # upright, at most 2560
+    png = upload(member, Image.new("RGBA", (50, 40)), "PNG", name="s.png").get_json()
+    assert upload(member, raw=b"not an image", name="x.jpg").status_code == 400
+    assert upload(stranger, Image.new("RGB", (8, 8))).status_code == 400
+
+    # a message of photos only, and one with emoji
+    r = member.post(f"/api/chat/dataset/{ds}", json={"text": "", "photos": [photo["id"], png["id"]]})
+    assert r.status_code == 200, r.data
+    msg = r.get_json()
+    assert [p["id"] for p in msg["photos"]] == [photo["id"], png["id"]] and msg["photos"][0]["w"] == 1920
+    assert member.post(f"/api/chat/dataset/{ds}", json={"text": "好的 👍🎉"}).get_json()["text"] == "好的 👍🎉"
+    # a photo goes with one message only, and only its uploader sends it
+    assert member.post(f"/api/chat/dataset/{ds}", json={"photos": [photo["id"]]}).status_code == 400
+    other = upload(owner, Image.new("RGB", (8, 8))).get_json()
+    assert member.post(f"/api/chat/dataset/{ds}", json={"photos": [other["id"]]}).status_code == 400
+
+    listed = owner.get(f"/api/chat/dataset/{ds}").get_json()["messages"]
+    assert [p["id"] for p in listed[-2]["photos"]] == [photo["id"], png["id"]]
+
+    # members see it (and a small copy); others do not
+    got = owner.get(f"/api/chat/photo/{photo['id']}")
+    assert got.status_code == 200
+    shown = Image.open(io.BytesIO(got.data))
+    assert shown.size == (1920, 2560) and not shown.getexif().get(0x8825)  # no place kept
+    thumb = Image.open(io.BytesIO(owner.get(f"/api/chat/photo/{photo['id']}?thumb=1").data))
+    assert max(thumb.size) == 640
+    assert stranger.get(f"/api/chat/photo/{photo['id']}").status_code == 404
+    # not sent yet: only its uploader sees it
+    assert member.get(f"/api/chat/photo/{other['id']}").status_code == 404

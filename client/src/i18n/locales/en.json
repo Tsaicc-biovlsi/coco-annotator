@@ -1491,7 +1491,27 @@
     "thisImage": "This is the image open now",
     "today": "Today",
     "yesterday": "Yesterday",
-    "keysHint": "Enter sends, Shift+Enter adds a line"
+    "keysHint": "Enter sends, Shift+Enter adds a line",
+    "photo": "Photo",
+    "viewPhoto": "View",
+    "addPhotos": "Add photos (or paste / drop them here)",
+    "removePhoto": "Remove",
+    "dropHere": "Drop to add the photos",
+    "onlyPhotos": "Only image files",
+    "maxPhotos": "At most {n} photos per message",
+    "photoFailed": "The photo was not uploaded",
+    "openOriginal": "Original",
+    "emoji": {
+      "title": "Emoji",
+      "recent": "Recent",
+      "smileys": "Smileys",
+      "people": "Gestures & people",
+      "symbols": "Symbols",
+      "objects": "Objects",
+      "nature": "Animals & nature",
+      "food": "Food",
+      "noneRecent": "No emoji used yet"
+    }
   },
   "exportMerge": {
     "title": "Export other datasets too (into one file)",

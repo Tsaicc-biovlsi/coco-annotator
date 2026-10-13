@@ -3,7 +3,7 @@
     <!-- a short preview of a new message while the chat is closed -->
     <transition name="chat-fade">
       <button v-if="!open && preview" type="button" class="chat-preview shadow" @click="toggle(true)">
-        <b>{{ preview.name }}</b>：{{ preview.text || (preview.file_name ? '🖼 ' + preview.file_name : '') }}
+        <b>{{ preview.name }}</b>：{{ preview.text || ((preview.photos || []).length ? '📷 ' + $t('chat.photo') : '') || (preview.file_name ? '🖼 ' + preview.file_name : '') }}
       </button>
     </transition>
 
@@ -19,7 +19,18 @@
       <span v-if="unread" class="chat-badge">{{ unread > 99 ? '99+' : unread }}</span>
     </button>
 
-    <section v-if="open" class="chat-panel shadow-lg" role="dialog" :aria-label="$t('chat.title')" @keydown.stop>
+    <section
+      v-if="open"
+      class="chat-panel shadow-lg"
+      :class="{ dropping }"
+      role="dialog"
+      :aria-label="$t('chat.title')"
+      @keydown.stop
+      @dragover.prevent="onDragOver"
+      @dragleave="onDragLeave"
+      @drop.prevent="onDrop"
+    >
+      <div v-if="dropping" class="chat-drop"><i class="fa fa-picture-o" /> {{ $t('chat.dropHere') }}</div>
       <header class="chat-head">
         <i class="fa fa-comments me-2" />
         <span class="text-truncate flex-grow-1">
@@ -45,7 +56,25 @@
               <span class="chat-name">{{ m.user === me ? $t('chat.you') : m.name }}</span>
               <span class="chat-time">{{ timeLabel(m.created_at) }}</span>
             </div>
-            <div class="chat-bubble" :title="fullTime(m.created_at)">
+            <div class="chat-bubble" :class="{ 'only-photos': !m.text && !m.image_id && (m.photos || []).length }" :title="fullTime(m.created_at)">
+              <div v-if="(m.photos || []).length" class="chat-photos" :class="'n' + Math.min(m.photos.length, 4)">
+                <button
+                  v-for="ph in m.photos"
+                  :key="ph.id"
+                  type="button"
+                  class="chat-photo"
+                  :aria-label="$t('chat.viewPhoto')"
+                  @click="viewing = ph"
+                >
+                  <img
+                    :src="`/api/chat/photo/${ph.id}?thumb=1`"
+                    :alt="$t('chat.photo')"
+                    loading="lazy"
+                    :style="m.photos.length === 1 && ph.w && ph.h ? { aspectRatio: ph.w + ' / ' + ph.h } : null"
+                    @load="onPhotoLoad"
+                  />
+                </button>
+              </div>
               <span v-if="m.text" class="chat-text">{{ m.text }}</span>
               <a
                 v-if="m.image_id"
@@ -67,6 +96,31 @@
       </button>
 
       <footer class="chat-input">
+        <div v-if="pending.length" class="chat-pending">
+          <div v-for="p in pending" :key="p.key" class="pending" :class="{ failed: p.error }" :title="p.error || p.name">
+            <img :src="p.url" alt="" />
+            <span v-if="p.id == null && !p.error" class="pending-progress">{{ p.progress }}%</span>
+            <span v-if="p.error" class="pending-progress"><i class="fa fa-exclamation-triangle" /></span>
+            <button type="button" class="pending-remove" :aria-label="$t('chat.removePhoto')" @click="removePending(p)">×</button>
+          </div>
+        </div>
+        <div v-if="emojiOpen" class="chat-emoji">
+          <div class="emoji-tabs">
+            <button
+              v-for="g in emojiGroups"
+              :key="g.key"
+              type="button"
+              class="emoji-tab"
+              :class="{ on: emojiGroup === g.key }"
+              :title="$t('chat.emoji.' + g.key)"
+              @click="emojiGroup = g.key"
+            >{{ g.icon }}</button>
+          </div>
+          <div class="emoji-grid">
+            <button v-for="e in emojiShown" :key="e" type="button" class="emoji" @click="insertEmoji(e)">{{ e }}</button>
+            <div v-if="!emojiShown.length" class="small text-muted p-2">{{ $t('chat.emoji.noneRecent') }}</div>
+          </div>
+        </div>
         <div v-if="attach && imageId" class="chat-attach">
           <i class="fa fa-picture-o" /> <span class="text-truncate">{{ imageName || ('#' + imageId) }}</span>
           <button type="button" class="btn-close btn-sm ms-auto" :aria-label="$t('chat.detach')" @click="attach = false" />
@@ -84,6 +138,27 @@
           >
             <i class="fa fa-picture-o" />
           </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary chat-tool"
+            :title="$t('chat.addPhotos')"
+            :aria-label="$t('chat.addPhotos')"
+            @click="$refs.photoInput.click()"
+          >
+            <i class="fa fa-paperclip" />
+          </button>
+          <input ref="photoInput" type="file" accept="image/*" multiple class="d-none" @change="onPickPhotos" />
+          <button
+            type="button"
+            class="btn btn-sm chat-tool"
+            :class="emojiOpen ? 'btn-secondary' : 'btn-outline-secondary'"
+            :title="$t('chat.emoji.title')"
+            :aria-label="$t('chat.emoji.title')"
+            :aria-pressed="emojiOpen"
+            @click="toggleEmoji"
+          >
+            <i class="fa fa-smile-o" />
+          </button>
           <textarea
             ref="input"
             v-model="text"
@@ -94,11 +169,12 @@
             :title="$t('chat.keysHint')"
             @keydown.enter="onEnter"
             @input="autosize"
+            @paste="onPaste"
           />
           <button
             type="button"
             class="btn btn-sm btn-primary"
-            :disabled="sending || (!text.trim() && !(attach && imageId))"
+            :disabled="sending || uploading || (!text.trim() && !(attach && imageId) && !readyPhotos.length)"
             :aria-label="$t('chat.send')"
             :title="$t('chat.send')"
             @click="send"
@@ -108,13 +184,25 @@
         </div>
       </footer>
     </section>
+
+    <!-- a photo, big -->
+    <div v-if="viewing" class="chat-viewer" role="dialog" :aria-label="$t('chat.photo')" @click.self="viewing = null" @keydown.esc="viewing = null">
+      <img :src="`/api/chat/photo/${viewing.id}`" :alt="$t('chat.photo')" />
+      <div class="viewer-actions">
+        <a class="btn btn-sm btn-light" :href="`/api/chat/photo/${viewing.id}`" target="_blank" rel="noopener"><i class="fa fa-external-link" /> {{ $t('chat.openOriginal') }}</a>
+        <button ref="viewerClose" type="button" class="btn btn-sm btn-light" @click="viewing = null"><i class="fa fa-times" /> {{ $t('chat.close') }}</button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
 import axios from "axios";
+import { EMOJI_GROUPS, recentEmoji, rememberEmoji } from "@/libs/emoji";
 
 const MAX = 1000;
+const MAX_PHOTOS = 6;
+let photoKey = 0;
 
 function readOpen() {
   try {
@@ -154,13 +242,39 @@ export default {
       newBelow: 0,
       preview: null,
       previewTimer: null,
-      readTimer: null
+      readTimer: null,
+      // photos to send: {key, name, url, id (once uploaded), progress, error}
+      pending: [],
+      dropping: false,
+      viewing: null,
+      emojiOpen: false,
+      emojiGroup: "smileys",
+      recent: recentEmoji()
     };
   },
+  computed: {
+    readyPhotos() {
+      return this.pending.filter(p => p.id != null);
+    },
+    uploading() {
+      return this.pending.some(p => p.id == null && !p.error);
+    },
+    emojiGroups() {
+      return [{ key: "recent", icon: "🕘", list: this.recent }, ...EMOJI_GROUPS];
+    },
+    emojiShown() {
+      const g = this.emojiGroups.find(x => x.key === this.emojiGroup);
+      return g ? g.list : [];
+    }
+  },
   watch: {
+    viewing(v) {
+      if (v) this.$nextTick(() => this.$refs.viewerClose && this.$refs.viewerClose.focus());
+    },
     datasetId: {
       immediate: true,
       handler(id, old) {
+        this.clearPending();
         if (old != null) this.$socket.emit("watch_chat", { dataset_id: null, leave: old });
         this.messages = [];
         this.loaded = false;
@@ -176,6 +290,7 @@ export default {
     }
   },
   beforeUnmount() {
+    this.clearPending();
     clearTimeout(this.previewTimer);
     clearTimeout(this.readTimer);
     if (this.datasetId != null) this.$socket.emit("watch_chat", { dataset_id: null, leave: this.datasetId });
@@ -270,13 +385,16 @@ export default {
     async send() {
       const text = this.text.trim();
       const imageId = this.attach && this.imageId ? this.imageId : null;
-      if ((!text && !imageId) || this.sending) return;
+      const photos = this.readyPhotos.map(p => p.id);
+      if ((!text && !imageId && !photos.length) || this.sending || this.uploading) return;
       this.sending = true;
       try {
-        const r = await axios.post(`/api/chat/dataset/${this.datasetId}`, { text, image_id: imageId });
+        const r = await axios.post(`/api/chat/dataset/${this.datasetId}`, { text, image_id: imageId, photos });
         this.add(r.data);
         this.text = "";
         this.attach = false;
+        this.clearPending();
+        this.emojiOpen = false;
         this.$nextTick(() => {
           this.autosize();
           this.scrollToBottom(true);
@@ -287,6 +405,86 @@ export default {
       } finally {
         this.sending = false;
       }
+    },
+    /* ---------- photos ---------- */
+    onPickPhotos(e) {
+      this.addPhotos([...e.target.files]);
+      e.target.value = "";
+    },
+    onPaste(e) {
+      const files = [...((e.clipboardData && e.clipboardData.items) || [])]
+        .filter(i => i.kind === "file" && i.type.startsWith("image/"))
+        .map(i => i.getAsFile())
+        .filter(Boolean);
+      if (files.length) {
+        e.preventDefault();
+        this.addPhotos(files);
+      }
+    },
+    onDragOver(e) {
+      if ([...(e.dataTransfer.types || [])].includes("Files")) this.dropping = true;
+    },
+    onDragLeave(e) {
+      if (!e.currentTarget.contains(e.relatedTarget)) this.dropping = false;
+    },
+    onDrop(e) {
+      this.dropping = false;
+      this.addPhotos([...(e.dataTransfer.files || [])]);
+    },
+    addPhotos(files) {
+      const images = files.filter(f => f.type.startsWith("image/"));
+      if (images.length < files.length) this.$toastr.info(this.$t("chat.onlyPhotos"));
+      const room = MAX_PHOTOS - this.pending.length;
+      if (images.length > room) this.$toastr.info(this.$t("chat.maxPhotos", { n: MAX_PHOTOS }));
+      images.slice(0, Math.max(0, room)).forEach(file => {
+        const p = { key: ++photoKey, name: file.name, url: URL.createObjectURL(file), id: null, progress: 0, error: "" };
+        this.pending.push(p);
+        this.uploadPhoto(this.pending[this.pending.length - 1], file);
+      });
+      this.$nextTick(() => this.$refs.input && this.$refs.input.focus());
+    },
+    async uploadPhoto(p, file) {
+      const data = new FormData();
+      data.append("file", file);
+      try {
+        const r = await axios.post(`/api/chat/dataset/${this.datasetId}/photo`, data, {
+          onUploadProgress: e => (p.progress = e.total ? Math.round((100 * e.loaded) / e.total) : 0)
+        });
+        p.id = r.data.id;
+      } catch (error) {
+        const d = (error.response && error.response.data) || {};
+        p.error = d.message || this.$t("chat.photoFailed");
+      }
+    },
+    removePending(p) {
+      URL.revokeObjectURL(p.url);
+      this.pending = this.pending.filter(x => x !== p);
+    },
+    clearPending() {
+      (this.pending || []).forEach(p => URL.revokeObjectURL(p.url));
+      this.pending = [];
+    },
+    onPhotoLoad() {
+      if (this.atBottom) this.$nextTick(() => this.scrollToBottom(true));
+    },
+    /* ---------- emoji ---------- */
+    toggleEmoji() {
+      this.emojiOpen = !this.emojiOpen;
+      if (this.emojiOpen && !this.recent.length && this.emojiGroup === "recent") this.emojiGroup = "smileys";
+    },
+    insertEmoji(e) {
+      const el = this.$refs.input;
+      const start = el ? el.selectionStart : this.text.length;
+      const end = el ? el.selectionEnd : this.text.length;
+      if (this.text.length + e.length > MAX) return;
+      this.text = this.text.slice(0, start) + e + this.text.slice(end);
+      this.recent = rememberEmoji(e);
+      this.$nextTick(() => {
+        if (!el) return;
+        el.focus();
+        el.selectionStart = el.selectionEnd = start + e.length;
+        this.autosize();
+      });
     },
     /** a message (ours from the reply, anyone's from the socket), once */
     add(m) {
@@ -582,6 +780,176 @@ export default {
   padding: 8px;
   border-top: 1px solid #e3e7ee;
   background: #fff;
+}
+.chat-tool {
+  flex: none;
+  padding: 0.15rem 0.45rem;
+}
+.chat-pending {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.pending {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #f1f3f5;
+}
+.pending img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pending.failed img {
+  opacity: 0.35;
+}
+.pending-progress {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.35);
+}
+.pending.failed .pending-progress {
+  color: #dc3545;
+  background: rgba(255, 255, 255, 0.4);
+}
+.pending-remove {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 18px;
+  height: 18px;
+  line-height: 15px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 14px;
+}
+.chat-emoji {
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  background: #fff;
+}
+.emoji-tabs {
+  display: flex;
+  border-bottom: 1px solid #e9ecef;
+}
+.emoji-tab {
+  flex: 1;
+  border: 0;
+  background: none;
+  padding: 3px 0;
+  font-size: 1.1rem;
+  opacity: 0.55;
+}
+.emoji-tab.on {
+  opacity: 1;
+  box-shadow: inset 0 -2px 0 #2563eb;
+}
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  max-height: 160px;
+  overflow-y: auto;
+  padding: 4px;
+}
+.emoji {
+  border: 0;
+  background: none;
+  font-size: 1.3rem;
+  line-height: 1.6;
+  border-radius: 6px;
+  padding: 0;
+}
+.emoji:hover {
+  background: #f1f3f5;
+}
+.chat-photos {
+  display: grid;
+  gap: 3px;
+  margin: -2px -4px 4px;
+  max-width: 230px;
+}
+.chat-bubble.only-photos .chat-photos {
+  margin-bottom: -2px;
+}
+.chat-photos.n1 {
+  grid-template-columns: 1fr;
+}
+.chat-photos.n2,
+.chat-photos.n4 {
+  grid-template-columns: 1fr 1fr;
+}
+.chat-photos.n3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.chat-photo {
+  border: 0;
+  padding: 0;
+  background: #e9ecef;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: zoom-in;
+}
+.chat-photo img {
+  display: block;
+  width: 100%;
+  max-height: 260px;
+  object-fit: cover;
+}
+.chat-photos:not(.n1) .chat-photo img {
+  aspect-ratio: 1;
+}
+.chat-panel.dropping {
+  outline: 2px dashed #2563eb;
+  outline-offset: -6px;
+}
+.chat-drop {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(37, 99, 235, 0.08);
+  color: #1d4ed8;
+  font-weight: 600;
+  pointer-events: none;
+}
+.chat-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px 64px;
+}
+.chat-viewer img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+}
+.viewer-actions {
+  position: absolute;
+  bottom: 16px;
+  display: flex;
+  gap: 8px;
 }
 .chat-input textarea {
   resize: none;
