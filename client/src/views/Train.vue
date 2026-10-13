@@ -82,7 +82,7 @@
         <div v-if="status && !status.alive" class="alert alert-warning small">{{ $t('train.downHint') }}</div>
 
         <!-- a new training -->
-        <div class="card p-3 shadow-sm mb-3">
+        <div ref="newForm" class="card p-3 shadow-sm mb-3">
           <h6 class="border-bottom pb-2"><b>{{ $t('train.new') }}</b></h6>
           <div v-if="!exports.length && !loading" class="text-muted small">{{ $t('train.noExports') }}</div>
           <div v-else class="row g-3">
@@ -331,6 +331,15 @@
                   >
                     <i class="fa fa-stop" />
                     {{ r.status === 'queued' ? $t('train.cancel') : r.stop_requested ? $t('train.stopping') : $t('train.stop') }}
+                  </button>
+                  <button
+                    v-if="r.status !== 'queued'"
+                    type="button"
+                    class="btn btn-sm btn-outline-primary"
+                    :title="$t('train.reuseHint')"
+                    @click="reuse(detail)"
+                  >
+                    <i class="fa fa-clone" /> {{ $t('train.reuse') }}
                   </button>
                   <button
                     v-if="detail.resumable && (r.creator === ($store.state.user.user || {}).username || $store.getters['user/isAdmin'])"
@@ -975,6 +984,57 @@ export default {
       } finally {
         this.busy = false;
       }
+    },
+    /** fill the form with a past training's settings (model, numbers,
+     *  arguments, where it trained), to train again or change a little */
+    async reuse(run) {
+      const p = run.params || {};
+      const f = this.form;
+      const notes = [];
+      if (this.exports.some(e => e.id === run.export_id)) f.export_id = run.export_id;
+      else notes.push(this.$t("train.reuseNoExport", { id: run.export_id }));
+      const extra = { ...(p.extra || {}) };
+      let pretrained = extra.pretrained;
+      delete extra.pretrained;
+      if (p.source === "upload" && this.uploads.some(u => u.id === p.upload_id)) {
+        f.source = "upload";
+        f.upload_id = p.upload_id;
+      } else if ((p.source === "models" || p.base_model) && this.models.some(m => m.name === p.base_model)) {
+        f.source = "models";
+        f.base_model = p.base_model;
+      } else {
+        const name = p.source === "catalog" || !p.source ? p.model || (p.family ? `${p.family}${p.size || "n"}.pt` : "") : "";
+        const fam = (this.catalog.families || []).find(x => x.items.some(i => i.name === name));
+        if (fam) {
+          f.source = "catalog";
+          f.family = fam.key;
+          f.kind = name.endsWith(".yaml") ? "yaml" : "pt";
+          await this.$nextTick();
+          f.model = name;
+        } else {
+          notes.push(this.$t("train.reuseNoModel", { name: p.label || p.model || "?" }));
+        }
+      }
+      await this.$nextTick();
+      // weights loaded into an architecture: an official name, or an upload
+      if (typeof pretrained === "string") {
+        const up = pretrained.match(/-u(\d+)\.pt$/);
+        pretrained = up ? `upload:${up[1]}` : pretrained;
+        f.pretrained = this.weightChoices.some(c => c.value === pretrained) ? pretrained : "";
+      } else {
+        f.pretrained = "";
+      }
+      ["epochs", "imgsz", "batch", "patience"].forEach(k => {
+        if (p[k] != null) f[k] = p[k];
+      });
+      const overrides = {};
+      Object.entries(extra).forEach(([k, v]) => (overrides[k] = showValue(v)));
+      f.overrides = overrides;
+      f.target = run.target && this.trainerOf(run.target) ? run.target : "";
+      f.name = "";
+      if (Object.keys(overrides).length) this.showAdvanced = true;
+      this.$toastr.success(this.$t("train.reused", { id: run.id }) + (notes.length ? "；" + notes.join("；") : ""));
+      this.$nextTick(() => this.$refs.newForm && this.$refs.newForm.scrollIntoView({ behavior: "smooth", block: "start" }));
     },
     async resume(r) {
       try {

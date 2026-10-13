@@ -1806,7 +1806,12 @@
       "onOther": "在 {name} 上（需要 Docker 與 NVIDIA Container Toolkit）",
       "where": "在哪台訓練",
       "any": "任何空著的（誰先空出來就誰接）"
-    }
+    },
+    "reuse": "用這次的設定",
+    "reuseHint": "把這次的模型、epochs、imgsz、batch、patience、進階參數、訓練伺服器帶入上方新訓練，可以再改",
+    "reused": "已帶入 #{id} 的設定",
+    "reuseNoExport": "匯出 #{id} 已不在，請選一份匯出",
+    "reuseNoModel": "模型 {name} 已不在，請重新選擇"
   },
   "terminal": {
     "title": "終端機",

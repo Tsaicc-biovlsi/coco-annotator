@@ -1674,7 +1674,12 @@
       "onOther": "on {name} (needs Docker and the NVIDIA Container Toolkit)",
       "where": "Train on",
       "any": "any free trainer (whichever is free first)"
-    }
+    },
+    "reuse": "Use these settings",
+    "reuseHint": "Fill the new training above with this one's model, epochs, imgsz, batch, patience, advanced arguments and server, to change as you like",
+    "reused": "Settings of #{id} filled in",
+    "reuseNoExport": "export #{id} is gone: pick an export",
+    "reuseNoModel": "model {name} is gone: pick one"
   },
   "terminal": {
     "title": "Terminal",
