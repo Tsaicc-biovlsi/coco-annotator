@@ -2,65 +2,83 @@
   <div class="kp-def">
     <div class="kp-head">
       <span class="title">{{ title || $t('keypointsDefinition.title') }}</span>
-      <span v-if="keypoints.length" class="text-muted small">{{ keypoints.length }}</span>
-      <button type="button" class="btn btn-sm btn-outline-success ms-auto py-0" @click="addKeypoint">
+      <span v-if="keypoints.length" class="kp-count">{{ keypoints.length }}</span>
+      <span v-if="keypoints.length" class="text-muted small d-none d-sm-inline">
+        {{ keyTitle || $t('keypointsDefinition.label') }} → {{ valueTitle || $t('keypointsDefinition.connectsTo') }}
+      </span>
+      <button type="button" class="btn btn-sm btn-success ms-auto kp-add" @click="addKeypoint">
         <i class="fa fa-plus" /> {{ $t('keypointsDefinition.add') }}
       </button>
     </div>
-    <div v-if="keypoints.length" class="small text-muted mb-1">
-      {{ keyTitle || $t('keypointsDefinition.label') }} → {{ valueTitle || $t('keypointsDefinition.connectsTo') }}
-    </div>
 
-    <div ref="grid" class="kp-grid">
-      <div v-if="keypoints.length == 0" class="subtitle text-muted">
-        <i>{{ $t('keypointsDefinition.noKeypoints') }}</i>
-      </div>
-      <div v-for="(object, index) in keypoints" :key="index" class="kp-row">
-        <span class="kp-index">{{ index + 1 }}</span>
-        <input
-          :value="object.color"
-          type="color"
-          class="kp-color"
-          :title="$t('keypointsDefinition.color')"
-          @input="colorUpdated(index, $event.target.value)"
-        />
-        <input
-          :value="object.label"
-          type="text"
-          class="form-control form-control-sm kp-label"
-          :class="{ 'is-invalid': object.label_error.length !== 0 }"
-          :title="object.label_error || ''"
-          :required="object.edges.length !== 0"
-          :placeholder="keyTitle || $t('keypointsDefinition.label')"
-          @input="keypointLabelUpdated(index, $event.target.value)"
-        />
-        <TagsInput
-          :value="object.edges"
-          :placeholder="object.edges.length ? ' ' : $t('keypointsDefinition.addConnectedLabel')"
-          class="kp-edges"
-          :elementId="`index${index}`"
-          :existing-tags="otherKeypointLabels(object.label)"
-          :onlyExistingTags="true"
-          :typeahead="true"
-          :typeahead-activation-threshold="0"
-          @update:value="keypointEdgesUpdated(index, $event)"
-        ></TagsInput>
-        <button
-          type="button"
-          class="btn btn-sm btn-link text-danger p-1 kp-remove"
-          :title="$t('keypointsDefinition.remove')"
-          :aria-label="$t('keypointsDefinition.remove')"
-          @click="removeKeypoint(index)"
+    <div class="kp-layout" :class="{ empty: !keypoints.length }">
+      <div ref="grid" class="kp-grid">
+        <div v-if="keypoints.length == 0" class="kp-empty">
+          <i class="fa fa-street-view" />
+          <span>{{ $t('keypointsDefinition.noKeypoints') }}</span>
+        </div>
+        <div
+          v-for="(object, index) in keypoints"
+          :key="index"
+          class="kp-row"
+          :class="{ hl: hover === index, invalid: object.label_error.length !== 0 }"
+          :style="{ '--kp': object.color || '#adb5bd' }"
+          @mouseenter="hover = index"
+          @mouseleave="hover = null"
         >
-          <i class="fa fa-trash" />
-        </button>
+          <span class="kp-index">{{ index + 1 }}</span>
+          <label class="kp-swatch" :title="$t('keypointsDefinition.color')">
+            <input :value="object.color" type="color" @input="colorUpdated(index, $event.target.value)" />
+          </label>
+          <input
+            :value="object.label"
+            type="text"
+            class="form-control form-control-sm kp-label"
+            :class="{ 'is-invalid': object.label_error.length !== 0 }"
+            :title="object.label_error || ''"
+            :required="object.edges.length !== 0"
+            :placeholder="keyTitle || $t('keypointsDefinition.label')"
+            @input="keypointLabelUpdated(index, $event.target.value)"
+          />
+          <TagsInput
+            :value="object.edges"
+            :placeholder="object.edges.length ? ' ' : $t('keypointsDefinition.addConnectedLabel')"
+            class="kp-edges"
+            :elementId="`index${index}`"
+            :existing-tags="otherKeypointLabels(object.label)"
+            :onlyExistingTags="true"
+            :typeahead="true"
+            :typeahead-activation-threshold="0"
+            :badge-style="edgeStyle"
+            @update:value="keypointEdgesUpdated(index, $event)"
+          ></TagsInput>
+          <button
+            type="button"
+            class="btn btn-sm btn-link kp-remove"
+            :title="$t('keypointsDefinition.remove')"
+            :aria-label="$t('keypointsDefinition.remove')"
+            @click="removeKeypoint(index)"
+          >
+            <i class="fa fa-trash" />
+          </button>
+        </div>
       </div>
+
+      <KeypointsPreview
+        v-if="keypoints.length"
+        class="kp-side"
+        :keypoints="keypoints"
+        :highlight="hover"
+        @hover="hover = $event"
+        @toggle="toggleEdge"
+      />
     </div>
   </div>
 </template>
 
 <script>
 import TagsInput from "@/components/TagsInput.vue";
+import KeypointsPreview from "@/components/KeypointsPreview.vue";
 
 const DISTINCT_COLORS = [
   "#bf5c4d",
@@ -100,7 +118,7 @@ const DISTINCT_COLORS = [
 export default {
   name: "KeypointsDefinition",
   emits: ["initialized", "update:value", "rows"],
-  components: { TagsInput },
+  components: { TagsInput, KeypointsPreview },
   props: {
     value: {
       type: Object,
@@ -142,6 +160,8 @@ export default {
       hiddenValue: { edges: [], labels: [], colors: [] },
       isMounted: false,
       nextDistinct: -1,
+      // a keypoint pointed at, in the list or the preview
+      hover: null
     };
   },
   created() {
@@ -171,6 +191,23 @@ export default {
       });
 
       return keypoints;
+    },
+    /** connect two keypoints, or take their connection away (the preview) */
+    toggleEdge(a, b) {
+      const from = this.keypoints[a];
+      const to = this.keypoints[b];
+      if (!from || !to || !from.label || !to.label) return;
+      const edges = from.edges.includes(to.label) ? from.edges.filter(e => e !== to.label) : [...from.edges, to.label];
+      this.keypointEdgesUpdated(a, edges);
+    },
+    /** a connection's tag in the colour of the keypoint it goes to */
+    edgeStyle(label) {
+      const kp = this.keypoints.find(k => k.label === label);
+      const c = kp && /^#[0-9a-f]{6}$/i.test(kp.color) ? kp.color : "#adb5bd";
+      const r = parseInt(c.slice(1, 3), 16);
+      const g = parseInt(c.slice(3, 5), 16);
+      const b = parseInt(c.slice(5, 7), 16);
+      return { background: `rgba(${r}, ${g}, ${b}, 0.14)`, boxShadow: `inset 3px 0 0 ${c}` };
     },
     /** a keypoint goes, with every connection to it */
     removeKeypoint(index) {
@@ -394,46 +431,123 @@ export default {
 </script>
 
 <style scoped>
+.kp-def {
+  container-type: inline-size;
+}
 .kp-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 2px;
+  margin-bottom: 8px;
+}
+.kp-head .title {
+  font-weight: 600;
+}
+.kp-count {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #495057;
+  background: #e9ecef;
+  border-radius: 10px;
+  padding: 1px 8px;
+}
+.kp-add {
+  padding: 2px 10px;
+  border-radius: 14px;
+}
+.kp-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+/* the preview beside the list when there is room */
+@container (min-width: 700px) {
+  .kp-layout:not(.empty) {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+  .kp-side {
+    position: sticky;
+    top: 0;
+    align-self: start;
+  }
 }
 /* several keypoints a row, so a long list fits without scrolling the page */
 .kp-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 4px 16px;
-  padding: 2px;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 6px 10px;
+  align-content: start;
+}
+.kp-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border: 1px dashed #ced4da;
+  border-radius: 10px;
+  color: #868e96;
+  font-size: 0.85rem;
+}
+.kp-empty .fa {
+  font-size: 1.4rem;
+  color: #ced4da;
 }
 .kp-row {
   display: flex;
   align-items: flex-start;
-  gap: 5px;
+  gap: 6px;
   min-width: 0;
+  padding: 5px 4px 5px 8px;
+  border: 1px solid #e9ecef;
+  border-left: 4px solid var(--kp);
+  border-radius: 8px;
+  background: #fff;
+  transition: box-shadow 0.15s, border-color 0.15s, background 0.15s;
+}
+.kp-row:hover,
+.kp-row.hl {
+  background: #f8fbff;
+  border-color: #cfe2ff;
+  border-left-color: var(--kp);
+  box-shadow: 0 1px 4px rgba(13, 110, 253, 0.12);
+}
+.kp-row.invalid {
+  border-color: #f1aeb5;
+  border-left-color: var(--kp);
 }
 .kp-index {
   flex: none;
-  width: 1.6em;
-  padding-top: 5px;
+  width: 1.5em;
+  padding-top: 6px;
   text-align: right;
-  font-size: 0.75rem;
-  color: #868e96;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #adb5bd;
   font-variant-numeric: tabular-nums;
 }
-.kp-color {
+.kp-swatch {
   flex: none;
-  width: 26px;
-  height: 31px;
-  padding: 2px;
-  border: 1px solid #ced4da;
-  border-radius: 4px;
-  background: #fff;
+  position: relative;
+  width: 22px;
+  height: 22px;
+  margin: 4px 0 0;
+  border-radius: 50%;
+  background: var(--kp);
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3px #dee2e6;
+  cursor: pointer;
+  overflow: hidden;
+}
+.kp-swatch input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 .kp-label {
   flex: none;
-  width: 110px;
+  width: 112px;
+  font-weight: 500;
 }
 .kp-edges {
   flex: 1 1 auto;
@@ -441,20 +555,30 @@ export default {
 }
 .kp-remove {
   flex: none;
+  padding: 4px 4px 0;
+  color: #adb5bd;
+  opacity: 0.6;
+}
+.kp-row:hover .kp-remove,
+.kp-remove:focus {
+  opacity: 1;
+  color: #dc3545;
 }
 /* the connections field: one line while it fits */
 .kp-edges :deep(.tags-input) {
   padding: 2px 4px;
   min-height: 31px;
-  row-gap: 2px;
+  row-gap: 3px;
 }
 .kp-edges :deep(.tags-input input[type="text"]) {
-  min-width: 70px;
+  min-width: 44px;
   font-size: 0.8rem;
   padding: 2px;
 }
 .kp-edges :deep(.tags-input-badge) {
   font-size: 0.72rem;
+  font-weight: 600;
   margin: 1px 3px 1px 0;
+  padding: 0.3em 0.6em 0.3em 0.75em;
 }
 </style>

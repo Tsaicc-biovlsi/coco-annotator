@@ -54,7 +54,7 @@
 
     <div class="modal fade" role="dialog" ref="category_settings"
         :id="'categoryEdit' + category.id + uid" >
-      <div class="modal-dialog" :class="{ 'modal-xl': kpRows > 3, 'modal-dialog-scrollable': kpRows > 3 }" role="document">
+      <div class="modal-dialog" :class="{ 'modal-xl': kpRows > 3, 'modal-lg': kpRows > 0 && kpRows <= 3, 'modal-dialog-scrollable': kpRows > 3 }" role="document">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">{{ $t('categoryCard.title', { name: category.name }) }}</h5>

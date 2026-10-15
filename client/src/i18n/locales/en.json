@@ -1860,5 +1860,14 @@
       "profile": "profile timings",
       "verbose": "verbose output"
     }
+  },
+  "keypointsPreview": {
+    "title": "Connections",
+    "count": "{points} points · {edges} connections",
+    "empty": "Keypoints show up here once named",
+    "help": "Click a point, then another to connect them (again to disconnect); drag to move",
+    "picking": "\"{name}\" picked: click another point to connect or disconnect, Esc to stop",
+    "resetLayout": "Reset layout",
+    "names": "Show / hide names"
   }
 }

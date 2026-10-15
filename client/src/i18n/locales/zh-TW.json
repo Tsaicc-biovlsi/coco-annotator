@@ -1992,5 +1992,14 @@
       "profile": "記錄各階段耗時",
       "verbose": "輸出詳細訊息"
     }
+  },
+  "keypointsPreview": {
+    "title": "連線預覽",
+    "count": "{points} 點 · {edges} 條連線",
+    "empty": "輸入關鍵點名稱後會顯示在這裡",
+    "help": "點一個點、再點另一個點即可連接（再點一次取消）；可拖曳調整位置",
+    "picking": "已選「{name}」：點另一個點連接或取消，Esc 結束",
+    "resetLayout": "重設位置",
+    "names": "顯示／隱藏名稱"
   }
 }

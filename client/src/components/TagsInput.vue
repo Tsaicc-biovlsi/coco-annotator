@@ -5,6 +5,7 @@
         class="tags-input-badge tags-input-badge-pill tags-input-badge-selected-default"
         v-for="(badge, index) in tagBadges"
         :key="index"
+        :style="badgeStyle ? badgeStyle(badge) : null"
       >
         <span class="badge-text">{{ badge }}</span>
 
@@ -124,6 +125,11 @@ export default {
     placeholder: {
       type: String,
       default: ""
+    },
+    // a tag's own style (tag text -> style object)
+    badgeStyle: {
+      type: Function,
+      default: null
     },
     limit: {
       type: Number,
