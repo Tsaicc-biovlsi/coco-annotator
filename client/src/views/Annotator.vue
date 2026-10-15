@@ -445,6 +445,8 @@ export default {
       // a box was just drawn for an object with keypoints: they are placed
       // next, then this tool comes back for the next object
       kpFlow: null,
+      // the box tool used last (an object with keypoints starts with it)
+      lastBoxTool: "BBox",
       paper: null,
       shapeOpacity: 0.6,
       // "only this category": hovered in the list, or kept with the crosshairs icon
@@ -1246,6 +1248,20 @@ export default {
       if (back) this.activeTool = back;
       else this.$refs.select.click();
     },
+    /** an object with keypoints but no box yet: the box tool, then (once
+     *  the box is drawn) the keypoint tool. Only from the select or keypoint
+     *  tool: a shape being drawn with another tool is left alone. */
+    boxFirst() {
+      if (this.activeTool !== "Keypoints" && this.activeTool !== "Select") return;
+      const annotation = this.currentAnnotation;
+      if (!annotation || !annotation.keypointLabels || !annotation.keypointLabels.length) return;
+      const a = annotation.annotation;
+      if (a.isbbox || a.isrbbox) return;
+      // already outlined some other way, or keypoints placed: not a new object
+      if (annotation.compoundPath && !annotation.compoundPath.isEmpty()) return;
+      if (annotation.keypoints && !annotation.keypoints.isEmpty()) return;
+      this.activeTool = this.lastBoxTool;
+    },
     /** a box tool finished a box: an object with keypoints gets them next */
     afterBoxDrawn(tool) {
       this.$nextTick(() => {
@@ -1823,7 +1839,9 @@ export default {
     },
     activeTool(tool) {
       if (tool === "Magic Wand") setTimeout(() => this.ensureImageData(), 0);
+      if (tool === "BBox" || tool === "Rotated BBox") this.lastBoxTool = tool;
       if (tool !== "Keypoints") this.kpFlow = null;
+      else this.boxFirst();
     },
     doneLoading(done) {
       if (done) {
@@ -1850,6 +1868,8 @@ export default {
           this.scrollElement(element);
         }
       }
+      // a new object with keypoints: its box comes first
+      this.$nextTick(() => this.boxFirst());
     },
     "current.category"(cc) {
       if (cc < -1) this.current.category = -1;
