@@ -235,6 +235,9 @@ import Metadata from "@/components/Metadata.vue";
 
 const CLICK_THROUGH_TOOLS = ["Rotated BBox", "SAM"];
 
+// how much of an object with keypoints' box is filled (the rest: the picture)
+const KEYPOINT_BOX_FILL = 0.12;
+
 export default {
   name: "Annotation",
   emits: ["click", "deleted", "keypoint-click", "keypoints-complete"],
@@ -820,8 +823,26 @@ export default {
         return;
       }
 
-      this.compoundPath.fillColor = this.color;
+      this.paintShape(this.color);
       if (this.keypoints != null) this.keypoints.color = this.darkHSL;
+    },
+    /** fill the shape. An object with keypoints: a faint fill and a clear
+     *  outline, so the picture in its box (where they go) can be seen */
+    paintShape(color, opacity = this.opacity) {
+      const path = this.compoundPath;
+      if (path == null) return;
+      if (this.keypointLabels && this.keypointLabels.length) {
+        const fill = new paper.Color(color);
+        fill.alpha = KEYPOINT_BOX_FILL;
+        path.fillColor = fill;
+        path.strokeColor = color;
+        path.strokeWidth = 2 * this.scale;
+        // dimmed with the rest of its category ("only this category")
+        path.opacity = opacity < 0.2 ? opacity : 1;
+      } else {
+        path.fillColor = color;
+        path.opacity = opacity;
+      }
     },
     setCategory(event) {
       const newCategoryName = event.target.value;
@@ -977,7 +998,7 @@ export default {
       }
     },
     opacity(opacity) {
-      if (this.compoundPath) this.compoundPath.opacity = opacity;
+      if (this.compoundPath) this.setColor();
       // "only this category": keypoints of the other categories fade too
       if (this.keypoints) this.keypoints.opacity = opacity < 0.2 ? 0.2 : 1;
     },
@@ -1043,6 +1064,9 @@ export default {
     scale: {
       immediate: true,
       handler(scale) {
+        if (this.compoundPath && this.keypointLabels && this.keypointLabels.length) {
+          this.compoundPath.strokeWidth = 2 * scale;
+        }
         if (!this.keypoints) return;
 
         this.keypoints.radius = scale * 6;
