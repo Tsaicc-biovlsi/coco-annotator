@@ -54,7 +54,7 @@
 
     <div class="modal fade" role="dialog" ref="category_settings"
         :id="'categoryEdit' + category.id + uid" >
-      <div class="modal-dialog" role="document">
+      <div class="modal-dialog" :class="{ 'modal-xl': kpRows > 3, 'modal-dialog-scrollable': kpRows > 3 }" role="document">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">{{ $t('categoryCard.title', { name: category.name }) }}</h5>
@@ -88,7 +88,7 @@
               </div>
 
               <div class="mb-3">
-                <KeypointsDefinition
+                <KeypointsDefinition @rows="kpRows = $event"
                   ref="keypoints"
                   v-model:value="keypoint"
                   element-id="keypoints"
@@ -135,6 +135,8 @@ export default {
   emits: ["changed"],
   data() {
     return {
+      // keypoints listed in the dialog (several: a wider dialog)
+      kpRows: 0,
       group: null,
       parents: parentsOf(this.category),
       color: this.category.color,

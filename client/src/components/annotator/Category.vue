@@ -105,7 +105,7 @@
       ref="category_settings"
       :id="'categorySettings' + category.id"
     >
-      <div class="modal-dialog" role="document">
+      <div class="modal-dialog" :class="{ 'modal-xl': kpRows > 3, 'modal-dialog-scrollable': kpRows > 3 }" role="document">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">{{ category.name }}</h5>
@@ -132,7 +132,7 @@
               </div>
 
               <div class="mb-3">
-                <KeypointsDefinition ref="keypoints"
+                <KeypointsDefinition @rows="kpRows = $event" ref="keypoints"
                   v-model:value="keypoint"
                   element-id="keypointLabels"
                 ></KeypointsDefinition>
@@ -229,6 +229,8 @@ export default {
   },
   data: function() {
     return {
+      // keypoints listed in the settings (several: a wider dialog)
+      kpRows: 0,
       group: null,
       parents: parentsOf(this.category),
       color: this.category.color,

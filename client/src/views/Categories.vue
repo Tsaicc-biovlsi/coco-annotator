@@ -124,7 +124,7 @@
     </div>
 
     <div class="modal fade" tabindex="-1" role="dialog" id="createCategories">
-      <div class="modal-dialog" role="document">
+      <div class="modal-dialog" :class="{ 'modal-xl': kpRows > 3, 'modal-dialog-scrollable': kpRows > 3 }" role="document">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">{{ $t('categories.creatingACategory') }}</h5>
@@ -162,7 +162,7 @@
               </div>
 
               <div class="mb-3">
-                <KeypointsDefinition ref="keypoints"
+                <KeypointsDefinition @rows="kpRows = $event" ref="keypoints"
                   v-model:value="newCategoryKeypoint"
                   element-id="keypoints"
                   :placeholder="$t('categories.addAKeypoint')"
@@ -260,6 +260,8 @@ export default {
   mixins: [toastrs],
   data() {
     return {
+      // keypoints listed in the dialog (several: a wider dialog)
+      kpRows: 0,
       docsUrl: docsSection("第一次使用"),
       categoryCount: 0,
       search: "",

@@ -1,77 +1,61 @@
 <template>
-  <div>
-    <i
-      class="fa fa-plus"
-      style="float: right; margin: 0 4px; color: green"
-      @click="createKeypoints"
-    />
-
-    <p class="title" style="margin: 0">{{ title || $t('keypointsDefinition.title') }}</p>
-
-    <div class="row">
-      <div class="col-sm-5">
-        <p class="subtitle">{{ keyTitle || $t('keypointsDefinition.label') }}:</p>
-      </div>
-      <div class="col-sm-7">
-        <p class="subtitle">{{ valueTitle || $t('keypointsDefinition.connectsTo') }}:</p>
-      </div>
+  <div class="kp-def">
+    <div class="kp-head">
+      <span class="title">{{ title || $t('keypointsDefinition.title') }}</span>
+      <span v-if="keypoints.length" class="text-muted small">{{ keypoints.length }}</span>
+      <button type="button" class="btn btn-sm btn-outline-success ms-auto py-0" @click="addKeypoint">
+        <i class="fa fa-plus" /> {{ $t('keypointsDefinition.add') }}
+      </button>
+    </div>
+    <div v-if="keypoints.length" class="small text-muted mb-1">
+      {{ keyTitle || $t('keypointsDefinition.label') }} → {{ valueTitle || $t('keypointsDefinition.connectsTo') }}
     </div>
 
-    <form>
-      <ul class="list-group" style="height: 50%;">
-        <li v-if="keypoints.length == 0" class="list-group-item keypoint-item">
-          <i class="subtitle">{{ $t('keypointsDefinition.noKeypoints') }}</i>
-        </li>
-        <li v-for="(object, index) in keypoints" :key="index" class="list-group-item keypoint-item">
-          <div class="row mb-3" style="cell">
-            <!-- :class="{'was-validated': object.label_error.length === 0 }" -->
-            <div class="col-sm-5" style="padding-right: 5px;">
-              <input
-                :value="object.label"
-                type="text"
-                class="keypoint-input form-control"
-                :class="{'is-invalid': object.label_error.length !== 0}"
-                :required="object.edges.length !== 0"
-                :placeholder="keyTitle || $t('keypointsDefinition.label')"
-                @input="keypointLabelUpdated(index, $event.target.value)"
-              />
-              <div class="invalid-feedback">{{ object.label_error }}</div>
-            </div>
-
-            <div class="col-sm-1 keypoint-color">
-              <!-- <input v-model="object.color" type="color" class="form-control form-control-color w-100" /> -->
-              <input :value="object.color" @input="colorUpdated(index, $event.target.value)" type="color" class="form-control form-control-color w-100" />
-            </div>
-
-            <div class="col-sm-5" style="padding-left: 5px;">
-              <TagsInput
-                :value="object.edges"
-                :placeholder="$t('keypointsDefinition.addConnectedLabel')"
-                class="keypoint-input"
-                :elementId="`index${index}`"
-                :existing-tags="otherKeypointLabels(object.label)"
-                :onlyExistingTags="true"
-                :typeahead="true"
-                :typeahead-activation-threshold="0"
-                @update:value="keypointEdgesUpdated(index, $event)"
-              ></TagsInput>
-            </div>
-
-            <div class="col-sm-1 d-flex align-items-start justify-content-center" style="padding: 0;">
-              <button
-                type="button"
-                class="btn btn-sm btn-link text-danger p-1"
-                :title="$t('keypointsDefinition.remove')"
-                :aria-label="$t('keypointsDefinition.remove')"
-                @click="removeKeypoint(index)"
-              >
-                <i class="fa fa-trash" />
-              </button>
-            </div>
-          </div>
-        </li>
-      </ul>
-    </form>
+    <div ref="grid" class="kp-grid">
+      <div v-if="keypoints.length == 0" class="subtitle text-muted">
+        <i>{{ $t('keypointsDefinition.noKeypoints') }}</i>
+      </div>
+      <div v-for="(object, index) in keypoints" :key="index" class="kp-row">
+        <span class="kp-index">{{ index + 1 }}</span>
+        <input
+          :value="object.color"
+          type="color"
+          class="kp-color"
+          :title="$t('keypointsDefinition.color')"
+          @input="colorUpdated(index, $event.target.value)"
+        />
+        <input
+          :value="object.label"
+          type="text"
+          class="form-control form-control-sm kp-label"
+          :class="{ 'is-invalid': object.label_error.length !== 0 }"
+          :title="object.label_error || ''"
+          :required="object.edges.length !== 0"
+          :placeholder="keyTitle || $t('keypointsDefinition.label')"
+          @input="keypointLabelUpdated(index, $event.target.value)"
+        />
+        <TagsInput
+          :value="object.edges"
+          :placeholder="object.edges.length ? ' ' : $t('keypointsDefinition.addConnectedLabel')"
+          class="kp-edges"
+          :elementId="`index${index}`"
+          :existing-tags="otherKeypointLabels(object.label)"
+          :onlyExistingTags="true"
+          :typeahead="true"
+          :typeahead-activation-threshold="0"
+          @update:value="keypointEdgesUpdated(index, $event)"
+        ></TagsInput>
+        <button
+          type="button"
+          class="btn btn-sm btn-link text-danger p-1 kp-remove"
+          :title="$t('keypointsDefinition.remove')"
+          :aria-label="$t('keypointsDefinition.remove')"
+          @click="removeKeypoint(index)"
+        >
+          <i class="fa fa-trash" />
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -115,7 +99,7 @@ const DISTINCT_COLORS = [
 
 export default {
   name: "KeypointsDefinition",
-  emits: ["initialized", "update:value"],
+  emits: ["initialized", "update:value", "rows"],
   components: { TagsInput },
   props: {
     value: {
@@ -204,6 +188,19 @@ export default {
       }
       this.hiddenValue = this.propFomKeypoints();
       this.$emit("update:value", this.hiddenValue);
+    },
+    /** a new keypoint, ready to type its name */
+    addKeypoint() {
+      this.createKeypoints();
+      this.$nextTick(() => {
+        const grid = this.$refs.grid;
+        const inputs = grid ? grid.querySelectorAll(".kp-label") : [];
+        const last = inputs[inputs.length - 1];
+        if (last) {
+          last.scrollIntoView({ block: "nearest" });
+          last.focus();
+        }
+      });
     },
     createKeypoints() {
       this.keypoints.push({
@@ -379,6 +376,13 @@ export default {
     }
   },
   watch: {
+    // how many keypoints are listed (the dialog widens for several)
+    "keypoints.length": {
+      immediate: true,
+      handler(n) {
+        this.$emit("rows", n);
+      }
+    },
     value() {
       if (this.hiddenValue !== this.value) {
         this.hiddenValue = this.value;
@@ -390,36 +394,67 @@ export default {
 </script>
 
 <style scoped>
-.keypoint-input {
-  padding: 3px;
-  background-color: inherit;
-  width: 100%;
-  height: 100%;
-  border: none;
+.kp-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
 }
-
-.keypoint-item {
-  background-color: inherit;
-  margin-bottom: -20px;
-  border: none;
-  padding-bottom: 0;
+/* several keypoints a row, so a long list fits without scrolling the page */
+.kp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 4px 16px;
+  padding: 2px;
 }
-
-.keypoint-color {
-  padding-left: 0;
-  padding-right: 0;
-  line-height: 1.25;
-  height: 100%;
-  padding-top: 15px;
-  padding-bottom: 15px;
+.kp-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 0;
 }
-
-.keypoint-color input[type="color"] {
-  padding: 4px;
+.kp-index {
+  flex: none;
+  width: 1.6em;
+  padding-top: 5px;
+  text-align: right;
+  font-size: 0.75rem;
+  color: #868e96;
+  font-variant-numeric: tabular-nums;
 }
-
-.subtitle {
-  margin: 0;
-  font-size: 10px;
+.kp-color {
+  flex: none;
+  width: 26px;
+  height: 31px;
+  padding: 2px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  background: #fff;
+}
+.kp-label {
+  flex: none;
+  width: 110px;
+}
+.kp-edges {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.kp-remove {
+  flex: none;
+}
+/* the connections field: one line while it fits */
+.kp-edges :deep(.tags-input) {
+  padding: 2px 4px;
+  min-height: 31px;
+  row-gap: 2px;
+}
+.kp-edges :deep(.tags-input input[type="text"]) {
+  min-width: 70px;
+  font-size: 0.8rem;
+  padding: 2px;
+}
+.kp-edges :deep(.tags-input-badge) {
+  font-size: 0.72rem;
+  margin: 1px 3px 1px 0;
 }
 </style>
