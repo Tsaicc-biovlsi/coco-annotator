@@ -53,7 +53,7 @@
                 :onlyExistingTags="true"
                 :typeahead="true"
                 :typeahead-activation-threshold="0"
-                @input="keypointEdgesUpdated(index, $event)"
+                @update:value="keypointEdgesUpdated(index, $event)"
               ></TagsInput>
             </div>
           </div>
@@ -169,7 +169,7 @@ export default {
       }
       this.value.edges.forEach(edge => {
         let label0 = edge[0] - 1;
-        let label1 = edge[0] - 1;
+        let label1 = edge[1] - 1;
         keypoints[label0].edges.push(this.value.labels[label1]);
         keypoints[label1].edges.push(this.value.labels[label0]);
       });
@@ -269,6 +269,9 @@ export default {
       }
     },
     keypointEdgesUpdated(index, edges) {
+      if (!Array.isArray(edges)) return;
+      const before = this.keypoints[index] ? this.keypoints[index].edges : [];
+      if (before.length === edges.length && before.every((e, i) => e === edges[i])) return;
       let new_edges = new Set(edges);
       let current_kp = this.keypoints[index];
       // need to update the keypoints on the other end of the edges
