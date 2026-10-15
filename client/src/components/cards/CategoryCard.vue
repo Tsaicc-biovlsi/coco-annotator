@@ -94,6 +94,10 @@
                   element-id="keypoints"
                   :placeholder="$t('categoryCard.addAKeypoint')"
                 ></KeypointsDefinition>
+                <div v-if="kpSave" class="small mt-1" :class="kpSave === 'error' ? 'text-danger' : 'text-muted'">
+                  <i class="fa" :class="{ 'fa-spinner fa-spin': kpSave === 'saving', 'fa-check text-success': kpSave === 'saved', 'fa-exclamation-triangle': kpSave === 'error' }" />
+                  {{ $t('keypointsDefinition.autosave.' + kpSave) }}
+                </div>
               </div>
             </form>
           </div>
@@ -142,6 +146,8 @@ export default {
       },
       name: this.category.name,
       isMounted: false,
+      // keypoints are saved as they change: '' | saving | saved | error
+      kpSave: "",
     };
   },
   props: {
@@ -176,12 +182,22 @@ export default {
       );
     }
   },
+  watch: {
+    keypoint: {
+      deep: true,
+      handler() {
+        clearTimeout(this.kpTimer);
+        this.kpTimer = setTimeout(() => this.saveKeypoints(), 500);
+      }
+    }
+  },
   created() {
     this.resetCategorySettings();
   },
   methods: {
     pathLabel,
     resetCategorySettings() {
+      this.kpSave = "";
       this.name = this.category.name;
       this.parents = parentsOf(this.category);
       this.color = this.category.color;
@@ -190,6 +206,38 @@ export default {
         edges: [...this.category.keypoint_edges],
         colors: [...this.category.keypoint_colors],
       };
+    },
+    /** the keypoints, connections and their colours: saved right away */
+    saveKeypoints() {
+      const kp = this.keypoint;
+      const same =
+        JSON.stringify(kp.labels) === JSON.stringify(this.category.keypoint_labels) &&
+        JSON.stringify(kp.edges) === JSON.stringify(this.category.keypoint_edges) &&
+        JSON.stringify(kp.colors) === JSON.stringify(this.category.keypoint_colors);
+      if (same || !this.$refs.keypoints || !this.$refs.keypoints.valid) return;
+      this.kpSave = "saving";
+      const sent = { labels: [...kp.labels], edges: kp.edges.map(e => [...e]), colors: [...kp.colors] };
+      axios
+        .put("/api/category/" + this.category.id, {
+          // the rest as saved (the dialog's other fields wait for Update)
+          name: this.category.name,
+          color: this.category.color,
+          supercategories: parentsOf(this.category),
+          metadata: this.category.metadata,
+          keypoint_labels: sent.labels,
+          keypoint_edges: sent.edges,
+          keypoint_colors: sent.colors
+        })
+        .then(() => {
+          this.category.keypoint_labels = sent.labels;
+          this.category.keypoint_edges = sent.edges;
+          this.category.keypoint_colors = sent.colors;
+          this.kpSave = "saved";
+        })
+        .catch(error => {
+          this.kpSave = "error";
+          this.axiosReqestError("Updating Category", (error.response && error.response.data && error.response.data.message) || String(error));
+        });
     },
     onCardClick() {},
     onDownloadClick() {},

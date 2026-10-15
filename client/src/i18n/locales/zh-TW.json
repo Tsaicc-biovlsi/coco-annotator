@@ -360,7 +360,13 @@
     "label": "標籤",
     "labelRequired": "請輸入標籤",
     "noKeypoints": "沒有關鍵點。",
-    "title": "關鍵點"
+    "title": "關鍵點",
+    "autosave": {
+      "saving": "儲存中…",
+      "saved": "關鍵點與相連已自動儲存",
+      "error": "關鍵點沒有存到",
+      "applied": "關鍵點與相連已套用（隨標註自動儲存）"
+    }
   },
   "magicWandPanel": {
     "blur": "模糊",

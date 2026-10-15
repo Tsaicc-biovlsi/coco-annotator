@@ -136,6 +136,9 @@
                   v-model:value="keypoint"
                   element-id="keypointLabels"
                 ></KeypointsDefinition>
+                <div v-if="kpApplied" class="small text-muted mt-1">
+                  <i class="fa fa-check text-success" /> {{ $t('keypointsDefinition.autosave.applied') }}
+                </div>
               </div>
             </form>
           </div>
@@ -239,6 +242,7 @@ export default {
       isVisible: false,
       search: "",
       isMounted: false,
+      kpApplied: false,
     };
   },
   methods: {
@@ -542,6 +546,23 @@ export default {
     }
   },
   watch: {
+    // keypoints and their connections take effect as they are chosen (the
+    // annotator saves the category with the image)
+    keypoint: {
+      deep: true,
+      handler(kp) {
+        if (!this.isMounted || !this.$refs.keypoints || !this.$refs.keypoints.valid) return;
+        const same =
+          JSON.stringify(kp.labels) === JSON.stringify(this.category.keypoint_labels) &&
+          JSON.stringify(kp.edges) === JSON.stringify(this.category.keypoint_edges) &&
+          JSON.stringify(kp.colors) === JSON.stringify(this.category.keypoint_colors);
+        if (same) return;
+        this.category.keypoint_labels = [...kp.labels];
+        this.category.keypoint_edges = kp.edges.map(e => [...e]);
+        this.category.keypoint_colors = [...kp.colors];
+        this.kpApplied = true;
+      }
+    },
     color() {
       this.setColor();
     },

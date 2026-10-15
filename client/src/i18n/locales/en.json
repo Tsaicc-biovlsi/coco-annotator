@@ -360,7 +360,13 @@
     "label": "Label",
     "labelRequired": "Label is required",
     "noKeypoints": "No keypoints.",
-    "title": "Keypoints"
+    "title": "Keypoints",
+    "autosave": {
+      "saving": "Saving…",
+      "saved": "Keypoints and connections saved",
+      "error": "The keypoints were not saved",
+      "applied": "Keypoints and connections applied (saved with the annotations)"
+    }
   },
   "magicWandPanel": {
     "blur": "Blur",
