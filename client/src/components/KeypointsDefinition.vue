@@ -299,6 +299,8 @@ export default {
     },
     keypointEdgesUpdated(index, edges) {
       if (!Array.isArray(edges)) return;
+      // the tags field hands over its own list (and keeps changing it): a copy
+      edges = [...edges];
       const before = this.keypoints[index] ? this.keypoints[index].edges : [];
       if (before.length === edges.length && before.every((e, i) => e === edges[i])) return;
       let new_edges = new Set(edges);
