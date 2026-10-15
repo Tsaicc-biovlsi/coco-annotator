@@ -17,6 +17,9 @@ services:
               count: 1
               capabilities: [gpu]
   trainer:
+    environment:
+      # nvidia-smi in the container: whether the GPU is used outside this site
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
     deploy:
       resources:
         reservations:

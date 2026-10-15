@@ -13,14 +13,15 @@
               v-for="tr in status.trainers || []"
               :key="tr.name"
               class="trainer-pill"
-              :class="tr.alive ? (tr.run_id ? 'busy' : 'ok') : 'down'"
-              :title="tr.alive ? (tr.version ? 'Ultralytics ' + tr.version : '') : $t('train.servers.offlineHint')"
+              :class="tr.alive ? (tr.run_id ? 'busy' : tr.gpu && tr.gpu.busy ? 'other' : 'ok') : 'down'"
+              :title="trainerTitle(tr)"
             >
               <i class="fa me-1" :class="tr.kind === 'remote' ? 'fa-server' : 'fa-desktop'" />
               <b>{{ tr.name }}</b>
               <span v-if="tr.device" class="fw-normal"> · {{ tr.device }}</span>
-              <span class="fw-normal">
-                · {{ !tr.alive ? $t('train.servers.offline') : tr.run_id ? $t('train.servers.training', { id: tr.run_id }) : $t('train.servers.idle') }}
+              <span class="fw-normal"> · {{ trainerState(tr) }}</span>
+              <span v-if="tr.alive && tr.gpu && tr.gpu.mem_total" class="fw-normal gpu-use">
+                · {{ gpuUse(tr.gpu) }}
               </span>
             </span>
             <span v-if="!(status.trainers || []).length" class="trainer-pill down">
@@ -226,7 +227,7 @@
                   <select id="trainTarget" v-model="form.target" class="form-select form-select-sm">
                     <option value="">{{ $t('train.servers.any') }}</option>
                     <option v-for="tr in status.trainers" :key="tr.name" :value="tr.name">
-                      {{ tr.name }}{{ tr.device ? ' · ' + tr.device : '' }} · {{ !tr.alive ? $t('train.servers.offline') : tr.run_id ? $t('train.servers.training', { id: tr.run_id }) : $t('train.servers.idle') }}
+                      {{ tr.name }}{{ tr.device ? ' · ' + tr.device : '' }} · {{ trainerState(tr) }}
                     </option>
                   </select>
                 </div>
@@ -881,10 +882,39 @@ export default {
     trainerOf(name) {
       return ((this.status && this.status.trainers) || []).find(t => t.name === name) || null;
     },
+    /** offline / training #n / GPU used elsewhere / free */
+    trainerState(tr) {
+      if (!tr.alive) return this.$t("train.servers.offline");
+      if (tr.run_id) return this.$t("train.servers.training", { id: tr.run_id });
+      if (tr.gpu && tr.gpu.busy) return this.$t("train.servers.gpuElsewhere");
+      return this.$t("train.servers.idle");
+    },
+    /** GPU memory and load, e.g. 9.0 / 16 GB · 97% */
+    gpuUse(g) {
+      const gb = mb => (mb / 1024).toFixed(mb >= 10240 ? 0 : 1);
+      return `${gb(g.mem_used)} / ${gb(g.mem_total)} GB · ${g.util}%`;
+    },
+    trainerTitle(tr) {
+      if (!tr.alive) return this.$t("train.servers.offlineHint");
+      const lines = [];
+      if (tr.gpu && tr.gpu.busy) lines.push(this.$t("train.servers.gpuElsewhereHint"));
+      (tr.gpu && tr.gpu.procs ? tr.gpu.procs : []).forEach(p =>
+        lines.push(`${p.name || "?"} (pid ${p.pid}) · ${(p.mem / 1024).toFixed(1)} GB`)
+      );
+      if (tr.version) lines.push("Ultralytics " + tr.version);
+      return lines.join("\n");
+    },
     /** where a run trains / trained / waits to */
     whereLabel(r) {
       const many = ((this.status && this.status.trainers) || []).length > 1;
-      if (r.status === "queued") return r.target ? "→ " + r.target : "";
+      if (r.status === "queued") {
+        // waiting for a GPU used outside this site
+        const t = r.target ? this.trainerOf(r.target) : null;
+        if (t && t.alive && !t.run_id && t.gpu && t.gpu.busy) {
+          return "→ " + r.target + " · " + this.$t("train.servers.waitingGpu");
+        }
+        return r.target ? "→ " + r.target : "";
+      }
       return many || (r.worker && r.worker !== "main") ? r.worker : "";
     },
     async toggleServers() {
@@ -1160,6 +1190,14 @@ export default {
 .trainer-pill.ok {
   background: #d1e7dd;
   color: #0f5132;
+}
+.trainer-pill.other {
+  background: #ffe5d0;
+  color: #8a3b00;
+}
+.trainer-pill .gpu-use {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
 }
 .trainer-pill.busy {
   background: #cfe2ff;

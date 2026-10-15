@@ -685,3 +685,61 @@ def test_worker_upload_in_pieces(tmp_path, monkeypatch):
 
     worker.RemoteIO(Refusing(), {"id": 779}, run).finish("done", [{"epoch": 1}], "", "", best, False)
     assert os.path.isfile(best)
+
+
+def test_gpu_used_elsewhere(tmp_path, monkeypatch):
+    """A GPU used outside this site (a training run by hand on that computer)
+    is shown, and takes no queued training until it is free."""
+    from database import ExportModel, RoleModel, TrainRunModel, UserModel
+    from trainer import gpu as gpu_mod
+    from trainer import runner
+    from webserver import app
+
+    # the readings
+    now = {"name": "RTX 4070", "util": 3, "mem_used": 400, "mem_total": 16376, "procs": []}
+    mon = gpu_mod.Monitor(reader=lambda: dict(now))
+    assert mon.sample()["busy"] is False
+    now["mem_used"] = 9000                      # someone's training holds memory
+    assert mon.sample()["busy"] is True
+    assert mon.sample(training=True)["busy"] is False   # our own training
+    monkeypatch.setenv("GPU_BUSY_CHECK", "false")
+    assert mon.sample()["busy"] is False
+    monkeypatch.delenv("GPU_BUSY_CHECK")
+    now.update(mem_used=400, util=95)           # busy, little memory: after a few readings
+    assert [mon.sample()["busy"] for _ in range(3)] == [False, False, True]
+    now["util"] = 0
+    assert mon.sample()["busy"] is False
+    assert gpu_mod.Monitor(reader=lambda: None).sample() is None   # no nvidia-smi
+
+    # a worker whose GPU is used elsewhere gets nothing
+    TrainRunModel.objects(status__in=["queued", "running"]).update(set__status="stopped")
+    UserModel.objects(username="tr_gpu_admin").delete()
+    UserModel(username="tr_gpu_admin", password=hash_password("pw"), name="a", is_admin=True).save()
+    admin = app.test_client()
+    admin.post("/api/user/login", json={"username": "tr_gpu_admin", "password": "pw"})
+    admin.delete("/api/worker/servers/gpuB")
+    token = admin.post("/api/worker/servers", json={"name": "gpuB"}).get_json()["token"]
+    export = ExportModel(dataset_id=1, path="", tags=["YOLO"])
+    export.save()
+    run = TrainRunModel(export_id=export.id, task="detect", status="queued", target="gpuB", epochs=1)
+    run.save()
+    site = _TestSite(app.test_client(), token)
+    site.post("hello", {"device": "RTX 4070", "catalog": CATALOG, "resumable": []})
+    busy = {"name": "RTX 4070", "util": 97, "mem_used": 9000, "mem_total": 16376, "busy": True,
+            "procs": [{"pid": 4242, "name": "python", "mem": 8600}]}
+    assert site.post("claim", {"gpu": busy}) is None
+    assert TrainRunModel.objects(id=run.id).first().status == "queued"
+    shown = {t["name"]: t for t in admin.get("/api/train/status").get_json()["trainers"]}["gpuB"]
+    assert shown["gpu"]["busy"] is True and shown["gpu"]["mem_used"] == 9000
+    assert shown["gpu"]["procs"] == [{"pid": 4242, "name": "python", "mem": 8600}]
+    # free again: it takes the run
+    free = dict(busy, util=0, mem_used=300, busy=False, procs=[])
+    job = site.post("claim", {"gpu": free})
+    assert job["id"] == run.id
+    shown = {t["name"]: t for t in admin.get("/api/train/status").get_json()["trainers"]}["gpuB"]
+    assert shown["run_id"] == run.id and shown["gpu"]["busy"] is False
+    TrainRunModel.objects(id=run.id).update(set__status="stopped")
+    # this server's trainer reports its GPU too
+    runner.heartbeat("RTX 3090", name="main", run_id=None, gpu=dict(busy))
+    shown = {t["name"]: t for t in admin.get("/api/train/status").get_json()["trainers"]}["main"]
+    assert shown["gpu"]["busy"] is True

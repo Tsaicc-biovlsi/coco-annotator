@@ -1708,7 +1708,10 @@
       "setupHint": "TRAINER_URL is how that server reaches this site (internal IP:5000); change it if different.",
       "onOther": "on {name} (needs Docker and the NVIDIA Container Toolkit)",
       "where": "Train on",
-      "any": "any free trainer (whichever is free first)"
+      "any": "any free trainer (whichever is free first)",
+      "gpuElsewhere": "GPU in use elsewhere",
+      "gpuElsewhereHint": "This GPU is used by something outside this site (e.g. a training run directly on that computer): queued trainings wait until it is free",
+      "waitingGpu": "waiting for its GPU"
     },
     "reuse": "Use these settings",
     "reuseHint": "Fill the new training above with this one's model, epochs, imgsz, batch, patience, advanced arguments and server, to change as you like",

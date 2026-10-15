@@ -1843,7 +1843,10 @@
       "setupHint": "TRAINER_URL 是那台伺服器連到這個網站的網址（內網 IP:5000）；如果不同請修改。",
       "onOther": "在 {name} 上（需要 Docker 與 NVIDIA Container Toolkit）",
       "where": "在哪台訓練",
-      "any": "任何空著的（誰先空出來就誰接）"
+      "any": "任何空著的（誰先空出來就誰接）",
+      "gpuElsewhere": "GPU 使用中（非本站）",
+      "gpuElsewhereHint": "這台的 GPU 正被本站以外的程式使用（例如在那台電腦直接跑的訓練），等它空出來才會接排隊的訓練",
+      "waitingGpu": "等 GPU 空出來"
     },
     "reuse": "用這次的設定",
     "reuseHint": "把這次的模型、epochs、imgsz、batch、patience、進階參數、訓練伺服器帶入上方新訓練，可以再改",

@@ -309,9 +309,12 @@ class LogFollower:
         return text[-LOG_TAIL_CHARS:]
 
 
-def heartbeat(device=None, catalog=None, name=None, kind="local", run_id=False):
-    """This trainer is alive (and what it is training: run_id, None = free)."""
+def heartbeat(device=None, catalog=None, name=None, kind="local", run_id=False, gpu=False):
+    """This trainer is alive (and what it is training: run_id, None = free;
+    what its GPU is doing: gpu, None = unknown)."""
     update = {"set__seen_at": datetime.datetime.utcnow(), "set__kind": kind}
+    if gpu is not False:
+        update["set__gpu"] = gpu
     if device is not None:
         update["set__device"] = device
     if catalog is not None:
@@ -568,14 +571,21 @@ def serve():
     # the name used before trainers had names
     if trainer_name() != "trainer":
         _db().TrainerStatusModel.objects(key="trainer").delete()
+    from .gpu import Monitor
+    monitor = Monitor()
     while True:
-        heartbeat(device, run_id=None)
+        gpu = monitor.sample()
+        heartbeat(device, run_id=None, gpu=gpu)
+        if gpu and gpu.get("busy"):
+            # used outside this site (a training started by hand, ...): wait
+            time.sleep(POLL_SECONDS)
+            continue
         run = claim_next()
         if run is None:
             time.sleep(POLL_SECONDS)
             continue
         logger.info("training run %s", run.id)
-        heartbeat(device, run_id=run.id)
+        heartbeat(device, run_id=run.id, gpu=None)
         try:
             execute(run)
         except Exception as e:  # pragma: no cover - keep serving the queue

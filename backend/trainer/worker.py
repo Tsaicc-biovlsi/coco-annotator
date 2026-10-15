@@ -18,6 +18,7 @@ from types import SimpleNamespace
 import requests
 
 from . import runner
+from .gpu import Monitor
 from .runner import (POLL_SECONDS, _unpack, archive_path, execute, last_weights, package, work_dir)
 
 logger = logging.getLogger("trainer.worker")
@@ -369,16 +370,20 @@ def _resumable_here():
 class _Beat:
     """Tells the site this worker is alive while it downloads or packs."""
 
-    def __init__(self, site):
+    def __init__(self, site, monitor):
         self.site = site
+        self.monitor = monitor
         self.run_id = None
         self._stop = threading.Event()
         threading.Thread(target=self._loop, daemon=True).start()
 
     def _loop(self):
         while not self._stop.wait(HEARTBEAT_SECONDS):
+            if self.run_id is None:
+                continue  # the main loop reports while it waits for work
             try:
-                self.site.post("heartbeat", {"run_id": self.run_id}, timeout=10)
+                gpu = self.monitor.sample(training=True)
+                self.site.post("heartbeat", {"run_id": self.run_id, "gpu": gpu}, timeout=10)
             except Exception:
                 pass
 
@@ -398,10 +403,23 @@ def serve(url, token):
             logger.warning("cannot reach %s yet: %s", url, e)
             time.sleep(RETRY_SECONDS)
     logger.info("worker %s ready (%s) for %s", hello.get("name"), device, url)
-    beat = _Beat(site)
+    monitor = Monitor()
+    beat = _Beat(site, monitor)
     while True:
+        gpu = monitor.sample()
+        if gpu and gpu.get("busy"):
+            # used outside this site (e.g. a training run by hand here): no
+            # queued training until it is free
+            try:
+                site.post("heartbeat", {"run_id": None, "gpu": gpu}, timeout=10)
+            except PermissionError:
+                raise
+            except Exception as e:
+                logger.warning("cannot reach %s: %s", url, e)
+            time.sleep(POLL_SECONDS)
+            continue
         try:
-            job = site.post("claim")
+            job = site.post("claim", {"gpu": gpu})
         except PermissionError:
             raise
         except Exception as e:

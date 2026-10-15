@@ -52,6 +52,25 @@ def _worker():
     return None
 
 
+def _num(value):
+    try:
+        return max(0, int(float(value)))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _gpu(data):
+    """The GPU a worker reports (trainer/gpu.py), kept small; None: unknown."""
+    g = data.get('gpu')
+    if not isinstance(g, dict):
+        return None
+    procs = [{'pid': _num(p.get('pid')), 'name': str(p.get('name') or '')[:60], 'mem': _num(p.get('mem'))}
+             for p in (g.get('procs') or [])[:8] if isinstance(p, dict)]
+    return {'name': str(g.get('name') or '')[:100], 'util': _num(g.get('util')),
+            'mem_used': _num(g.get('mem_used')), 'mem_total': _num(g.get('mem_total')),
+            'busy': bool(g.get('busy')), 'procs': procs}
+
+
 def _denied():
     return {'message': 'Unknown or removed trainer token'}, 401
 
@@ -134,7 +153,8 @@ class WorkerHeartbeat(Resource):
             return _denied()
         data = request.get_json(silent=True) or {}
         run_id = data.get('run_id')
-        heartbeat(name=worker.name, kind='remote', run_id=int(run_id) if run_id else None)
+        heartbeat(name=worker.name, kind='remote', run_id=int(run_id) if run_id else None,
+                  gpu=_gpu(data))
         return {}
 
 
@@ -146,11 +166,16 @@ class WorkerClaim(Resource):
         worker = _worker()
         if worker is None:
             return _denied()
+        gpu = _gpu(request.get_json(silent=True) or {})
+        if gpu and gpu.get('busy'):
+            # an older worker does not hold back by itself
+            heartbeat(name=worker.name, kind='remote', run_id=None, gpu=gpu)
+            return '', 204
         run = claim_next(worker.name)
         if run is None:
-            heartbeat(name=worker.name, kind='remote', run_id=None)
+            heartbeat(name=worker.name, kind='remote', run_id=None, gpu=gpu)
             return '', 204
-        heartbeat(name=worker.name, kind='remote', run_id=run.id)
+        heartbeat(name=worker.name, kind='remote', run_id=run.id, gpu=gpu)
         work = work_dir(run.id)
         os.makedirs(work, exist_ok=True)
         if (run.params or {}).get('resume'):

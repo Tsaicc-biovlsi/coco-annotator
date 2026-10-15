@@ -75,6 +75,9 @@ class TrainerStatusModel(DynamicDocument):
     version = StringField(default='')
     #: what the trainer's Ultralytics can train (trainer/catalog.py)
     catalog = DictField(default=dict)
+    #: its GPU (trainer/gpu.py): name, util, mem_used, mem_total, procs, busy
+    #: (used outside this site); None when unknown
+    gpu = DictField(default=None, null=True)
 
     meta = {'collection': 'trainer_status'}
 

@@ -76,6 +76,17 @@ def _trainer_alive(name):
     return _alive(TrainerStatusModel.objects(key=name).first())
 
 
+def _gpu_of(r):
+    """What the trainer's GPU is doing (None: not known), ``busy``: used
+    outside this site while the trainer is free (it takes nothing then)."""
+    gpu = getattr(r, 'gpu', None) if r is not None else None
+    if not gpu or not _alive(r):
+        return None
+    gpu = dict(gpu)
+    gpu['busy'] = bool(gpu.get('busy')) and not r.run_id
+    return gpu
+
+
 def trainers():
     """Every trainer: this server's and the other servers' (registered, or
     seen in the last day), alive or not."""
@@ -94,6 +105,7 @@ def trainers():
         out.append({'name': key, 'kind': (r.kind if r else 'remote') or 'local', 'alive': _alive(r),
                     'device': r.device if r else '', 'version': r.version if r else '',
                     'run_id': r.run_id if r else None,
+                    'gpu': _gpu_of(r),
                     'seen_at': r.seen_at.isoformat() + 'Z' if r and r.seen_at else None})
     return out
 

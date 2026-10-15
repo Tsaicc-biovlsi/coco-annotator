@@ -31,6 +31,12 @@ services:
       YOLO_CONFIG_DIR: /work/.ultralytics
       # exports kept here (GB)
       WORKER_CACHE_GB: ${WORKER_CACHE_GB:-30}
+      # nvidia-smi in the container: a GPU used outside this site (a training
+      # run by hand on this computer) takes no queued training until it is free
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      GPU_BUSY_MEMORY_MB: ${GPU_BUSY_MEMORY_MB:-2048}
+      GPU_BUSY_UTIL: ${GPU_BUSY_UTIL:-50}
+      GPU_BUSY_CHECK: ${GPU_BUSY_CHECK:-true}
     # the training data loaders share memory between processes
     shm_size: ${TRAIN_SHM:-8gb}
     volumes:
