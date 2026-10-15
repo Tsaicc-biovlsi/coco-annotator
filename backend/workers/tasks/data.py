@@ -545,7 +545,7 @@ def _rle_to_polygons(rle):
 
 
 @shared_task
-def import_annotations(task_id, dataset_id, coco_json):
+def import_annotations(task_id, dataset_id, coco_json, create_categories=True):
 
     task = TaskModel.objects.get(id=task_id)
     dataset = DatasetModel.objects.get(id=dataset_id)
@@ -593,6 +593,13 @@ def import_annotations(task_id, dataset_id, coco_json):
             category_model = categories.filter(name__iexact=category_name, supercategory=file_parents[0]).first()
         if category_model is None:
             category_model = categories.filter(name__iexact=category_name).first()
+
+        if category_model is None and not create_categories:
+            # the user may not make categories: its annotations are left out
+            task.warning(f"{category_name} category not found, and you may not create categories: "
+                         f"its annotations are skipped")
+            progress += 1
+            continue
 
         if category_model is None:
             # expected when importing new classes, not a problem

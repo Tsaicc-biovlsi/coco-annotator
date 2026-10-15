@@ -70,7 +70,7 @@
               <div class="form-text">{{ $t('modelRun.confidenceHint') }}</div>
             </div>
 
-            <div class="form-check">
+            <div v-if="$store.getters['user/can']('create_categories')" class="form-check">
               <input :id="modalId + 'Create'" v-model="options.createCategories" type="checkbox" class="form-check-input" />
               <label class="form-check-label" :for="modalId + 'Create'">{{ $t('modelRun.createCategories') }}</label>
             </div>

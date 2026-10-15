@@ -496,7 +496,8 @@ export default {
             return;
           }
           const message = { exists: "datasets.nameTaken", in_trash_other: "datasets.nameInOthersTrash" }[data.code];
-          this.$toastr.error(message ? this.$t(message) : data.message || String(error), this.$t("datasets.creatingADataset"));
+          const text = data.code === "no_create_categories" ? this.$t("categoryPicker.noCreate", { names: data.name }) : null;
+          this.$toastr.error(text || (message ? this.$t(message) : data.message || String(error)), this.$t("datasets.creatingADataset"));
         })
         .finally(() => (this.creating = false));
     },

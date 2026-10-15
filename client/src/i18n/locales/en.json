@@ -1043,7 +1043,8 @@
     "new": "new",
     "remove": "Remove",
     "empty": "No categories yet: type a new one above",
-    "hint": "Tick the categories to use; the blue numbers are their order, also the default YOLO class index in exports. Use the arrows to change it."
+    "hint": "Tick the categories to use; the blue numbers are their order, also the default YOLO class index in exports. Use the arrows to change it.",
+    "noCreate": "\"{names}\" is not a category yet, and your role may not create categories: pick an existing one or ask an admin"
   },
   "trash": {
     "refresh": "Refresh",
@@ -1271,6 +1272,8 @@
       "activity": "Activity log",
       "models": "Models",
       "tasks": "Tasks",
+      "create_categories": "Create categories",
+      "manage_categories": "Manage all categories",
       "manage_models": "Manage models",
       "manage_users": "Manage users",
       "all_datasets": "See all datasets",
@@ -1281,6 +1284,8 @@
       "activity": "Open the Activity log page (with the trash)",
       "models": "Open the Models page",
       "tasks": "Open the Tasks page (everyone still sees their own task progress)",
+      "create_categories": "Make new categories: Create on the Categories page, new category names when creating or editing a dataset, and categories a model or an import needs",
+      "manage_categories": "See every category and change or delete those made by others (without it: only one's own)",
       "manage_models": "Upload, turn on/off, rename, download and delete models",
       "manage_users": "Open the admin panel: create, edit and delete non-admin accounts (cannot make admins)",
       "all_datasets": "See every dataset, like an admin (editing still needs to be a member)",

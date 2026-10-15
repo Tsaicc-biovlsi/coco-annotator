@@ -51,6 +51,9 @@ class Category(Resource):
     @login_required
     def post(self):
         """ Creates a category """
+        if not current_user.has_perm('create_categories'):
+            return {'code': 'no_create_categories',
+                    'message': 'You do not have permission to create categories'}, 403
         args = create_category.parse_args()
         name = args.get('name')
         parents = CategoryModel.parse_parents(
@@ -144,7 +147,7 @@ class Category(Resource):
         # a category can be shared by several datasets: only its creator (or an
         # admin) may change it
         if not current_user.can_edit(category):
-            return {"message": "Only the creator of this category can change it"}, 403
+            return {"message": "Only the creator of this category (or someone who manages categories) can change it"}, 403
 
         args = update_category.parse_args()
         name = args.get('name')

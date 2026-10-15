@@ -12,6 +12,7 @@ from database import (
     ImageModel,
     DatasetModel,
     CategoryModel,
+    CategoryCreateDenied,
     AnnotationModel,
     ExportModel,
     UserModel
@@ -22,6 +23,11 @@ import json
 import os
 
 api = Namespace('dataset', description='Dataset related operations')
+
+
+def _no_create_categories(name):
+    return {'code': 'no_create_categories', 'name': name,
+            'message': f'"{name}" is not a category yet, and you do not have permission to create categories'}, 403
 
 
 dataset_create = reqparse.RequestParser()
@@ -138,7 +144,10 @@ class Dataset(Resource):
                             detail={'kind': 'dataset', 'name': existing.name, 'kept_files': True})
             purge_dataset(existing, keep_files=True)
 
-        category_ids = CategoryModel.bulk_create(categories)
+        try:
+            category_ids = CategoryModel.bulk_create(categories, create=current_user.has_perm('create_categories'))
+        except CategoryCreateDenied as e:
+            return _no_create_categories(e.name)
 
         try:
             dataset = DatasetModel(name=name, categories=category_ids, task=args.get('task') or '')
@@ -564,7 +573,11 @@ class DatasetId(Resource):
         set_default_annotation_metadata = args.get('set_default_annotation_metadata')
 
         if categories is not None:
-            dataset.categories = CategoryModel.bulk_create(categories)
+            try:
+                dataset.categories = CategoryModel.bulk_create(
+                    categories, create=current_user.has_perm('create_categories'))
+            except CategoryCreateDenied as e:
+                return _no_create_categories(e.name)
 
         if default_annotation_metadata is not None:
 
@@ -1027,7 +1040,8 @@ class DatasetExport(Resource):
         if dataset is None:
             return {'message': 'Invalid dataset ID'}, 400
 
-        return dataset.import_coco(json.load(coco), user=current_user)
+        return dataset.import_coco(json.load(coco), user=current_user,
+                                   create_categories=current_user.has_perm('create_categories'))
 
 
 @api.route('/<int:dataset_id>/coco')
@@ -1057,7 +1071,8 @@ class DatasetCoco(Resource):
         if dataset is None:
             return {'message': 'Invalid dataset ID'}, 400
 
-        return dataset.import_coco(json.load(coco), user=current_user)
+        return dataset.import_coco(json.load(coco), user=current_user,
+                                   create_categories=current_user.has_perm('create_categories'))
 
 
 
@@ -1101,7 +1116,8 @@ class DatasetYolo(Resource):
                                '(labels are matched to images by file name without the extension)',
                     'stats': _yolo_stats(stats)}, 400
 
-        result = dataset.import_coco(coco, style=f"YOLO {stats['task']}", user=current_user)
+        result = dataset.import_coco(coco, style=f"YOLO {stats['task']}", user=current_user,
+                                     create_categories=current_user.has_perm('create_categories'))
         result['stats'] = _yolo_stats(stats)
         result['names_found'] = names is not None
         return result

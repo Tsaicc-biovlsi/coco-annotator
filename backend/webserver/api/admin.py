@@ -6,7 +6,7 @@ import re
 import secrets
 
 from database import UserModel, DatasetModel, RoleModel
-from database.roles import ADMIN, DEFAULT, PERMISSIONS, available
+from database.roles import ADMIN, BASIC, DEFAULT, PERMISSIONS, available
 from ..util.query_util import fix_ids
 from ..util import activity
 
@@ -61,7 +61,10 @@ def _manages_users():
 
 def _within_mine(perms):
     """A non-admin manager can only deal with permissions they have themselves."""
-    return bool(current_user.is_admin) or set(perms or ()) <= set(current_user.perms())
+    if current_user.is_admin:
+        return True
+    # making categories: what every account could always do, not a power to guard
+    return set(perms or ()) - set(BASIC) <= set(current_user.perms())
 
 
 def _may_touch(user):

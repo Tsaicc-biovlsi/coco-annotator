@@ -357,6 +357,8 @@ const PERM_ICONS = {
   activity: "fa-history",
   models: "fa-cubes",
   tasks: "fa-tasks",
+  create_categories: "fa-tag",
+  manage_categories: "fa-tags",
   manage_models: "fa-upload",
   manage_users: "fa-user-plus",
   all_datasets: "fa-database",
@@ -552,7 +554,8 @@ export default {
       const name = this.newRole.trim();
       if (!name) return;
       axios
-        .post("/api/admin/roles", { name, permissions: [] })
+        // making categories: what every account could always do
+        .post("/api/admin/roles", { name, permissions: ["create_categories"] })
         .then(r => {
           this.applyRoles(r.data);
           this.newRole = "";

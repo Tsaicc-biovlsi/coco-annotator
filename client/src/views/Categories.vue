@@ -18,7 +18,12 @@
               <i18n-t keypath="categories.loaded" tag="span"><template #n><strong>{{ categoryCount }}</strong></template></i18n-t>
             </div>
           </div>
-          <button type="button" class="btn btn-sm btn-success" @click="openCreate(selectedPath ? [selectedPath] : [])">
+          <button
+            v-if="$store.getters['user/can']('create_categories')"
+            type="button"
+            class="btn btn-sm btn-success"
+            @click="openCreate(selectedPath ? [selectedPath] : [])"
+          >
             <i class="fa fa-plus" /> {{ $t('categories.create') }}
           </button>
           <button type="button" class="btn btn-sm btn-outline-secondary" :title="$t('categories.refresh')" @click="updatePage">

@@ -312,7 +312,7 @@ class YoloImage(Resource):
         try:
             result = preannotate.annotate_image(
                 image, args['model'], conf=_conf(args['conf']),
-                create_missing=args['create_categories'],
+                create_missing=args['create_categories'] and current_user.has_perm('create_categories'),
                 user=current_user._get_current_object())
         except Exception as e:
             logger.exception("Model prediction failed")
@@ -341,6 +341,6 @@ class YoloDataset(Resource):
         return preannotate.annotate_dataset(
             dataset, args['model'], conf=_conf(args['conf']),
             skip_annotated=args['skip_annotated'],
-            create_missing=args['create_categories'],
+            create_missing=args['create_categories'] and current_user.has_perm('create_categories'),
             user=current_user._get_current_object(),
             socket=socketio)

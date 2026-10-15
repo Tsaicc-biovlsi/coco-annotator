@@ -271,14 +271,14 @@ def test_second_round(dataset_directory):
     # bulk create without a role: the default role must be within the manager's own
     from database import RoleModel
     _role("sec_r2hr", ["manage_users"])
-    RoleModel.objects(key="user").update(set__permissions=["activity"], upsert=True)
+    RoleModel.objects(key="user").update(set__permissions=["activity", "create_categories"], upsert=True)
     hr = _login("sec_r2hrp", role="sec_r2hr")
     try:
         r = hr.post("/api/admin/users/bulk", json={"users": [{"username": "Y12345678"}]})
         assert r.status_code == 403
         assert UserModel.objects(username="Y12345678").first() is None
     finally:
-        RoleModel.objects(key="user").update(set__permissions=[])
+        RoleModel.objects(key="user").update(set__permissions=["create_categories"])
 
     # a category of another dataset can not be used on create
     r = owner.post("/api/annotation/", json={"image_id": img, "category_id": other_cat,

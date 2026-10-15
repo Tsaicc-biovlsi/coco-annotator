@@ -5,6 +5,14 @@ from mongoengine import *
 from .colors import random_color
 
 
+class CategoryCreateDenied(Exception):
+    """A new category was needed, but the user may not make categories."""
+
+    def __init__(self, name):
+        super().__init__(name)
+        self.name = name
+
+
 class CategoryModel(DynamicDocument):
 
     COCO_PROPERTIES = ["id", "name", "supercategory", "supercategories", "color", "metadata",\
@@ -80,9 +88,11 @@ class CategoryModel(DynamicDocument):
         return {'supercategories': parents, 'supercategory': parents[0] if parents else ''}
 
     @classmethod
-    def bulk_create(cls, categories):
+    def bulk_create(cls, categories, create=True):
         """Category ids for a list of ids (existing categories) and names
-        (found, or created without a parent)."""
+        (found, or created without a parent). With ``create`` False a name
+        that would need a new category raises CategoryCreateDenied (the user
+        may not make categories)."""
 
         if not categories:
             return []
@@ -107,6 +117,8 @@ class CategoryModel(DynamicDocument):
                 category_model.update(set__deleted=False, unset__deleted_date=True,
                                       unset__deleted_by=True, unset__delete_batch=True)
 
+            if category_model is None and not create:
+                raise CategoryCreateDenied(category)
             if category_model is None:
                 new_category = CategoryModel(name=category)
                 new_category.save()
@@ -131,10 +143,10 @@ class CategoryModel(DynamicDocument):
     
     def is_owner(self, user):
 
-        if user.is_admin:
+        if user.is_admin or user.has_perm('manage_categories'):
             return True
-        
-        return user.username.lower() == self.creator.lower()
+
+        return user.username.lower() == (self.creator or '').lower()
     
     def can_edit(self, user):
         return self.is_owner(user)
@@ -143,4 +155,4 @@ class CategoryModel(DynamicDocument):
         return self.is_owner(user)
 
 
-__all__ = ["CategoryModel"]
+__all__ = ["CategoryModel", "CategoryCreateDenied"]

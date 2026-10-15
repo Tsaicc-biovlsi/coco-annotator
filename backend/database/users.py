@@ -78,7 +78,7 @@ class UserModel(DynamicDocument, UserMixin):
     def categories(self):
         self._update_last_seen()
 
-        if self.is_admin or self.has_perm('all_datasets'):
+        if self.is_admin or self.has_perm('all_datasets') or self.has_perm('manage_categories'):
             return CategoryModel.objects
 
         dataset_ids = self.datasets.distinct('categories')

@@ -201,13 +201,21 @@ export default {
       if (!names.length) return;
       // a typed name picks the existing category without a parent, or the only
       // one of that name; otherwise it is a new category
+      const canCreate = this.$store.getters["user/can"]("create_categories");
+      const denied = [];
       const keys = names.map(n => {
         const same = this.categories.filter(c => c.name === n);
         const pick = same.find(c => !parentsOf(c).length) || (same.length === 1 ? same[0] : null);
         if (pick) return pick.id;
+        // a new category: only for a role that may make them
+        if (!canCreate) {
+          denied.push(n);
+          return null;
+        }
         if (!this.added.includes(n)) this.added.push(n);
         return n;
-      });
+      }).filter(k => k != null);
+      if (denied.length) this.$toastr.warning(this.$t("categoryPicker.noCreate", { names: denied.join("、") }));
       this.select([...this.modelValue, ...keys.filter(k => !this.modelValue.includes(k))]);
       this.newText = "";
     },

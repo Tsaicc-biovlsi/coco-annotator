@@ -60,7 +60,7 @@ class DatasetModel(DynamicDocument):
         except Exception:  # pragma: no cover - the log must not stop the task
             pass
 
-    def import_coco(self, coco_json, style="COCO", user=None):
+    def import_coco(self, coco_json, style="COCO", user=None, create_categories=True):
 
         from workers.tasks import import_annotations
 
@@ -74,7 +74,7 @@ class DatasetModel(DynamicDocument):
         task.save()
         self._log('import', user, task, format=style)
 
-        cel_task = import_annotations.delay(task.id, self.id, coco_json)
+        cel_task = import_annotations.delay(task.id, self.id, coco_json, create_categories)
 
         return {
             "celery_id": cel_task.id,

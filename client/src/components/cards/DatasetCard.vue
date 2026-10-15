@@ -146,6 +146,7 @@
                   v-model:value="selectedCategories"
                   element-id="changeDataset"
                   :existing-tags="categoryTags"
+                  :only-existing-tags="!$store.getters['user/can']('create_categories')"
                   :typeahead="true"
                   :typeahead-activation-threshold="0"
                 />
@@ -280,6 +281,13 @@ export default {
           users: this.sharedUsers
         })
         .then(() => {
+          this.$parent.updatePage();
+        })
+        .catch(error => {
+          const data = (error.response && error.response.data) || {};
+          this.$toastr.error(
+            data.code === "no_create_categories" ? this.$t("categoryPicker.noCreate", { names: data.name }) : data.message || String(error)
+          );
           this.$parent.updatePage();
         });
     },

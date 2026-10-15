@@ -19,7 +19,8 @@ def test_roles_control_pages(world):
 
     c = _login("pagesy", is_admin=False)
     me = c.get("/api/user/").get_json()["user"]
-    assert me["role"] == "user" and me["perms"] == []
+    # the default role: only making categories (everyone could before it was a permission)
+    assert me["role"] == "user" and me["perms"] == ["create_categories"]
 
     assert c.get("/api/activity/").status_code == 403
     assert c.post("/api/activity/1/undo").status_code == 403
@@ -55,7 +56,7 @@ def test_roles_control_pages(world):
     assert "tasks" in RoleModel.objects(key="user").first().permissions
     assert admin.put("/api/admin/roles/admin", json={"permissions": []}).status_code == 400
     assert admin.delete("/api/admin/roles/user").status_code == 400
-    admin.put("/api/admin/roles/user", json={"permissions": []})
+    admin.put("/api/admin/roles/user", json={"permissions": ["create_categories"]})
 
     # a role is changed by admins only
     assert c.put(f"/api/admin/roles/{ta}", json={"permissions": ["manage_users"]}).status_code == 401
