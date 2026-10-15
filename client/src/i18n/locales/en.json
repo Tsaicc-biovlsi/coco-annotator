@@ -366,7 +366,9 @@
       "saved": "Keypoints and connections saved",
       "error": "The keypoints were not saved",
       "applied": "Keypoints and connections applied (saved with the annotations)"
-    }
+    },
+    "remove": "Remove this keypoint (and its connections)",
+    "removeConfirm": "Remove keypoint \"{name}\"? Annotated keypoints are stored by position: removing one in the middle shifts the ones after it in existing annotations. To remove only a connection, use the × on its label."
   },
   "magicWandPanel": {
     "blur": "Blur",

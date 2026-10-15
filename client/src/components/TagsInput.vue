@@ -21,7 +21,7 @@
         :placeholder="showPlaceholder ? placeholder || $t('tagsInput.addACategory') : ''"
         v-model="input"
         @keydown.enter.prevent="tagFromInput"
-        @keydown.8="removeLastTag"
+        @keydown.backspace="removeLastTag"
         @keydown.down="nextSearchResult"
         @keydown.up="prevSearchResult"
         @keydown.exact="onKeyDown"

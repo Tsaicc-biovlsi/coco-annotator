@@ -43,7 +43,7 @@
               <input :value="object.color" @input="colorUpdated(index, $event.target.value)" type="color" class="form-control form-control-color w-100" />
             </div>
 
-            <div class="col-sm-6" style="padding-left: 5px;">
+            <div class="col-sm-5" style="padding-left: 5px;">
               <TagsInput
                 :value="object.edges"
                 :placeholder="$t('keypointsDefinition.addConnectedLabel')"
@@ -55,6 +55,18 @@
                 :typeahead-activation-threshold="0"
                 @update:value="keypointEdgesUpdated(index, $event)"
               ></TagsInput>
+            </div>
+
+            <div class="col-sm-1 d-flex align-items-start justify-content-center" style="padding: 0;">
+              <button
+                type="button"
+                class="btn btn-sm btn-link text-danger p-1"
+                :title="$t('keypointsDefinition.remove')"
+                :aria-label="$t('keypointsDefinition.remove')"
+                @click="removeKeypoint(index)"
+              >
+                <i class="fa fa-trash" />
+              </button>
             </div>
           </div>
         </li>
@@ -175,6 +187,23 @@ export default {
       });
 
       return keypoints;
+    },
+    /** a keypoint goes, with every connection to it */
+    removeKeypoint(index) {
+      const gone = this.keypoints[index];
+      // keypoints are stored by position: one taken from the middle shifts
+      // the ones after it in shapes already annotated
+      if (gone && gone.label && index < this.keypoints.length - 1 && !confirm(this.$t("keypointsDefinition.removeConfirm", { name: gone.label }))) {
+        return;
+      }
+      this.keypoints.splice(index, 1);
+      if (gone && gone.label) {
+        this.keypoints.forEach(kp => {
+          kp.edges = kp.edges.filter(e => e !== gone.label);
+        });
+      }
+      this.hiddenValue = this.propFomKeypoints();
+      this.$emit("update:value", this.hiddenValue);
     },
     createKeypoints() {
       this.keypoints.push({
