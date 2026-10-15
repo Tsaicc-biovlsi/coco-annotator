@@ -12,7 +12,7 @@
     </div>
 
     <div class="kp-layout" :class="{ empty: !keypoints.length }">
-      <div ref="grid" class="kp-grid">
+      <div ref="grid" class="kp-grid" :style="{ '--kp-label-w': labelWidth + 'px' }">
         <div v-if="keypoints.length == 0" class="kp-empty">
           <i class="fa fa-street-view" />
           <span>{{ $t('keypointsDefinition.noKeypoints') }}</span>
@@ -44,6 +44,8 @@
             :value="object.edges"
             :placeholder="object.edges.length ? ' ' : $t('keypointsDefinition.addConnectedLabel')"
             class="kp-edges"
+            :class="{ none: !object.edges.length }"
+            @click="focusEdges"
             :elementId="`index${index}`"
             :existing-tags="otherKeypointLabels(object.label)"
             :onlyExistingTags="true"
@@ -142,6 +144,11 @@ export default {
     }
   },
   computed: {
+    // wide enough for the longest name (within reason)
+    labelWidth() {
+      const longest = this.keypoints.reduce((m, kp) => Math.max(m, (kp.label || "").length), 0);
+      return Math.max(112, Math.min(180, Math.round(longest * 7.6 + 22)));
+    },
     valid() {
       if (!this.isMounted) {
         return false;
@@ -199,6 +206,11 @@ export default {
       if (!from || !to || !from.label || !to.label) return;
       const edges = from.edges.includes(to.label) ? from.edges.filter(e => e !== to.label) : [...from.edges, to.label];
       this.keypointEdgesUpdated(a, edges);
+    },
+    /** a click anywhere in the connections field is for typing in it */
+    focusEdges(e) {
+      const input = e.currentTarget && e.currentTarget.querySelector("input[type=text]");
+      if (input && e.target !== input && !e.target.closest(".tags-input-remove, .tags-input-typeahead")) input.focus();
     },
     /** a connection's tag in the colour of the keypoint it goes to */
     edgeStyle(label) {
@@ -474,7 +486,7 @@ export default {
 /* several keypoints a row, so a long list fits without scrolling the page */
 .kp-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--kp-label-w) + 220px), 1fr));
   gap: 6px 10px;
   align-content: start;
 }
@@ -546,7 +558,7 @@ export default {
 }
 .kp-label {
   flex: none;
-  width: 112px;
+  width: var(--kp-label-w);
   font-weight: 500;
 }
 .kp-edges {
@@ -570,10 +582,21 @@ export default {
   min-height: 31px;
   row-gap: 3px;
 }
+/* the typing spot: only a sliver after the tags (no empty line under them)
+   until it is used */
+.kp-edges {
+  cursor: text;
+}
 .kp-edges :deep(.tags-input input[type="text"]) {
-  min-width: 44px;
+  flex: 1 1 0;
+  min-width: 0;
+  width: 0;
   font-size: 0.8rem;
   padding: 2px;
+}
+.kp-edges :deep(.tags-input input[type="text"]:focus),
+.kp-edges.none :deep(.tags-input input[type="text"]) {
+  min-width: 90px;
 }
 .kp-edges :deep(.tags-input-badge) {
   font-size: 0.72rem;

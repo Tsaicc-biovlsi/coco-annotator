@@ -88,12 +88,12 @@
           @pointerenter="$emit('hover', n.index)"
           @pointerleave="$emit('hover', null)"
         >
-          <circle class="halo" r="11" />
-          <circle class="dot" r="6.5" :fill="n.color" />
+          <circle class="halo" :r="radius[n.index] + 4.5" />
+          <circle class="dot" :r="radius[n.index]" :fill="n.color" />
           <text
             v-if="(showNames && !crowded.has(n.index)) || focus === n.index || picked === n.index"
             class="pv-label"
-            :x="pos[n.index].x >= W / 2 ? 10 : -10"
+            :x="pos[n.index].x >= W / 2 ? radius[n.index] + 4 : -radius[n.index] - 4"
             y="3.5"
             :text-anchor="pos[n.index].x >= W / 2 ? 'start' : 'end'"
           >{{ n.label }}</text>
@@ -119,48 +119,64 @@
 // where a person's keypoints usually are (facing the viewer, so "left" is on
 // the right), in a 1 x 1.15 box: these are placed there, the rest around them
 const BODY = {
-  head: [0.5, 0.02],
-  head_top: [0.5, 0.02],
+  head: [0.5, -0.052],
+  head_top: [0.5, -0.052],
   nose: [0.5, 0.11],
-  left_eye: [0.545, 0.085],
-  right_eye: [0.455, 0.085],
-  left_ear: [0.6, 0.1],
-  right_ear: [0.4, 0.1],
-  mouth: [0.5, 0.15],
-  neck: [0.5, 0.21],
-  chin: [0.5, 0.18],
-  left_shoulder: [0.65, 0.27],
-  right_shoulder: [0.35, 0.27],
+  left_eye_inner: [0.547, 0.063],
+  left_eye: [0.588, 0.056],
+  left_eye_outer: [0.628, 0.063],
+  right_eye_inner: [0.453, 0.063],
+  right_eye: [0.412, 0.056],
+  right_eye_outer: [0.372, 0.063],
+  left_ear: [0.675, 0.09],
+  right_ear: [0.325, 0.09],
+  mouth: [0.5, 0.171],
+  left_mouth: [0.547, 0.171],
+  right_mouth: [0.453, 0.171],
+  chin: [0.5, 0.218],
+  neck: [0.5, 0.215],
+  left_shoulder: [0.68, 0.27],
+  right_shoulder: [0.32, 0.27],
   thorax: [0.5, 0.27],
   chest: [0.5, 0.33],
   spine: [0.5, 0.42],
-  left_elbow: [0.73, 0.43],
-  right_elbow: [0.27, 0.43],
-  left_wrist: [0.78, 0.58],
-  right_wrist: [0.22, 0.58],
-  left_hand: [0.8, 0.63],
-  right_hand: [0.2, 0.63],
+  left_elbow: [0.76, 0.43],
+  right_elbow: [0.24, 0.43],
+  left_wrist: [0.81, 0.58],
+  right_wrist: [0.19, 0.58],
+  left_hand: [0.83, 0.63],
+  right_hand: [0.17, 0.63],
+  left_thumb: [0.765, 0.645],
+  right_thumb: [0.235, 0.645],
+  left_index: [0.82, 0.685],
+  right_index: [0.18, 0.685],
+  left_pinky: [0.88, 0.65],
+  right_pinky: [0.12, 0.65],
   pelvis: [0.5, 0.56],
   mid_hip: [0.5, 0.56],
   left_hip: [0.59, 0.56],
   right_hip: [0.41, 0.56],
   left_knee: [0.61, 0.77],
   right_knee: [0.39, 0.77],
-  left_ankle: [0.62, 0.98],
-  right_ankle: [0.38, 0.98],
+  left_ankle: [0.62, 0.97],
+  right_ankle: [0.38, 0.97],
   left_heel: [0.6, 1.02],
   right_heel: [0.4, 1.02],
-  left_foot: [0.66, 1.03],
-  right_foot: [0.34, 1.03],
-  left_big_toe: [0.67, 1.04],
-  right_big_toe: [0.33, 1.04],
-  left_small_toe: [0.7, 1.03],
-  right_small_toe: [0.3, 1.03]
+  left_foot: [0.67, 1.03],
+  right_foot: [0.33, 1.03],
+  left_foot_index: [0.68, 1.04],
+  right_foot_index: [0.32, 1.04],
+  left_big_toe: [0.68, 1.04],
+  right_big_toe: [0.32, 1.04],
+  left_small_toe: [0.71, 1.03],
+  right_small_toe: [0.29, 1.03]
 };
 
+/** one spelling for a body part: leftEye, left-eye, L_eye, eye_left -> left_eye */
 function bodyKey(label) {
   let k = String(label || "")
     .trim()
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
     .toLowerCase()
     .replace(/[\s.-]+/g, "_");
   k = k.replace(/^l_/, "left_").replace(/^r_/, "right_");
@@ -263,6 +279,19 @@ export default {
           c2: color(e.b),
           touches: i => e.a === i || e.b === i
         }));
+    },
+    // smaller dots where points are close together (a face, a hand)
+    radius() {
+      const out = {};
+      const list = this.nodes.map(n => n.index);
+      list.forEach(a => {
+        let d = Infinity;
+        list.forEach(b => {
+          if (a !== b && this.pos[a] && this.pos[b]) d = Math.min(d, Math.hypot(this.pos[a].x - this.pos[b].x, this.pos[a].y - this.pos[b].y));
+        });
+        out[a] = Math.max(3.5, Math.min(6.5, d * 0.42));
+      });
+      return out;
     },
     // points too close to name without the names running into each other
     // (a face): named when pointed at
@@ -527,6 +556,9 @@ export default {
 .pv-svg {
   width: 100%;
   height: auto;
+  /* the whole picture in view next to a long list */
+  max-height: calc(var(--vh, 100vh) - 330px);
+  min-height: 220px;
   display: block;
   touch-action: none;
   user-select: none;
