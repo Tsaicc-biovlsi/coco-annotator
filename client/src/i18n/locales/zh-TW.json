@@ -572,7 +572,10 @@
     "clearAnnotations": "清除這張圖片的標註",
     "copyPreviousAnnotations": "複製上一張的標註",
     "approveOrDone": "核准（審核者）／標註完成",
-    "reject": "退回（寫原因，Ctrl+Enter 送出）"
+    "reject": "退回（寫原因，Ctrl+Enter 送出）",
+    "keypointsToolShortcuts": "關鍵點工具快捷鍵",
+    "skipKeypoint": "跳過這個關鍵點",
+    "stopKeypoints": "結束點關鍵點"
   },
   "stat": {
     "annotatedImages": "已標註圖片",
@@ -2001,5 +2004,14 @@
     "picking": "已選「{name}」：點另一個點連接或取消，Esc 結束",
     "resetLayout": "重設位置",
     "names": "顯示／隱藏名稱"
+  },
+  "kpGuide": {
+    "needBox": "關鍵點要先有方框：先畫這個物件的方框",
+    "drawBox": "畫方框",
+    "next": "請點",
+    "skip": "跳過",
+    "skipHint": "這個點看不到：先跳過，點下一個",
+    "finish": "完成",
+    "allDone": "關鍵點都點好了（{n} / {total}）"
   }
 }

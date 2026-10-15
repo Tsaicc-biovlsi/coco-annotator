@@ -379,6 +379,8 @@ export default {
       }
 
       annotation.setRotatedBox(this.corners(box));
+      // a new box for an object with keypoints: they come next
+      if (isNew && parent.afterBoxDrawn) parent.afterBoxDrawn(this.name);
       if (!this.drawing && !this.drag && annotation === parent.currentAnnotation) {
         this.box = box;
         this.drawOverlay();

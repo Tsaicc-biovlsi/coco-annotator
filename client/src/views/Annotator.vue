@@ -265,6 +265,32 @@
       <div id="frame" ref="frame" class="frame" @wheel="onwheel">
         <canvas class="canvas" id="editor" ref="image" resize />
       </div>
+      <!-- the keypoint asked for next -->
+      <div v-if="kpGuide" class="kp-guide">
+        <template v-if="!kpGuide.hasBox">
+          <i class="fa fa-object-group" />
+          <span>{{ $t('kpGuide.needBox') }}</span>
+          <button type="button" class="btn btn-sm btn-light" @click="activeTool = 'BBox'">
+            {{ $t('kpGuide.drawBox') }} <kbd>R</kbd>
+          </button>
+        </template>
+        <template v-else-if="kpGuide.name">
+          <span class="kp-dot" :style="{ background: kpGuide.color }" />
+          <span>{{ $t('kpGuide.next') }}</span>
+          <b class="kp-name">{{ kpGuide.name }}</b>
+          <span class="kp-count">{{ kpGuide.done }} / {{ kpGuide.total }}</span>
+          <button type="button" class="btn btn-sm btn-light" :title="$t('kpGuide.skipHint')" @click="skipKeypoint">
+            {{ $t('kpGuide.skip') }} <kbd>Q</kbd>
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-light" @click="stopKeypoints">
+            {{ $t('kpGuide.finish') }} <kbd>Esc</kbd>
+          </button>
+        </template>
+        <template v-else>
+          <i class="fa fa-check" />
+          <span>{{ $t('kpGuide.allDone', { n: kpGuide.done, total: kpGuide.total }) }}</span>
+        </template>
+      </div>
     </div>
 
     <div v-show="annotating.length > 0" class="fixed-bottom alert alert-warning alert-dismissible fade show">
@@ -416,6 +442,9 @@ export default {
       goingNext: false,
       copying: false,
       activeTool: "Select",
+      // a box was just drawn for an object with keypoints: they are placed
+      // next, then this tool comes back for the next object
+      kpFlow: null,
       paper: null,
       shapeOpacity: 0.6,
       // "only this category": hovered in the list, or kept with the crosshairs icon
@@ -1210,7 +1239,38 @@ export default {
       // also emitted while annotations load, before anything is selected
       if (this.currentAnnotation == null) return;
       this.currentAnnotation.keypoint.next.label = -1;
-      this.$refs.select.click();
+      if (this.activeTool !== "Keypoints") return;
+      // box first, then its keypoints: on to the next object's box
+      const back = this.kpFlow && this.kpFlow.tool;
+      this.kpFlow = null;
+      if (back) this.activeTool = back;
+      else this.$refs.select.click();
+    },
+    /** a box tool finished a box: an object with keypoints gets them next */
+    afterBoxDrawn(tool) {
+      this.$nextTick(() => {
+        const annotation = this.currentAnnotation;
+        if (!annotation || !annotation.keypointLabels || !annotation.keypointLabels.length) return;
+        // a box changed on an object that already has its keypoints
+        if (annotation.keypoints && !annotation.keypoints.isEmpty()) return;
+        annotation.kpSkipped = [];
+        this.kpFlow = { tool };
+        this.activeTool = "Keypoints";
+      });
+    },
+    /** the keypoint asked for cannot be seen: on to the one after it */
+    skipKeypoint() {
+      if (this.activeTool !== "Keypoints" || !this.currentAnnotation) return;
+      this.currentAnnotation.skipKeypoint();
+    },
+    /** done with this object's keypoints (the rest stay unplaced) */
+    stopKeypoints() {
+      if (this.activeTool !== "Keypoints") return;
+      const back = this.kpFlow && this.kpFlow.tool;
+      this.kpFlow = null;
+      if (this.currentAnnotation) this.currentAnnotation.keypoint.next.label = -1;
+      if (back) this.activeTool = back;
+      else this.$refs.select.click();
     },
     /** parent name to show above the category at ``index`` ("" = no parent), or null for no title */
     pathLabel,
@@ -1763,6 +1823,7 @@ export default {
     },
     activeTool(tool) {
       if (tool === "Magic Wand") setTimeout(() => this.ensureImageData(), 0);
+      if (tool !== "Keypoints") this.kpFlow = null;
     },
     doneLoading(done) {
       if (done) {
@@ -1863,6 +1924,24 @@ export default {
     },
     currentCategory() {
       return this.getCategory(this.current.category);
+    },
+    /** what the keypoint tool asks for: shown over the image */
+    kpGuide() {
+      if (this.activeTool !== "Keypoints") return null;
+      const a = this.currentAnnotation;
+      if (!a || !a.keypointLabels || !a.keypointLabels.length) return null;
+      const total = a.keypointLabels.length;
+      const left = Object.keys(a.notUsedKeypointLabels).length;
+      const next = parseInt(a.keypoint.next.label);
+      return {
+        hasBox: !!(a.annotation.isbbox || a.annotation.isrbbox),
+        total,
+        done: total - left,
+        skipped: a.kpSkipped.length,
+        index: next > 0 ? next : null,
+        name: next > 0 ? a.keypointLabels[next - 1] : null,
+        color: next > 0 ? a.keypointColors[next - 1] : null
+      };
     },
     currentAnnotation() {
       if (this.currentCategory == null) {
@@ -2065,6 +2144,52 @@ export default {
   max-height: 30vh;
 }
 
+.kp-guide {
+  position: absolute;
+  /* the top of this panel is under the navigation bar */
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 20px);
+  padding: 6px 8px 6px 12px;
+  border-radius: 20px;
+  background: rgba(33, 37, 41, 0.88);
+  color: #fff;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.kp-guide .kp-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  flex: none;
+}
+.kp-guide .kp-name {
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kp-guide .kp-count {
+  color: #adb5bd;
+  font-variant-numeric: tabular-nums;
+}
+.kp-guide .btn {
+  padding: 1px 10px;
+  border-radius: 14px;
+  font-size: 0.8rem;
+}
+.kp-guide kbd {
+  font-size: 0.7rem;
+  padding: 0 4px;
+  background: rgba(0, 0, 0, 0.15);
+  color: inherit;
+}
 .middle-panel {
   display: block;
   width: inherit;

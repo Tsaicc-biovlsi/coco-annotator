@@ -324,6 +324,8 @@ export default {
         milliseconds: 0
       },
       tagRecomputeCounter: 0,
+      // keypoints passed over (not visible): not offered again as the next one
+      kpSkipped: [],
       visibilityOptions: VisibilityOptions,
     };
   },
@@ -672,22 +674,30 @@ export default {
       this.keypoints.addKeypoint(keypoint);
       this.isEmpty = this.compoundPath.isEmpty() && this.keypoints.isEmpty();
       
-      let unusedLabels = this.notUsedKeypointLabels;
-      delete unusedLabels[String(label)];
-      let unusedLabelKeys = Object.keys(unusedLabels);
-      if (unusedLabelKeys.length > 0) {
-        let nextLabel = unusedLabelKeys[0];
-        for (let ul in unusedLabels) {
-          if (ul > label) {
-            nextLabel = ul;
-            break;
-          }
-        }
-        this.keypoint.next.label = nextLabel;
-      } else {
+      this.kpSkipped = this.kpSkipped.filter(l => l !== label);
+      this.advanceKeypoint(label);
+      this.tagRecomputeCounter++;
+    },
+    /** the next keypoint to place after ``label``: the next one not placed
+     *  (nor passed over) in order; none left: done */
+    advanceKeypoint(label) {
+      const left = Object.keys(this.notUsedKeypointLabels)
+        .map(Number)
+        .filter(l => l !== label && !this.kpSkipped.includes(l));
+      const next = left.find(l => l > label) ?? left[0];
+      if (next == null) {
         this.keypoint.next.label = -1;
-        this.$emit('keypoints-complete');
+        this.$emit("keypoints-complete");
+      } else {
+        this.keypoint.next.label = String(next);
       }
+    },
+    /** pass over the keypoint asked for next (it cannot be seen) */
+    skipKeypoint() {
+      const label = parseInt(this.keypoint.next.label);
+      if (!(label > 0)) return;
+      if (!this.kpSkipped.includes(label)) this.kpSkipped.push(label);
+      this.advanceKeypoint(label);
       this.tagRecomputeCounter++;
     },
     deleteKeypoint(keypoint) {

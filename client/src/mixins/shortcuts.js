@@ -175,6 +175,17 @@ export default {
           function: this.$refs.bbox.deleteBbox
         },
         {
+          title: "Keypoints Tool Shortcuts",
+          default: ["q"],
+          name: "Skip Keypoint",
+          function: this.skipKeypoint
+        },
+        {
+          default: ["escape"],
+          name: "Stop Keypoints",
+          function: this.stopKeypoints
+        },
+        {
           title: "Polygon Tool Shortcuts",
           default: ["escape"],
           name: "Remove Current Polygon",

@@ -173,6 +173,8 @@ export default {
       }
 
       this.removeUndos(this.actionTypes.ADD_POINTS);
+      // an object with keypoints: they come next
+      if (this.$parent.afterBoxDrawn) this.$parent.afterBoxDrawn(this.name);
 
       return true;
     },
