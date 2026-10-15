@@ -226,13 +226,27 @@ class RemoteIO:
         self.stop = bool(answer.get("stop"))
         self.delete = bool(answer.get("delete"))
 
+    #: seconds between reports while training: the page follows the output
+    #: almost as it is printed
+    tick = 0.2
+
+    def _changed(self):
+        """Anything new to send (output lines, batch points, progress bar)?"""
+        try:
+            with open(self.progress_path, encoding="utf-8", errors="replace") as fp:
+                progress = fp.read()
+        except OSError:
+            progress = ""
+        return (progress != self._sent_progress or _size(self.log.path) != self.log.offset
+                or _size(self.steps.path) != self.steps.offset)
+
     def poll(self, rows, out, force=False):
         full = force or time.monotonic() - self._polled >= POLL_SECONDS
         try:
             if full:
                 self._polled = time.monotonic()
                 self._send(rows(), out)
-            else:
+            elif self._changed():
                 self._send()
         except Exception as e:  # the site is unreachable: keep training, send later
             logger.warning("run %s: could not reach the site: %s", self.run.id, e)

@@ -450,7 +450,9 @@ def execute(run, command=None, io=None):
                     proc.wait(timeout=30)
                 except subprocess.TimeoutExpired:
                     os.killpg(proc.pid, signal.SIGKILL)
-            time.sleep(min(LOG_SECONDS, POLL_SECONDS))
+            # how often it reports: a remote trainer more often (its output
+            # reaches the page only this way)
+            time.sleep(getattr(io, "tick", min(LOG_SECONDS, POLL_SECONDS)))
         reader.join(timeout=10)
         proc.stdout.close()
         log_tail = out.tail()
